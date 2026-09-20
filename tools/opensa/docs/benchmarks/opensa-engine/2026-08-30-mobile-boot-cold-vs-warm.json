@@ -1,0 +1,45 @@
+{
+  "note": "The outlier 201/4-03 left with no owner, measured 2026-08-30. That step recorded boot.gpuMs at 2607.5 once and 398.4 / 347.2 / 688 on later opens, and its standing hypothesis was the browser's persisted PIPELINE cache — warm on the runs it could explain, cold on the one it could not. This session produced the pair by accident and then on purpose: the panel's `webapp` job re-unpacked the served app (the assets get new identities, so the pipeline cache cannot answer for them), and the FIRST open after it cost gpuMs 5339.7 with init:pipelines 4681.1. Two further opens of the same app minutes later, nothing else changed, cost 689.2 (init:pipelines 429.1) and 404.3 (318.3). init:pipelines 4681.1 -> 429.1 is 10.9x, and it accounts for 4252 of the 4650 ms between the two boots. So the hypothesis holds and the 2607.5 outlier has an owner: a boot after an app rebuild is a COLD-pipeline boot, and it is the boot every operator takes the first time they open a new build. It is also the boot 4/03's async compile was written for, and it is still the one nobody has optimised — the 227.7 ms overlap that step bought is measured against a 690 ms warm boot, not against this. Also here, and unchanged by the cache: the world's open runs almost entirely under the GPU init - overlapMs/openMs is 99.5 % (840.5/844.3) cold and 99.4 % (619.8/623.7) warm, reproducing the 98.8 % of 2026-08-26. Device MGA-LX3 / ARM Bifrost, DPR 2. App 311f2d1. Pak: original, rect 5,-7,6,-6, textures astc, built 19:23 28-08-2026.",
+  "app": "311f2d1",
+  "build": "19:23 28-08-2026",
+  "district": "los-santos-centre",
+  "runs": [
+    {
+      "key": "cold-pipelines",
+      "when": "first open after the panel's `webapp` job re-unpacked the served app",
+      "gpuMs": 5339.699999988079,
+      "openMs": 844.2999999970198,
+      "overlapMs": 840.4999999850988,
+      "overlapShare": 0.995,
+      "phases": [["init:pipelines",4681.100000008941],["init:device",584.6000000089407],["init:resources",32],["init:sky-lut",24.200000002980232],["init:canvas",11.399999991059303],["init:targets",4.5999999940395355]]
+    },
+    {
+      "key": "warm-pipelines-1",
+      "when": "a fresh page on the same app, minutes later",
+      "gpuMs": 689.1999999880791,
+      "openMs": 623.7000000029802,
+      "overlapMs": 619.7999999821186,
+      "overlapShare": 0.994,
+      "phases": [["init:pipelines",429.09999999403954],["init:device",208.40000000596046],["init:resources",21.299999997019768],["init:sky-lut",20.100000008940697],["init:targets",6.299999997019768],["init:canvas",2.1000000089406967]]
+    },
+    {
+      "key": "warm-pipelines-2",
+      "when": "the live surface re-booted by a mode switch, same session",
+      "gpuMs": 404.29999999701977,
+      "openMs": 285.5,
+      "overlapMs": 283.40000000596046,
+      "overlapShare": 0.993,
+      "phases": [["init:pipelines",318.29999999701977],["init:device",49.099999994039536],["init:sky-lut",20.299999997019768],["init:resources",12.700000002980232],["init:targets",2.1000000089406967],["init:canvas",1.6000000089406967]]
+    }
+  ],
+  "firstFrameMs": {
+    "note": "the sky-LUT fix of 201/4-03 holds — frame:sky-lut is 20.7-23.3 ms on the first frame and ~0.1 on the second, against the 75.8 it cost before that fix",
+    "cold": [["frame:sky-lut",23.299999997019768],["frame:record",6.799999997019768],["frame:submit",0.5999999940395355],["frame:probe",0.4000000059604645],["frame:cull",0.29999999701976776],["frame:targets",0.20000000298023224]],
+    "warm": [["frame:sky-lut",20.700000002980232],["frame:record",7.0999999940395355],["frame:submit",0.7000000029802322],["frame:probe",0.5],["frame:cull",0.20000000298023224],["frame:targets",0.09999999403953552]]
+  },
+  "cache": {
+    "note": "the repeat-open cache of 201/4-03, re-measured: water.bin is still the one miss, to the byte",
+    "totalBytes": 21734003, "cachedBytes": 19045823, "requests": 23, "cachedRequests": 21, "missBytes": 2688180, "waterBinBytes": 2658756
+  },
+  "device": { "adapter": "arm bifrost", "dpr": 2, "featureLevel": "core", "missing": ["texture-compression-bc", "timestamp-query"] }
+}

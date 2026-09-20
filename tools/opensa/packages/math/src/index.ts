@@ -1,0 +1,10 @@
+export { Box3 } from './box3';
+export { angleDelta, damp, dampAngle, smoothDamp, smoothDampAngle, type SmoothDampRef } from './damping';
+export { clamp, degToRad, euclideanModulo, lerp, MathUtils, radToDeg, smoothstep } from './math-utils';
+export { Matrix4 } from './matrix4';
+export { Quaternion } from './quaternion';
+export { Sphere } from './sphere';
+export type { Matrix4Like, QuaternionLike, Vector2Like, Vector3Like, Vector4Like } from './types';
+export { Vector2 } from './vector2';
+export { Vector3 } from './vector3';
+export { Vector4 } from './vector4';

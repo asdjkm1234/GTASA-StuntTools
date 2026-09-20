@@ -1,0 +1,15 @@
+# Prose and third-party content — Prettier is for source, not for these.
+#
+# `docs/` in particular must stay out: a blanket `prettier --write docs/` was tried on 2026-07-21 and it
+# CORRUPTED content in files whose markdown sits at the edge of the spec — multi-line code spans get
+# re-paired (032-night-and-lights lost `build-clump`, `nightColor`, `prelitColorAttribute`), `<type>_<city>`
+# became `<type>*<city>` inside a code span (035-city-zones), and bold spans wrapping a line came back as
+# literal `\*\*` (038-sa-prelit-lighting, 039-ide-object-flags). Reflowing prose is also pure diff noise on
+# documents that are read, not compiled.
+
+.claude
+docs
+blog
+blog-src
+mods-src
+game-src

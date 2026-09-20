@@ -1,0 +1,31 @@
+{
+  "note": "First-light milestones (M0), transcribed from the progress table in 2026-07-18-series.md. Vsync-locked from the very first row — read gpuMs and draws, not the frame average.",
+  "engine": "OpenSA own engine (WebGPU)",
+  "host": "M3 Pro @2x retina",
+  "runs": [
+    {
+      "date": "2026-07-11",
+      "commit": "M0",
+      "scene": "synthetic 12x12",
+      "avgMs": 8.33,
+      "vsyncLocked": true,
+      "submitMs": 0.1,
+      "gpuMs": 1.44,
+      "avgDrawCalls": 528,
+      "residencyMb": 224,
+      "note": "first light"
+    },
+    {
+      "date": "2026-07-11",
+      "commit": "M0",
+      "scene": "ls-bench (40 entries)",
+      "avgMs": 8.34,
+      "vsyncLocked": true,
+      "submitMs": 0.2,
+      "gpuMs": 1.84,
+      "avgDrawCalls": 807,
+      "residencyMb": 294,
+      "note": "real district; alpha halo dead (user-confirmed)"
+    }
+  ]
+}

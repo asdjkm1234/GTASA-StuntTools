@@ -1,0 +1,65 @@
+{
+  "note": "Headless, run by Claude on the bench harness (M3 Pro, DPR=2, vite 5173 + serve:static 3001, pak build/original/opensa rebuilt 2026-08-09 13:53 — 91 092 clutter objects). ONE scene, country-dusk, five single-scene sweeps. WHY: `dump-cell` showed the pak bakes the procobj layer into its cells while `updateClutter` also feeds `adapter.cellClutter` into an instanced render every frame, which would mean the clutter is drawn TWICE. NOT COMPARABLE as a cost record: three of the five arms ran while a full `sa` build saturated the CPU, so only the CONTENT columns (avgTriangles, avgDrawCalls) are read here — the 2026-08-09 A/A floor established content holds to 0.094 % while cost does not. RESULT — no double clutter: turning the runtime scatter off (`?procobj=0`) and sweeping the per-cell cap 1 -> 3000 both leave triangles unchanged to within 0.007 %, which is an order of magnitude BELOW this pair's own A/A drift (arm a vs a2, same config, 0.41 %). CAUSE, found afterwards and by construction: `convertProcObj` STRIPS every species it baked, so the built `data/procobj.dat` carries 9 rules of the source's 96, all `P_UNDERWATERBARREN`. The runtime layer is alive but has nothing to scatter on dry land, so this scene could not have printed non-zero — the positive control failed on the SITE, not on the instrument. Consequence for lod-procobj 013: clutter load on `opensa` is a BUILD-time quantity, and neither `?procobj` nor `?procobjLimit` is a lever for its streaming budget.",
+  "runs": [
+    {
+      "key": "country-dusk",
+      "arm": "a — default (runtime clutter on)",
+      "avgDrawCalls": 881,
+      "avgTriangles": 1421481,
+      "frames": 1802,
+      "hitch": { "blobMaxMs": 0, "maxMs": 21, "p99Ms": 9.3, "pendingMax": 0, "slowFrames": 1, "uploadMaxMs": 0 },
+      "lateCreates": 0,
+      "legStartOk": true,
+      "p95Ms": 9.1
+    },
+    {
+      "key": "country-dusk",
+      "arm": "b — ?procobj=0 (runtime clutter off)",
+      "avgDrawCalls": 885,
+      "avgTriangles": 1427186,
+      "frames": 1801,
+      "hitch": { "blobMaxMs": 0, "maxMs": 12.9, "p99Ms": 9.3, "pendingMax": 0, "slowFrames": 0, "uploadMaxMs": 0 },
+      "lateCreates": 0,
+      "legStartOk": true,
+      "p95Ms": 9
+    },
+    {
+      "key": "country-dusk",
+      "arm": "a2 — default again (run-order control)",
+      "avgDrawCalls": 885,
+      "avgTriangles": 1427272,
+      "frames": 1802,
+      "hitch": { "blobMaxMs": 0, "maxMs": 9.4, "p99Ms": 9.3, "pendingMax": 0, "slowFrames": 0, "uploadMaxMs": 0 },
+      "lateCreates": 0,
+      "legStartOk": true,
+      "p95Ms": 9
+    },
+    {
+      "key": "country-dusk",
+      "arm": "lo — ?procobjLimit=1 (per-cell budget floored)",
+      "avgDrawCalls": 885,
+      "avgTriangles": 1427285,
+      "frames": 1802,
+      "hitch": { "blobMaxMs": 0, "maxMs": 16.3, "p99Ms": 9.3, "pendingMax": 0, "slowFrames": 0, "uploadMaxMs": 0 },
+      "lateCreates": 0,
+      "legStartOk": true,
+      "p95Ms": 9.1
+    },
+    {
+      "key": "country-dusk",
+      "arm": "hi — ?procobjLimit=3000 (per-cell budget 20x default)",
+      "avgDrawCalls": 885,
+      "avgTriangles": 1427179,
+      "frames": 1803,
+      "hitch": { "blobMaxMs": 0, "maxMs": 15, "p99Ms": 9.3, "pendingMax": 0, "slowFrames": 0, "uploadMaxMs": 0 },
+      "lateCreates": 0,
+      "legStartOk": true,
+      "p95Ms": 9.1
+    }
+  ],
+  "findings": [
+    "No double clutter. The build strips what it bakes, so the two layers are disjoint by construction.",
+    "The `hitch` block shipped with this run and its tail columns DO carry signal where the averages do not: `maxMs` ranges 9.4-21 ms across five arms whose `avgMs` is 8.329-8.334 and whose `p95Ms` is 9-9.1. `blobMaxMs`/`uploadMaxMs`/`pendingMax` printed 0 on every arm — a settled leg streams nothing, so those three still need a positive control before a zero from them is read as evidence.",
+    "A/A drift on this pair, same config, same session: triangles 0.41 % (arm a vs a2). Larger than every effect measured here."
+  ]
+}

@@ -1,0 +1,150 @@
+{
+ "note": "Plan 080/07 close-out sweep — the RITUAL 8-scene ?bench=all leg with the WHOLE camera chain live (01-07: smoothed rig, composition, collision, vehicle camera, additive motion). Taken by Claude on the dev machine, headless bench-harness (?loader=http-dir, DPR=2, Chromium/ANGLE-Metal) against the user's already-running dev + serve:static, pak = build/original/opensa. THE POINT of this row is the BENCH BYPASS INVARIANT: a running bench owns the frame outright (resolveCamera's priority is bench > fly eye > follow rig), so no amount of camera work may move these numbers. ls-noon is the one scene with a directly comparable headless BEFORE (the 080/01 row in 2026-07-25-headless-080-camera-director.json): 8.333 vs 8.334 ms avg and draws 1181 vs 1181 — identical, which is the proof. The other seven scenes had no headless predecessor and are recorded here as the headless baseline. NOT pass-comparable to the user's in-game rows (2026-07-24-ingame-617556f-087ring.json): the harness boots with far fewer road cars and every leg is vsync-capped at 120 fps, so this sweep cannot resolve a small CPU regression - it can only prove the bench path is untouched, which is exactly its job here.",
+ "commit": "02cb525+working-tree (080/07 close-out)",
+ "pak": "build/original/opensa",
+ "host": "headless Chromium / ANGLE-Metal @DPR=2",
+ "runs": [
+  {
+   "key": "ls-noon",
+   "avgMs": 8.333,
+   "p95Ms": 9.3,
+   "fps": 120,
+   "frames": 1802,
+   "avgDrawCalls": 1181,
+   "avgTriangles": 2287758,
+   "gpuMs": {
+    "pass": 2.641,
+    "post": 0.839,
+    "probe": 0.89,
+    "submit": 0.335
+   },
+   "residency": "cellIndex 41 · cellVertex 184 · target 345 · texture 1168 · uniform 1",
+   "lateCreates": 0
+  },
+  {
+   "key": "sf-fog-dawn",
+   "avgMs": 8.384,
+   "p95Ms": 9.3,
+   "fps": 119.3,
+   "frames": 1791,
+   "avgDrawCalls": 985,
+   "avgTriangles": 1334975,
+   "gpuMs": {
+    "pass": 2.105,
+    "post": 0.838,
+    "probe": 1.176,
+    "submit": 0.349
+   },
+   "residency": "cellIndex 33 · cellVertex 145 · target 345 · texture 1244 · uniform 1",
+   "lateCreates": 0
+  },
+  {
+   "key": "lv-night",
+   "avgMs": 8.328,
+   "p95Ms": 9.2,
+   "fps": 120.1,
+   "frames": 1803,
+   "avgDrawCalls": 1647,
+   "avgTriangles": 1802285,
+   "gpuMs": {
+    "pass": 3.491,
+    "post": 0.927,
+    "probe": 0.82,
+    "submit": 0.361
+   },
+   "residency": "cellIndex 30 · cellVertex 154 · target 345 · texture 1261 · uniform 1",
+   "lateCreates": 0
+  },
+  {
+   "key": "country-dusk",
+   "avgMs": 8.331,
+   "p95Ms": 9.7,
+   "fps": 120,
+   "frames": 1802,
+   "avgDrawCalls": 861,
+   "avgTriangles": 1185447,
+   "gpuMs": {
+    "pass": 3.832,
+    "post": 0.855,
+    "probe": 0.975,
+    "submit": 0.484
+   },
+   "residency": "cellIndex 23 · cellVertex 129 · target 345 · texture 1207 · uniform 1",
+   "lateCreates": 0
+  },
+  {
+   "key": "ocean-horizon",
+   "avgMs": 8.329,
+   "p95Ms": 10.3,
+   "fps": 120.1,
+   "frames": 1803,
+   "avgDrawCalls": 24,
+   "avgTriangles": 136361,
+   "gpuMs": {
+    "pass": 1.985,
+    "post": 1.05,
+    "probe": 0.253,
+    "submit": 0.245
+   },
+   "residency": "cellIndex 8 · cellVertex 71 · target 345 · texture 1009 · uniform 1",
+   "lateCreates": 0
+  },
+  {
+   "key": "ls-rain-night",
+   "avgMs": 8.329,
+   "p95Ms": 10.2,
+   "fps": 120.1,
+   "frames": 1803,
+   "avgDrawCalls": 966,
+   "avgTriangles": 1737862,
+   "gpuMs": {
+    "pass": 2.453,
+    "post": 0.896,
+    "probe": 1.035,
+    "submit": 0.397
+   },
+   "residency": "cellIndex 41 · cellVertex 182 · target 345 · texture 1175 · uniform 1",
+   "lateCreates": 0
+  },
+  {
+   "key": "ganton-noon",
+   "avgMs": 8.323,
+   "p95Ms": 10.2,
+   "fps": 120.2,
+   "frames": 1804,
+   "avgDrawCalls": 1397,
+   "avgTriangles": 1495770,
+   "gpuMs": {
+    "pass": 2.871,
+    "post": 0.945,
+    "probe": 1.135,
+    "submit": 0.38
+   },
+   "residency": "cellIndex 35 · cellVertex 161 · target 345 · texture 1172 · uniform 1",
+   "lateCreates": 0
+  },
+  {
+   "key": "ganton-night",
+   "avgMs": 8.329,
+   "p95Ms": 10.2,
+   "fps": 120.1,
+   "frames": 1802,
+   "avgDrawCalls": 1394,
+   "avgTriangles": 1496994,
+   "gpuMs": {
+    "pass": 3.061,
+    "post": 0.953,
+    "probe": 1.133,
+    "submit": 0.425
+   },
+   "residency": "cellIndex 35 · cellVertex 161 · target 345 · texture 1172 · uniform 1",
+   "lateCreates": 0
+  }
+ ],
+ "cameraCosts": {
+  "directorStepUs": "0.568 mean / 0.620 p95 on foot with every layer live (microbench row 080/06 in 2026-07-25-headless-080-camera-director.json)",
+  "castsPerFrame": 2,
+  "castsNote": "One sphere cast (the whisker angle is 0 after the 04 field round, so the two flanking casts do not fire) plus one groundBelow ray for the floor guard. The plan's budget was <= 5.",
+  "budgetMs": 0.1
+ }
+}

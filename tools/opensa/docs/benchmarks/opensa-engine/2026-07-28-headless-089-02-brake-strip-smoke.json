@@ -1,0 +1,22 @@
+{
+  "commit": "7ce9c39 + plan 089/02 (tyre smoke, uncommitted at capture time)",
+  "host": "headless Chromium / M3 Pro, viewport 1440x900 DPR=1 (scratchpad playwright over the real http-dir loader)",
+  "note": "HUD-READ numbers from screenshots of the scripted brake-strip lap (?phys=brake-strip&car=infernus) with tyre smoke live — NOT a sweep. Purpose: confirm the tyre-smoke path costs nothing at gameplay-shaped coverage (two wheel plumes trailing a braking car), against 089/01's worst-case fill measurement (+2.3 ms at ~1/3 viewport). Also the record of the signal finding: Rapier wheelRotation follows the ground exactly (0.05 m/s max rotation-derived slide during the -1.1 g stop, logged per-step), so rotation-based slip is a dead channel and the shipped signal is demand-over-cap from setVehicleControls.",
+  "pak": "build/original/opensa/pak (087-ring rebuild, buildTime 08:41 24-07-2026 — same pak as the 07-24..07-28 rows)",
+  "runs": [
+    {
+      "avgDrawCalls": 267,
+      "avgMs": 8.33,
+      "fps": 120,
+      "gpuMs": { "submit": 1.87 },
+      "label": "mid-brake skid, both rear plumes + trail on screen (smoke live, gameplay-shaped coverage)"
+    },
+    {
+      "avgDrawCalls": 283,
+      "avgMs": 8.34,
+      "fps": 120,
+      "gpuMs": { "submit": 1.87 },
+      "label": "end of stop, dense fresh smoke at the wheels + dissipating trail"
+    }
+  ]
+}

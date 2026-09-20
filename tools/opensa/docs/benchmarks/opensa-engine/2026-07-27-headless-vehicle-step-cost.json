@@ -1,0 +1,137 @@
+{
+ "note": "081/07 \u00a73, the vehicle-slice cost measurement \u2014 the FIRST run to carry the `vehicles` field (raycast controllers + the vehicle system's fixed update, per fixed step, beside the live car count). Headless bench sweep via tools-debug/bench-harness on the canonical pak (build/original/opensa, manifest buildTime 08:41 24-07-2026, 1272901632 B), code at 081/07's instrumentation commit, M3 Pro / ANGLE-Metal, DPR 1. Run twice: the first sweep is not filed because app source was edited while it flew (HMR risk, the standing rule); this is the clean re-run, and its means reproduced the discarded one within 10%. Frame/GPU columns are not the point here and are capped by vsync at 120 fps.",
+ "runs": [
+  {
+   "avgDrawCalls": 882,
+   "avgMs": 8.333,
+   "avgTriangles": 1208955,
+   "fps": 120,
+   "frames": 1801,
+   "gpuMs": {
+    "pass": 2.978,
+    "post": 0.353,
+    "probe": 1.222,
+    "submit": 0.41
+   },
+   "key": "country-dusk",
+   "lateCreates": 0,
+   "p95Ms": 9.2,
+   "residency": "cellIndex 23 \u00b7 cellVertex 129 \u00b7 target 88 \u00b7 texture 1207 \u00b7 uniform 1",
+   "vehicles": {
+    "live": 13,
+    "maxMs": 0.4,
+    "meanMs": 0.176
+   }
+  },
+  {
+   "avgDrawCalls": 1180,
+   "avgMs": 8.333,
+   "avgTriangles": 2287776,
+   "fps": 120,
+   "frames": 1802,
+   "gpuMs": {
+    "pass": 2.453,
+    "post": 0.353,
+    "probe": 1.246,
+    "submit": 0.348
+   },
+   "key": "ls-noon",
+   "lateCreates": 0,
+   "p95Ms": 9.2,
+   "residency": "cellIndex 41 \u00b7 cellVertex 184 \u00b7 target 88 \u00b7 texture 1167 \u00b7 uniform 1",
+   "vehicles": {
+    "live": 80,
+    "maxMs": 0.9,
+    "meanMs": 0.605
+   }
+  },
+  {
+   "avgDrawCalls": 957,
+   "avgMs": 8.333,
+   "avgTriangles": 1726772,
+   "fps": 120,
+   "frames": 1802,
+   "gpuMs": {
+    "pass": 2.22,
+    "post": 0.401,
+    "probe": 1.536,
+    "submit": 0.4
+   },
+   "key": "ls-rain-night",
+   "lateCreates": 0,
+   "p95Ms": 9.2,
+   "residency": "cellIndex 41 \u00b7 cellVertex 182 \u00b7 target 88 \u00b7 texture 1184 \u00b7 uniform 1",
+   "vehicles": {
+    "live": 57,
+    "maxMs": 0.9,
+    "meanMs": 0.547
+   }
+  },
+  {
+   "avgDrawCalls": 1569,
+   "avgMs": 8.441,
+   "avgTriangles": 1647639,
+   "fps": 118.5,
+   "frames": 1779,
+   "gpuMs": {
+    "pass": 2.771,
+    "post": 0.457,
+    "probe": 1.016,
+    "submit": 0.388
+   },
+   "key": "lv-night",
+   "lateCreates": 0,
+   "p95Ms": 9.2,
+   "residency": "cellIndex 30 \u00b7 cellVertex 154 \u00b7 target 88 \u00b7 texture 1260 \u00b7 uniform 1",
+   "vehicles": {
+    "live": 58,
+    "maxMs": 0.8,
+    "meanMs": 0.484
+   }
+  },
+  {
+   "avgDrawCalls": 24,
+   "avgMs": 8.333,
+   "avgTriangles": 136358,
+   "fps": 120,
+   "frames": 1801,
+   "gpuMs": {
+    "pass": 1.561,
+    "post": 0.802,
+    "probe": 0.487,
+    "submit": 0.239
+   },
+   "key": "ocean-horizon",
+   "lateCreates": 0,
+   "p95Ms": 9.1,
+   "residency": "cellIndex 8 \u00b7 cellVertex 71 \u00b7 target 88 \u00b7 texture 1033 \u00b7 uniform 1",
+   "vehicles": {
+    "live": 0,
+    "maxMs": 0.1,
+    "meanMs": 0.003
+   }
+  },
+  {
+   "avgDrawCalls": 983,
+   "avgMs": 8.413,
+   "avgTriangles": 1326000,
+   "fps": 118.9,
+   "frames": 1784,
+   "gpuMs": {
+    "pass": 2.394,
+    "post": 0.492,
+    "probe": 1.98,
+    "submit": 0.386
+   },
+   "key": "sf-fog-dawn",
+   "lateCreates": 0,
+   "p95Ms": 9.2,
+   "residency": "cellIndex 33 \u00b7 cellVertex 145 \u00b7 target 88 \u00b7 texture 1241 \u00b7 uniform 1",
+   "vehicles": {
+    "live": 66,
+    "maxMs": 1.4,
+    "meanMs": 0.555
+   }
+  }
+ ]
+}

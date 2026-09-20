@@ -1,0 +1,99 @@
+{
+  "note": "BISECT POINT HEAD — commit 436d2f2 (Show Faces removed + hemispheric ambient), same pak, same machine, same 841 cars. Chat paste. Within noise of D: BOTH of this session's engine changes are performance-neutral, which also closes them out as suspects for the regression. USER CONFIRMED 2026-07-20: this pak is the IMPROVED map — it carries our generated LODs, vegetation and procobj. The 07-18 baseline was measured WITHOUT them. So this is not a regression: it is the true cost of a complete world, and the old 120 fps was the cost of an incomplete one.",
+  "commit": "436d2f2",
+  "pak": "build/original (rebuild #1, 2026-07-20 08:49)",
+  "host": "Chrome / M3 Pro @2x retina",
+  "roadCars": 841,
+  "runs": [
+    {
+      "key": "ls-noon",
+      "avgMs": 8.92,
+      "p95Ms": 10.5,
+      "fps": 112.1,
+      "frames": 1683,
+      "avgDrawCalls": 1202,
+      "gpuMs": {
+        "pass": 4.968,
+        "post": 1.241,
+        "probe": 1.309,
+        "submit": 0.399
+      },
+      "lateCreates": 0
+    },
+    {
+      "key": "sf-fog-dawn",
+      "avgMs": 9.486,
+      "p95Ms": 12.5,
+      "fps": 105.4,
+      "frames": 1582,
+      "avgDrawCalls": 1019,
+      "gpuMs": {
+        "pass": 4.205,
+        "post": 1.0,
+        "probe": 1.973,
+        "submit": 0.36
+      },
+      "lateCreates": 0
+    },
+    {
+      "key": "lv-night",
+      "avgMs": 13.221,
+      "p95Ms": 15.0,
+      "fps": 75.6,
+      "frames": 1136,
+      "avgDrawCalls": 1680,
+      "gpuMs": {
+        "pass": 8.765,
+        "post": 1.125,
+        "probe": 1.551,
+        "submit": 0.356
+      },
+      "lateCreates": 0
+    },
+    {
+      "key": "country-dusk",
+      "avgMs": 16.488,
+      "p95Ms": 19.0,
+      "fps": 60.6,
+      "frames": 912,
+      "avgDrawCalls": 917,
+      "gpuMs": {
+        "pass": 12.449,
+        "post": 1.004,
+        "probe": 1.745,
+        "submit": 0.505
+      },
+      "lateCreates": 0
+    },
+    {
+      "key": "ocean-horizon",
+      "avgMs": 8.333,
+      "p95Ms": 9.3,
+      "fps": 120.0,
+      "frames": 1802,
+      "avgDrawCalls": 19,
+      "gpuMs": {
+        "pass": 1.781,
+        "post": 0.95,
+        "probe": 0.515,
+        "submit": 0.361
+      },
+      "lateCreates": 0
+    },
+    {
+      "key": "ls-rain-night",
+      "avgMs": 8.508,
+      "p95Ms": 9.8,
+      "fps": 117.5,
+      "frames": 1765,
+      "avgDrawCalls": 960,
+      "gpuMs": {
+        "pass": 4.292,
+        "post": 1.104,
+        "probe": 1.274,
+        "submit": 0.431
+      },
+      "lateCreates": 0
+    }
+  ]
+}

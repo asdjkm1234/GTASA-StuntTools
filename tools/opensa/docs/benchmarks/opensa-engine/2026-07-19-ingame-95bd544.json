@@ -1,0 +1,99 @@
+{
+  "note": "BISECT POINT B — commit 95bd544 (2026-07-19, 'fix a lot of bugs'), run on the CURRENT pak (build/original, rebuild #1 of 2026-07-20 08:49). Point A (3f354b0) could not load this pak at all — the map did not come up — so B is the earliest code in the window that reads it. User-run, M3 Pro @2x retina, 841 road cars. Chat paste. Purpose: hold the pak fixed and vary the code, to separate a code regression from a data one. USER CONFIRMED 2026-07-20: this pak is the IMPROVED map — it carries our generated LODs, vegetation and procobj. The 07-18 baseline was measured WITHOUT them. So this is not a regression: it is the true cost of a complete world, and the old 120 fps was the cost of an incomplete one.",
+  "commit": "95bd544",
+  "pak": "build/original (rebuild #1, 2026-07-20 08:49)",
+  "host": "Chrome / M3 Pro @2x retina",
+  "roadCars": 841,
+  "runs": [
+    {
+      "key": "ls-noon",
+      "avgMs": 8.801,
+      "p95Ms": 10.3,
+      "fps": 113.6,
+      "frames": 1706,
+      "avgDrawCalls": 1202,
+      "gpuMs": {
+        "pass": 4.815,
+        "post": 1.253,
+        "probe": 1.29,
+        "submit": 0.396
+      },
+      "lateCreates": 0
+    },
+    {
+      "key": "sf-fog-dawn",
+      "avgMs": 9.293,
+      "p95Ms": 11.8,
+      "fps": 107.6,
+      "frames": 1615,
+      "avgDrawCalls": 1019,
+      "gpuMs": {
+        "pass": 4.067,
+        "post": 0.99,
+        "probe": 1.867,
+        "submit": 0.371
+      },
+      "lateCreates": 0
+    },
+    {
+      "key": "lv-night",
+      "avgMs": 12.813,
+      "p95Ms": 14.8,
+      "fps": 78.0,
+      "frames": 1172,
+      "avgDrawCalls": 1680,
+      "gpuMs": {
+        "pass": 8.206,
+        "post": 1.132,
+        "probe": 1.529,
+        "submit": 0.388
+      },
+      "lateCreates": 0
+    },
+    {
+      "key": "country-dusk",
+      "avgMs": 15.491,
+      "p95Ms": 17.6,
+      "fps": 64.6,
+      "frames": 970,
+      "avgDrawCalls": 917,
+      "gpuMs": {
+        "pass": 11.536,
+        "post": 1.008,
+        "probe": 2.073,
+        "submit": 0.502
+      },
+      "lateCreates": 0
+    },
+    {
+      "key": "ocean-horizon",
+      "avgMs": 8.333,
+      "p95Ms": 9.3,
+      "fps": 120.0,
+      "frames": 1801,
+      "avgDrawCalls": 19,
+      "gpuMs": {
+        "pass": 1.772,
+        "post": 0.947,
+        "probe": 0.481,
+        "submit": 0.366
+      },
+      "lateCreates": 0
+    },
+    {
+      "key": "ls-rain-night",
+      "avgMs": 8.417,
+      "p95Ms": 9.4,
+      "fps": 118.8,
+      "frames": 1784,
+      "avgDrawCalls": 960,
+      "gpuMs": {
+        "pass": 4.079,
+        "post": 1.281,
+        "probe": 1.15,
+        "submit": 0.472
+      },
+      "lateCreates": 0
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "note": "201/2-03's unanswered half, taken 2026-08-30 through the phone console's MCP channel (no person relayed a number). The 2026-08-23 row could not price a frame because render-on-demand left it idle-dominated; this window was DRIVEN — the camera was flown across the pinned district by an agent (six poses, heights 260-1400, both tilts and headings) while the collector ran. It is still a MIXED window and must be read as one: of 1406 frames, 904 sit in the >=100 ms bin (the idle poll of 201/4-01's render gate, plus one 18.2 s gap where Android froze the backgrounded tab), and 503 are moving frames. The moving half is what a frame COSTS and it is derived from the histogram, not from the report's own dtP50/dtP95 — those average the idle poll in and read 100.4/106.0 ms, which is not a frame cost. Derived over the 503 moving frames: p50 30 ms (33 fps), p90 64, p95 66 (15 fps), p99 86. The shape is a VSYNC LADDER rather than a spread: 189 frames (38%) land on one 16.7 ms interval, 152 (30%) on two, 108 (21%) on three, 40 (8%) on four. So the console DOES reach 60 fps on this device and holds it for a third of the driven frames; what it does not do is hold it - the p95 is four intervals. Largest CPU item is overlay-2d at 2.37 ms mean against engine-frame's 0.57, which reproduces 201/1-01's finding at 150 units and is 5/02's business rather than the profile's. GPU time is not measurable on this adapter (no timestamp-query). Not comparable with any desktop row. Device MGA-LX3 / ARM Bifrost, 360x570 CSS at DPR 2 (the surface grew mid-run when the browser chrome collapsed - see the target figure). App 311f2d1, which PREDATES 201/7-10, so no Mark43 verdict rides on this row. Pak: original, rect 5,-7,6,-6, textures astc, models=true, bake-collision=true, built 19:23 28-08-2026.",
+  "app": "311f2d1",
+  "build": "19:23 28-08-2026",
+  "district": "los-santos-centre",
+  "windowMs": 143201.9,
+  "frames": 1406,
+  "framesSkipped": 904,
+  "derived": {
+    "movingFrames": 503,
+    "idleOrFrozenFrames": 903,
+    "p50Ms": 30,
+    "p90Ms": 64,
+    "p95Ms": 66,
+    "p99Ms": 86,
+    "vsyncLadder": { "1": 189, "2": 152, "3": 108, "4": 40, "5": 9, "6": 5 },
+    "method": "the >=100 ms bin is the render gate's idle poll and is excluded; percentiles are bin lower edges over the remaining 503 frames"
+  },
+  "frame": {
+    "dtHistogramMs": [[10,6],[12,11],[14,18],[16,26],[18,43],[20,22],[22,32],[24,31],[26,29],[28,28],[30,27],[32,24],[34,15],[36,16],[38,7],[40,6],[42,6],[44,10],[46,3],[48,48],[50,31],[52,2],[54,5],[58,3],[60,1],[62,2],[64,8],[66,20],[68,3],[70,4],[72,1],[74,1],[76,1],[80,1],[82,1],[84,2],[86,4],[92,2],[96,2],[98,1],[100,903]],
+    "dtMaxMs": 18228.2,
+    "dtMeanMs": 91.4,
+    "dtP50Ms": 100.4,
+    "dtP95Ms": 106.0,
+    "fps": 10
+  },
+  "cpu": {
+    "bodyMeanMs": 4.265149359915877,
+    "bodyMaxMs": 117.79999999701977,
+    "outsideMeanMs": 87.11152204843621,
+    "shareOfFrame": 0.046676567379603955,
+    "segmentsMs": [["overlay-2d",2.3694167854224637],["board",0.7845661449292476],["engine-frame",0.5667140826074192],["other",0.2490753911085859],["stream",0.23726884779092428],["overlay:symbols",0.05312944522622978],["readout",0.0044096727904520535],["overlay:sketches",0.00035561877667140827],["overlay:clear",0.00021337126388319187]],
+    "worstFrame": {
+      "atMs": 114.5, "bodyMs": 117.79999999701977, "canvasPixels": 460800, "cellsVisible": 0, "draws": 12, "dtMs": 168, "pending": 4,
+      "segmentsMs": [["overlay:symbols",55],["engine-frame",35.29999999701977],["board",10.100000008940697],["stream",8.5],["overlay-2d",1.5000000149011612],["overlay:sketches",0.5],["overlay:clear",0.29999999701976776],["readout",0.20000000298023224]],
+      "note": "this is a BOOT frame (atMs 114.5), kept because the collector keeps the window's max; it is not a driven frame"
+    }
+  },
+  "world": {
+    "byCategoryMb": [["target",56.15422344207764],["texture",25.84033966064453],["cellVertex",4.285923004150391],["cellIndex",1.5826072692871094],["uniform",0.00439453125]],
+    "cellsTotal": 4, "cellsVisible": 4, "draws": 66, "pickingMb": 0.349884033203125, "residencyMb": 87.86748790740967, "triangles": 160444
+  },
+  "streaming": { "blobMeanMs": 0.017140825137305225, "cellsCreated": 37, "cellsEvicted": 0, "lateCreates": 0, "uploadMeanMs": 0.07830725462940305, "worstBlobMs": 3.7999999970197678, "worstCreateMs": 19.100000008940697 },
+  "bytes": {
+    "byKind": [{"bytes":16663642,"kind":"texture-array","requests":42},{"bytes":12572761,"kind":"cell-hd","requests":19},{"bytes":2658756,"kind":"water.bin","requests":1},{"bytes":1339504,"kind":"cell-lod","requests":18},{"bytes":29424,"kind":"districts.json","requests":1}],
+    "cachedBytes": 30575907, "cachedRequests": 79, "requests": 81, "totalBytes": 33264087
+  },
+  "symbology": { "beaconCapacity": 150, "beaconGrowths": 0, "incidents": 0, "units": 150, "unitsAsModels": 0, "unitsAsSymbolOnly": 150, "unitsUnresolvedModels": 3, "modelTextureMb": 0, "modelTypes": 0, "chips": 55, "chipsDropped": 93, "symbols": 148, "measures": 0, "stale": 0 },
+  "tracks": { "bytes": 18370176, "capacity": 7200, "samples": 5258, "tracks": 150, "incidentEvents": 159 },
+  "boot": { "gpuMs": 5339.699999988079, "openMs": 844.2999999970198, "overlapMs": 840.4999999850988, "phases": [["init:pipelines",4681.100000008941],["init:device",584.6000000089407],["init:resources",32],["init:sky-lut",24.200000002980232],["init:canvas",11.399999991059303],["init:targets",4.5999999940395355]], "note": "COLD — this open was the first after the served app was re-unpacked; see 2026-08-30-mobile-boot-cold-vs-warm.json" },
+  "device": { "adapter": "arm bifrost", "css": "360x570", "dpr": 2, "featureLevel": "core", "missing": ["texture-compression-bc", "timestamp-query"] },
+  "surface": { "cssHeight": 570, "cssWidth": 360, "deviceHeight": 1140, "deviceWidth": 720, "dpr": 2, "renderScale": 1 },
+  "passes": [{"available":true,"maxMs":8.400000005960464,"meanMs":1.578307254629403,"name":"submitMs"},{"available":false,"maxMs":0,"meanMs":0,"name":"gpuPassMs"},{"available":false,"maxMs":0,"meanMs":0,"name":"gpuPostMs"},{"available":false,"maxMs":0,"meanMs":0,"name":"gpuProbeMs"}],
+  "unavailable": ["gpuPassMs, gpuPostMs, gpuProbeMs — this adapter has no timestamp-query, so GPU time is not measurable at all"],
+  "errors": ["warn: [units] 'copcarls' is drawn as a symbol: this build carries no model of that name", "warn: [units] 'ambulan' is drawn as a symbol: this build carries no model of that name", "warn: [units] 'firetruk' is drawn as a symbol: this build carries no model of that name"],
+  "warnings": []
+}

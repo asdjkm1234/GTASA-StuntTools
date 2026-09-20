@@ -1,0 +1,20 @@
+{
+  "note": "Plan 080/09 (follow-policy revision) microbench, run by Claude on the M1 dev machine via node/tsx — the same 200k-calls-in-20-rounds shape as the 080/01-06 rows in 2026-07-25-headless-080-camera-director.json, but a DIFFERENT trace (the foot leg runs AWAY so the directional authority and the run-distance writer work every step; the vehicle leg cruises with a slight accel so the launch writer works every step), so compare against the 0.05 ms budget, not row-to-row. Code = the 09 working tree (authority + distance writers + dynamic-collision flag), no probe (the cast is the host's cost, measured separately in 04).",
+  "budget": "plan 080 ground rule 6: director.update <= 0.05 ms p95",
+  "microbench": [
+    {
+      "plan": "080/09",
+      "what": "one stepCamera call, foot mode, running away: directional authority + idle recenter + run/idle distance writers live every step",
+      "where": "node/tsx on the dev machine, 200k calls in 20 rounds after a 20k warm-up",
+      "meanUs": 0.51,
+      "p95Us": 0.6
+    },
+    {
+      "plan": "080/09",
+      "what": "one stepCamera call, vehicle mode, cruising with slight accel: speed curves + drift lean + launch-stretch writer live every step",
+      "where": "node/tsx on the dev machine, 200k calls in 20 rounds after a 20k warm-up",
+      "meanUs": 0.679,
+      "p95Us": 0.788
+    }
+  ]
+}

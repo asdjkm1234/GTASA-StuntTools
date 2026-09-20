@@ -1,0 +1,54 @@
+{
+  "note": "THE FIRST REAL-WORLD MOBILE FRAME ROW THIS REPO HAS — a streamed district pak from SA assets, on a real phone, with the world actually resident (4/4 cells). It supersedes the 08-04 row, which was synthetic (`?demo=1`, no pak, no streaming), and it is the successor that row said it was owed. Clean by the collector's own test: `warnings` is empty, 2482 frames over 209 s. READ ONE CAVEAT FIRST: it was taken on GANTON (`?district=ganton`, at 2400,-1700 — the rect `phone.sh` converts by default), NOT on the district 201/1-01 pinned on 2026-08-06, which is `los-santos-centre` opening at 1480,-1720. That ground is not in this pak (its rect 9,-7,10,-6 covers x 2250…2750; LS centre is cell x 5). So this row is a valid measurement of a real district and NOT part of 201's before/after series until either a pak covering the pinned district is built or the pin is moved with a recorded decision. User-run on their own phone, from the prebuilt app served by Termux over localhost (secure context, so the world was cached rather than re-downloaded).",
+  "device": {
+    "adapter": "arm bifrost",
+    "gpu": "Mali-G51 (ARM, Bifrost) — same device as the 08-04 row",
+    "featureLevel": "core",
+    "css": "360x364",
+    "dpr": 2,
+    "missing": ["texture-compression-bc", "timestamp-query"],
+    "noTimestamps": "gpuPassMs / gpuPostMs / gpuProbeMs are ABSENT on this adapter, not zero — no GPU time is measurable here at all"
+  },
+  "world": {
+    "pak": "23:12 07-08-2026",
+    "rect": "9,-7,10,-6 (Ganton/Idlewood)",
+    "flags": "--rgba8 --max-texture 256 --no-ao --bake-collision --map-objects-in-rect --platforms mobile; vehicles [admiral,infernus,comet], peds [bmycg,wmycr]",
+    "platforms": ["desktop", "mobile"],
+    "verifiedBy": "scripts/debug/pak-recipe.ts — the pak's own build recipe, read back rather than remembered",
+    "collision": "baked, 9 cells on the 256 game grid, 643 regions / 48163 triangles / 83 breakable"
+  },
+  "runs": [
+    {
+      "key": "dispatch-inventory-ganton",
+      "surface": "dispatch console, ?inventory=1&district=ganton, prebuilt app over localhost",
+      "frames": 2482,
+      "windowMs": 209359.8,
+      "fps": 31,
+      "dtP50Ms": 31.8,
+      "dtP95Ms": 51.3,
+      "dtMaxMs": 221.8,
+      "submitMeanMs": 1.776,
+      "submitMaxMs": 13.8,
+      "gpuPassMs": null,
+      "draws": 121,
+      "triangles": 284231,
+      "cellsVisible": 4,
+      "cellsTotal": 4,
+      "residencyMb": 239.28,
+      "spans": []
+    }
+  ],
+  "readings": {
+    "againstTheBudgets": "201 names 60 fps and a 300–500 MB hard ceiling. This is 31 fps at p50 31.8 ms — about half the frame-rate budget — and 239.3 MB resident for FOUR cells, i.e. roughly 60 MB per cell, which puts a 2x2-cell district at half the ceiling before anything else is added. Neither is a verdict on the engine: they are the first numbers the chain's budgets can be argued against instead of guessed at.",
+    "theFrameIsNotSUBMIT-BOUND": "submitMs is 1.776 ms mean against a 31.8 ms frame — 5.6 %. Whatever the other 94 % is, it is not the CPU recording draw calls.",
+    "andItCannotBeATTRIBUTED": "That 94 % is unattributable ON THIS DEVICE: the adapter has no timestamp-query, so every GPU pass column is absent rather than zero, and `spans` came back EMPTY over 209 s. The plan says a pass with no span is itself a finding — this is that finding, at the level of the whole frame. Chain 1 is asked to cut what is never read and chain 2 to tune against a device measurement; neither can be done against a frame whose cost has no owner. Establishing a CPU-side proxy is the prerequisite, not an optimisation.",
+    "spansEmpty": "Plausible rather than broken: the district is 4 cells, all resident, and the camera did not move, so no cell collider build, .osm parse or texture upload had to run in the sampled window. It does mean this capture says nothing about streaming cost — the transient half of 091's picture is simply not in it.",
+    "hitching": "p95 51.3 ms against p50 31.8 ms, and a 221.8 ms worst frame that is now a REAL in-run stall — the load delta no longer poisons dtMax (fixed the same day, 3753189)."
+  },
+  "openQuestions": [
+    "31 fps at p50 31.8 ms is suspiciously close to a missed vsync deadline on a 60 Hz panel (33.3 ms). Whether the frame is GPU-bound or simply presenting at half rate is not decidable from this capture, and the two have opposite fixes.",
+    "239 MB for 4 cells needs breaking down against the 08-06 texture-budget row (115.4 MB resident as built for 8 cell entries, computed from the manifest, no GPU). The runtime figure being ~2x the computed one over half the cells is not explained yet.",
+    "Viewport was 360x364 CSS px — the map gets under half the screen height in the compact layout. Every number here is taken at that render size.",
+    "No capture yet on the PINNED district (los-santos-centre, 1480,-1720); the pak does not cover it."
+  ]
+}

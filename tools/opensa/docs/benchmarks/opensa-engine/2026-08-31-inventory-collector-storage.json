@@ -1,0 +1,39 @@
+{
+ "note": "A SYNTHETIC micro-benchmark, not a device row, and it must not be compared with one: it runs in the session container (x64, node 22) rather than on the phone, and it measures one function rather than a frame. It exists because 201/3-05 replaced the inventory collector's storage and the claim 'this is cheaper' needed a number rather than an argument.\n\nWhat was wrong: FrameInventory kept every dt in an array and, on every report(), copied the whole array and sorted it to take two percentiles. InventoryPanel asks for a report every 500 ms, and the agent link's `snapshot` asks for one too. So the cost grew with the length of the capture, inside the build whose entire job is to measure what a frame costs - and it grew worst in exactly the run 201/4-02 was written to take (resident MB at 0 / 30 min / 2 h).\n\nAfter: the samples are not kept at all. A bounded histogram holds the shape (2 ms bins to 100, 20 ms to a second, then one tail - at most 96 entries however long the run) and the count, sum and maximum stay exact as running scalars. A percentile is one pass over the bins.\n\nThe 216 000-frame row is the one that matters: two hours at 30 drawn frames a second. A report went from 58.2 ms to 0.002 ms, and at the panel's 2 Hz that is 116 ms of main thread PER SECOND - the instrument taking ~12 % of the thread it was reporting on. On the phone's ARM Bifrost it would be worse, and no capture has ever said so because the collector does not measure itself.\n\nWhat it costs: a percentile is now a bin's floor, so up to one bin low and never high. The record was already reading percentiles off these bins by hand in every row since 2026-08-22, so the precision is the precision the analysis already had.",
+ "harness": "scripts/debug/.tmp-collector-bench.mts (throwaway), 20 reports averaged per row",
+ "machine": "session container, x64, node 22.22.2 \u2014 NOT the phone",
+ "what": "FrameInventory.report()'s percentile step, before (sort a kept copy) and after (bounded histogram)",
+ "runs": [
+  {
+   "frames": 1000,
+   "beforeMs": 0.195,
+   "afterMs": 0.008,
+   "speedup": 23,
+   "samplesHeldMb": 0.01
+  },
+  {
+   "frames": 10000,
+   "beforeMs": 1.501,
+   "afterMs": 0.002,
+   "speedup": 703,
+   "samplesHeldMb": 0.08
+  },
+  {
+   "frames": 100000,
+   "beforeMs": 22.292,
+   "afterMs": 0.002,
+   "speedup": 10199,
+   "samplesHeldMb": 0.76
+  },
+  {
+   "frames": 216000,
+   "beforeMs": 58.186,
+   "afterMs": 0.002,
+   "speedup": 26696,
+   "samplesHeldMb": 1.65,
+   "why": "two hours at 30 drawn frames a second \u2014 201/4-02's long session"
+  }
+ ],
+ "afterSamplesHeldMb": 0,
+ "maxBins": 96
+}

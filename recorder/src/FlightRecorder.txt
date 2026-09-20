@@ -1,0 +1,76 @@
+{$CLEO .cs}
+{$NOSOURCE}
+{$OPCODE 0A4F=17,flight_recorder_tick active %1d% vehicle %2d% model %3d% health %4d% x %5d% y %6d% z %7d% heading %8d% vx %9d% vy %10d% vz %11d% key_q %12d% key_a %13d% key_e %14d% key_d %15d% key_up %16d% key_down %17d%}
+
+0000: NOP
+
+// F11 toggles recording mode.  The script deliberately does not touch player
+// or vehicle opcodes until the user enables it after joining the server.
+0@ = 0
+
+:RECORDER_LOOP
+wait 33
+
+if
+  0AB0: key_pressed 0x7A
+then
+  if
+    0039:   0@ == 0
+  then
+    0@ = 1
+  else
+    0@ = 0
+    0A4F: flight_recorder_tick 0 0 0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0 0 0 0 0 0
+  end
+  wait 250
+end
+
+if
+  0039:   0@ == 0
+then
+  goto @RECORDER_LOOP
+end
+
+// Safe because recording mode is only enabled manually after the player has
+// joined the server.  The branch below ends a session on foot and waits for
+// the next vehicle without turning recording mode off.
+01F5: 17@ = get_player_actor $PLAYER_CHAR
+if
+  00DF:   actor 17@ driving
+then
+  03C0: 1@ = actor 17@ car
+  0441: 2@ = car 1@ model
+  0227: 3@ = car 1@ health
+  00AA: store_car 1@ position_to 4@ 5@ 6@
+  0174: 7@ = car 1@ Z_angle
+  06A2: get_car 1@ speed_vector_in_direction_XYZ 8@ 9@ 10@
+
+  11@ = 0
+  12@ = 0
+  13@ = 0
+  14@ = 0
+  15@ = 0
+  16@ = 0
+  if 0AB0: key_pressed 0x51
+  then 11@ = 1
+  end
+  if 0AB0: key_pressed 0x41
+  then 12@ = 1
+  end
+  if 0AB0: key_pressed 0x45
+  then 13@ = 1
+  end
+  if 0AB0: key_pressed 0x44
+  then 14@ = 1
+  end
+  if 0AB0: key_pressed 0x26
+  then 15@ = 1
+  end
+  if 0AB0: key_pressed 0x28
+  then 16@ = 1
+  end
+  0A4F: flight_recorder_tick 1 1@ 2@ 3@ 4@ 5@ 6@ 7@ 8@ 9@ 10@ 11@ 12@ 13@ 14@ 15@ 16@
+else
+  0A4F: flight_recorder_tick 0 0 0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0 0 0 0 0 0
+end
+goto @RECORDER_LOOP

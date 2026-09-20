@@ -1,0 +1,405 @@
+{
+  "note": "A/A REPRODUCIBILITY probe, not a performance comparison (2026-08-08). Two headless ?bench=all sweeps of the SAME canonical pak with NO content or code change between them, taken to test whether the bench is a measuring instrument at all. It is not: avgTriangles swings up to 10.19 % between identical runs, and a third point (the 2026-08-08-ingame-minor8-repack row set, same pak) shows the outlier landing on a DIFFERENT scene each time - lv-night in runA, sf-fog-dawn in the baseline, ocean-horizon in runA again. lateCreates is 0 on every row including the ones 10 % apart, because it counts creates inside the fog cut while an undrained ring's cells arrive beyond it. vehicles.live and the residency breakdown are IDENTICAL scene for scene across runs, which rules out vehicle population and cell residency as the cause; what differs is what is submitted per frame after a settle that exits on a stale signal. Cause and full forensics: docs/open-issues/bench-scene-transition-collision.md. Machine: Apple-silicon Mac (darwin 25.5.0), headless bench-harness at DPR=2, ?loader=http-dir over serve-static, vite on 5174. PAK: build/original/opensa/pak, manifest buildTime '13:19 08-08-2026', verified against the manifest on disk. runB additionally carried a temporary world-state probe (three console lines per scene) which does not touch the measured window. DO NOT use these rows as a performance baseline - they are evidence about the instrument.",
+  "runs": {
+    "runA": [
+      {
+        "avgDrawCalls": 1094,
+        "avgMs": 8.359,
+        "avgTriangles": 2312495,
+        "fps": 119.6,
+        "frames": 1796,
+        "gpuMs": {
+          "pass": 2.654,
+          "post": 0.844,
+          "probe": 0.938,
+          "submit": 0.337
+        },
+        "key": "ls-noon",
+        "lateCreates": 0,
+        "p95Ms": 9.3,
+        "residency": "cellIndex 41 · cellVertex 165 · target 345 · texture 987 · uniform 0",
+        "vehicles": {
+          "live": 24,
+          "maxMs": 6.8,
+          "meanMs": 0.283
+        }
+      },
+      {
+        "avgDrawCalls": 966,
+        "avgMs": 8.335,
+        "avgTriangles": 1559707,
+        "fps": 120,
+        "frames": 1801,
+        "gpuMs": {
+          "pass": 2.252,
+          "post": 0.834,
+          "probe": 1.233,
+          "submit": 0.417
+        },
+        "key": "sf-fog-dawn",
+        "lateCreates": 0,
+        "p95Ms": 9.2,
+        "residency": "cellIndex 32 · cellVertex 150 · target 345 · texture 1079 · uniform 1",
+        "vehicles": {
+          "live": 22,
+          "maxMs": 1.7,
+          "meanMs": 0.267
+        }
+      },
+      {
+        "avgDrawCalls": 2249,
+        "avgMs": 8.333,
+        "avgTriangles": 2058803,
+        "fps": 120,
+        "frames": 1802,
+        "gpuMs": {
+          "pass": 3.603,
+          "post": 0.937,
+          "probe": 0.808,
+          "submit": 0.643
+        },
+        "key": "lv-night",
+        "lateCreates": 0,
+        "p95Ms": 9.2,
+        "residency": "cellIndex 30 · cellVertex 193 · target 345 · texture 1167 · uniform 1",
+        "vehicles": {
+          "live": 43,
+          "maxMs": 0.7,
+          "meanMs": 0.38
+        }
+      },
+      {
+        "avgDrawCalls": 876,
+        "avgMs": 8.333,
+        "avgTriangles": 1227340,
+        "fps": 120,
+        "frames": 1801,
+        "gpuMs": {
+          "pass": 3.859,
+          "post": 0.84,
+          "probe": 0.966,
+          "submit": 0.395
+        },
+        "key": "country-dusk",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 23 · cellVertex 168 · target 345 · texture 1082 · uniform 1",
+        "vehicles": {
+          "live": 4,
+          "maxMs": 0.3,
+          "meanMs": 0.08
+        }
+      },
+      {
+        "avgDrawCalls": 68,
+        "avgMs": 8.333,
+        "avgTriangles": 819723,
+        "fps": 120,
+        "frames": 1802,
+        "gpuMs": {
+          "pass": 2.845,
+          "post": 0.863,
+          "probe": 0.227,
+          "submit": 0.296
+        },
+        "key": "ocean-horizon",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 8 · cellVertex 116 · target 345 · texture 903 · uniform 1",
+        "vehicles": {
+          "live": 0,
+          "maxMs": 0.2,
+          "meanMs": 0.007
+        }
+      },
+      {
+        "avgDrawCalls": 846,
+        "avgMs": 8.331,
+        "avgTriangles": 1759282,
+        "fps": 120,
+        "frames": 1802,
+        "gpuMs": {
+          "pass": 2.467,
+          "post": 0.878,
+          "probe": 1.028,
+          "submit": 0.422
+        },
+        "key": "ls-rain-night",
+        "lateCreates": 0,
+        "p95Ms": 9,
+        "residency": "cellIndex 41 · cellVertex 228 · target 345 · texture 1056 · uniform 1",
+        "vehicles": {
+          "live": 24,
+          "maxMs": 0.6,
+          "meanMs": 0.314
+        }
+      },
+      {
+        "avgDrawCalls": 1268,
+        "avgMs": 8.333,
+        "avgTriangles": 1575599,
+        "fps": 120,
+        "frames": 1801,
+        "gpuMs": {
+          "pass": 3.081,
+          "post": 0.862,
+          "probe": 1.085,
+          "submit": 0.386
+        },
+        "key": "ganton-noon",
+        "lateCreates": 0,
+        "p95Ms": 9.2,
+        "residency": "cellIndex 35 · cellVertex 218 · target 345 · texture 1070 · uniform 2",
+        "vehicles": {
+          "live": 33,
+          "maxMs": 0.7,
+          "meanMs": 0.368
+        }
+      },
+      {
+        "avgDrawCalls": 1100,
+        "avgMs": 8.333,
+        "avgTriangles": 2009328,
+        "fps": 120,
+        "frames": 1802,
+        "gpuMs": {
+          "pass": 2.966,
+          "post": 0.984,
+          "probe": 0.371,
+          "submit": 0.216
+        },
+        "key": "strip-noon",
+        "lateCreates": 0,
+        "p95Ms": 9.2,
+        "residency": "cellIndex 29 · cellVertex 219 · target 345 · texture 1198 · uniform 2",
+        "vehicles": {
+          "live": 26,
+          "maxMs": 0.5,
+          "meanMs": 0.155
+        }
+      },
+      {
+        "avgDrawCalls": 613,
+        "avgMs": 8.333,
+        "avgTriangles": 1467771,
+        "fps": 120,
+        "frames": 1801,
+        "gpuMs": {
+          "pass": 3.039,
+          "post": 0.881,
+          "probe": 0.231,
+          "submit": 0.294
+        },
+        "key": "ganton-night",
+        "lateCreates": 0,
+        "p95Ms": 9.2,
+        "residency": "cellIndex 34 · cellVertex 221 · target 345 · texture 1080 · uniform 2",
+        "vehicles": {
+          "live": 33,
+          "maxMs": 0.6,
+          "meanMs": 0.03
+        }
+      }
+    ],
+    "runB": [
+      {
+        "avgDrawCalls": 1094,
+        "avgMs": 8.329,
+        "avgTriangles": 2312386,
+        "fps": 120.1,
+        "frames": 1803,
+        "gpuMs": {
+          "pass": 2.709,
+          "post": 0.833,
+          "probe": 0.892,
+          "submit": 0.319
+        },
+        "key": "ls-noon",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 41 · cellVertex 165 · target 345 · texture 1001 · uniform 0",
+        "vehicles": {
+          "live": 24,
+          "maxMs": 0.5,
+          "meanMs": 0.293
+        }
+      },
+      {
+        "avgDrawCalls": 971,
+        "avgMs": 8.331,
+        "avgTriangles": 1558647,
+        "fps": 120,
+        "frames": 1802,
+        "gpuMs": {
+          "pass": 2.276,
+          "post": 0.799,
+          "probe": 1.188,
+          "submit": 0.417
+        },
+        "key": "sf-fog-dawn",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 32 · cellVertex 150 · target 345 · texture 1077 · uniform 1",
+        "vehicles": {
+          "live": 22,
+          "maxMs": 2.1,
+          "meanMs": 0.276
+        }
+      },
+      {
+        "avgDrawCalls": 2155,
+        "avgMs": 8.34,
+        "avgTriangles": 1872382,
+        "fps": 119.9,
+        "frames": 1800,
+        "gpuMs": {
+          "pass": 3.402,
+          "post": 0.916,
+          "probe": 0.814,
+          "submit": 0.657
+        },
+        "key": "lv-night",
+        "lateCreates": 0,
+        "p95Ms": 9.2,
+        "residency": "cellIndex 30 · cellVertex 193 · target 345 · texture 1167 · uniform 1",
+        "vehicles": {
+          "live": 43,
+          "maxMs": 0.8,
+          "meanMs": 0.407
+        }
+      },
+      {
+        "avgDrawCalls": 850,
+        "avgMs": 8.342,
+        "avgTriangles": 1199667,
+        "fps": 119.9,
+        "frames": 1800,
+        "gpuMs": {
+          "pass": 3.854,
+          "post": 0.848,
+          "probe": 0.988,
+          "submit": 0.526
+        },
+        "key": "country-dusk",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 23 · cellVertex 168 · target 345 · texture 1082 · uniform 1",
+        "vehicles": {
+          "live": 4,
+          "maxMs": 1,
+          "meanMs": 0.086
+        }
+      },
+      {
+        "avgDrawCalls": 85,
+        "avgMs": 8.333,
+        "avgTriangles": 846539,
+        "fps": 120,
+        "frames": 1802,
+        "gpuMs": {
+          "pass": 2.737,
+          "post": 0.824,
+          "probe": 0.218,
+          "submit": 0.329
+        },
+        "key": "ocean-horizon",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 8 · cellVertex 116 · target 345 · texture 910 · uniform 1",
+        "vehicles": {
+          "live": 0,
+          "maxMs": 0.1,
+          "meanMs": 0.008
+        }
+      },
+      {
+        "avgDrawCalls": 840,
+        "avgMs": 8.335,
+        "avgTriangles": 1747582,
+        "fps": 120,
+        "frames": 1802,
+        "gpuMs": {
+          "pass": 2.485,
+          "post": 0.966,
+          "probe": 1.099,
+          "submit": 0.5
+        },
+        "key": "ls-rain-night",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 41 · cellVertex 228 · target 345 · texture 1056 · uniform 1",
+        "vehicles": {
+          "live": 24,
+          "maxMs": 0.6,
+          "meanMs": 0.289
+        }
+      },
+      {
+        "avgDrawCalls": 1268,
+        "avgMs": 8.334,
+        "avgTriangles": 1575309,
+        "fps": 120,
+        "frames": 1801,
+        "gpuMs": {
+          "pass": 3.208,
+          "post": 1.067,
+          "probe": 1.222,
+          "submit": 0.461
+        },
+        "key": "ganton-noon",
+        "lateCreates": 0,
+        "p95Ms": 9.3,
+        "residency": "cellIndex 35 · cellVertex 218 · target 345 · texture 1070 · uniform 2",
+        "vehicles": {
+          "live": 33,
+          "maxMs": 0.6,
+          "meanMs": 0.38
+        }
+      },
+      {
+        "avgDrawCalls": 1103,
+        "avgMs": 8.335,
+        "avgTriangles": 1983133,
+        "fps": 120,
+        "frames": 1801,
+        "gpuMs": {
+          "pass": 2.594,
+          "post": 0.934,
+          "probe": 0.45,
+          "submit": 0.287
+        },
+        "key": "strip-noon",
+        "lateCreates": 0,
+        "p95Ms": 9.3,
+        "residency": "cellIndex 29 · cellVertex 219 · target 345 · texture 1198 · uniform 2",
+        "vehicles": {
+          "live": 26,
+          "maxMs": 0.7,
+          "meanMs": 0.188
+        }
+      },
+      {
+        "avgDrawCalls": 613,
+        "avgMs": 8.332,
+        "avgTriangles": 1467564,
+        "fps": 120,
+        "frames": 1802,
+        "gpuMs": {
+          "pass": 3.017,
+          "post": 0.962,
+          "probe": 0.198,
+          "submit": 0.302
+        },
+        "key": "ganton-night",
+        "lateCreates": 0,
+        "p95Ms": 9.3,
+        "residency": "cellIndex 34 · cellVertex 221 · target 345 · texture 1080 · uniform 2",
+        "vehicles": {
+          "live": 0,
+          "maxMs": 0.1,
+          "meanMs": 0.003
+        }
+      }
+    ]
+  }
+}

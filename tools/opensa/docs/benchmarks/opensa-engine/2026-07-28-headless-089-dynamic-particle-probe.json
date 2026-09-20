@@ -1,0 +1,30 @@
+{
+  "commit": "093aed7 + plan 089/01 (dynamic one-shot particle lane, uncommitted at capture time)",
+  "host": "headless Chromium / M3 Pro, viewport 1440x900 DPR=1 (gate-check.js, NOT display-comparable to the user's retina rows)",
+  "note": "HUD-READ numbers from three gate-check.js boot screenshots taken by Claude on 2026-07-28 — NOT a ?bench sweep; single Grove Street boot scene at night (22:12), player idle. Purpose: price plan 089/01's dynamic particle lane at its probe worst case. The probe (?fxprobe=prt_collisionsmoke) bursts 1 particle per fixed step (60/s, life 5 s => ~300 live), which at the player's feet fills roughly a third of the 1440x900 viewport with overlapping 2-8 m billboards — worst-case FILL, far denser than any single gameplay effect will be. CPU side is invisible at this scale: pool spawn+prune is array writes, the per-frame upload is one partial writeBuffer of ~10.8 KB (300 x 36 B) on the blend half only. The GPU delta is overdraw-bound: it scales with screen coverage of the plume, not with the particle count.",
+  "pak": "build/original/opensa/pak (087-ring rebuild, buildTime 08:41 24-07-2026 — same pak as the 07-24..07-28 rows)",
+  "runs": [
+    {
+      "avgDrawCalls": 730,
+      "avgMs": 8.34,
+      "fps": 120,
+      "gpuMs": { "submit": 2.77 },
+      "label": "baseline — lane installed, zero live particles (first shot: probe present but system not yet baked)",
+      "residency": "cellIndex 30 · cellVertex 130 · target 88 · texture 1015 · uniform 1"
+    },
+    {
+      "avgDrawCalls": 731,
+      "avgMs": 8.34,
+      "fps": 120,
+      "gpuMs": { "submit": 4.35 },
+      "label": "~300 live one-shot particles, plume partially above the camera frame (mid screen coverage)"
+    },
+    {
+      "avgDrawCalls": 731,
+      "avgMs": 8.33,
+      "fps": 120,
+      "gpuMs": { "submit": 5.1 },
+      "label": "~300 live one-shot particles, full plume beside the player (~1/3 viewport coverage) — worst-case fill: +2.3 ms GPU over baseline, frame still at the 120 Hz cap"
+    }
+  ]
+}

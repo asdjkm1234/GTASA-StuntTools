@@ -1,0 +1,332 @@
+{
+ "note": "201/3-05's AFTER row: the first capture taken through the split collector, on the phone, through the panel's MCP channel with nobody relaying a number. Same link (`field`), same district, same pak and same device as the 2026-08-31 before-row.\n\nREAD THE SHAPE FIRST, because it is NOT the before-row's. The camera never moved: `map_goto` was accepted and answered `flyingTo`, but the pose in this report is still the opening one (1480,-1720 at 900 m) and only 47 of 527 drawn frames are paced - a flown window would have produced hundreds. The tab was being throttled by Android through this run (two commands went unanswered before it, the attach lapsed twice, and `map_open` had to raise the console a second time). So this is a STILL-MAP window against the before-row's flown one, and the two device numbers are not comparable with each other. That is fine for what this row is for: the before/after here is the COLLECTOR, and both sides of it are computed from this one capture's own data.\n\nTHE BEFORE/AFTER, on one window, arithmetic rather than assertion. The old collector kept every dt in one population, so its numbers for THIS capture would have been: dtMean over all 527 samples = (49797 rest + 47 x 33.76 paced) / 527 = 97.5 ms; p50 over all 527 lands at index 263, and since only 46 samples fall below 100 ms the median is a rest interval at ~103 ms; so `fps` = round(1000/103) = **10**. What it reports now, over the 47 intervals that are frame times: **p50 28 ms, fps 36**, p95 76, max 104.7. The same window, off by 3.6x, and the old number was the render gate's idle poll wearing a frame rate's name.\n\nAND THE REST POPULATION IS NAMED RATHER THAN DERIVED. `rest` says 480 frames, mean **103.74 ms**, total 49 797 ms - which is 82 % of the 60.7 s window, and 103.74 is IDLE_WAKE_MS plus the loop prologue, measured directly for the first time. Every row from 2026-08-22 to 08-31 picked this out of the histogram by hand in its own prose; nothing has to now.\n\nSTILL WRONG, FOUND BY THIS RUN, one layer further down: **the CPU block is diluted the same way the dt block was.** `cpu.bodyMs` is paired one frame late on purpose (the body that ran inside the interval being reported is the previous pass's) - but when the previous pass was SKIPPED, that body is the skipped pass's ~0.2 ms, not a frame's. So `bodyMeanMs` 1.48 ms is 480 skip bodies averaged in with 47 real ones. The true paced body is recoverable from `shareOfFrame` x `dtMeanMs` = 0.410 x 33.76 = **13.84 ms**, a 9.3x dilution, and `segmentsMs` is divided by 527 instead of 47 so every segment is ~11x low (`overlay-2d` reads 0.70 ms against a real ~7.9). `shareOfFrame` and `outsideMeanMs` are already correct because they were restricted to the paced population - which incidentally fixed their pairing too, since a paced frame's previous pass drew. The old collector would have reported shareOfFrame = 1.483 / 97.5 = **1.5 %** here; it reads 41 %. Do not quote `bodyMeanMs` or `segmentsMs` from this row.\n\nThe on-screen counter agrees in shape with the capture, which is the point of giving both one owner: `frameMs` 23.6 ms and `cpuMs` 12.5 ms against the capture's p50 28 and recovered paced body 13.84.\n\nApp `fd0c8ae+` - built from the working tree that became a78a0f8, so the '+' is the proof this ran the split collector. Device MGA-LX3 / ARM Bifrost, 360x320 CSS at DPR 2 (the sheet was open, so the map had 320 px of height), no timestamp-query so GPU time is not measurable. Pak: original, district los-santos-centre, textures astc, built 19:23 28-08-2026.",
+ "app": "fd0c8ae+",
+ "build": "19:23 28-08-2026",
+ "district": "los-santos-centre",
+ "windowMs": 60705.29999999702,
+ "frames": 527,
+ "framesSkipped": 481,
+ "asTheOldCollectorWouldHaveReported": {
+  "how": "One population, as before 201/3-05: every sampled dt in one array. Computed from this capture's own rest and frame blocks.",
+  "dtMeanMsAll": 97.5,
+  "dtP50MsAll": 103,
+  "fps": 10,
+  "shareOfFrame": 0.015,
+  "why": "480 of 527 samples are the render gate's ~103 ms idle wake, so the median IS one."
+ },
+ "frame": {
+  "dtHistogramMs": [
+   [
+    16,
+    1
+   ],
+   [
+    18,
+    3
+   ],
+   [
+    20,
+    3
+   ],
+   [
+    22,
+    7
+   ],
+   [
+    24,
+    5
+   ],
+   [
+    26,
+    4
+   ],
+   [
+    28,
+    4
+   ],
+   [
+    30,
+    1
+   ],
+   [
+    32,
+    3
+   ],
+   [
+    34,
+    5
+   ],
+   [
+    36,
+    2
+   ],
+   [
+    40,
+    1
+   ],
+   [
+    46,
+    2
+   ],
+   [
+    48,
+    1
+   ],
+   [
+    50,
+    1
+   ],
+   [
+    64,
+    1
+   ],
+   [
+    76,
+    1
+   ],
+   [
+    82,
+    1
+   ],
+   [
+    100,
+    1
+   ]
+  ],
+  "dtMaxMs": 104.69999998807907,
+  "dtMeanMs": 33.75957446688033,
+  "dtP50Ms": 28,
+  "dtP95Ms": 76,
+  "fps": 36
+ },
+ "rest": {
+  "frames": 480,
+  "maxMs": 176.6000000089407,
+  "meanMs": 103.7437500002173,
+  "totalMs": 49797.00000010431
+ },
+ "restShareOfWindow": 0.82,
+ "cpu": {
+  "bodyMaxMs": 60.3999999910593,
+  "bodyMeanMs": 1.4833017074179604,
+  "outsideMeanMs": 19.92127659473013,
+  "segmentsMs": [
+   [
+    "overlay-2d",
+    0.7007590131357001
+   ],
+   [
+    "other",
+    0.28140417425637
+   ],
+   [
+    "engine-frame",
+    0.18330170768374962
+   ],
+   [
+    "board",
+    0.14212523711813468
+   ],
+   [
+    "stream",
+    0.08785578766855388
+   ],
+   [
+    "overlay:symbols",
+    0.08462998101335775
+   ],
+   [
+    "readout",
+    0.002656546557424643
+   ],
+   [
+    "overlay:clear",
+    0.00037950667529676176
+   ],
+   [
+    "overlay:sketches",
+    0.00018975330937293268
+   ]
+  ],
+  "shareOfFrame": 0.40990735489649593,
+  "DILUTED": "bodyMeanMs and segmentsMs average 480 SKIPPED-pass bodies in with 47 real ones \u2014 see the note. Paced body recovered as shareOfFrame x dtMeanMs = 13.84 ms.",
+  "worstFrame": {
+   "atMs": 82.59999999403954,
+   "bodyMs": 60.3999999910593,
+   "canvasPixels": 460800,
+   "cellsCreated": 0,
+   "cellsEvicted": 0,
+   "cellsVisible": 0,
+   "draws": 12,
+   "dtMs": 104.69999998807907,
+   "pending": 4,
+   "segmentsMs": [
+    [
+     "overlay:symbols",
+     31.900000005960464
+    ],
+    [
+     "engine-frame",
+     20.5
+    ],
+    [
+     "board",
+     3.8999999910593033
+    ],
+    [
+     "stream",
+     1.7999999970197678
+    ],
+    [
+     "overlay-2d",
+     0.5999999940395355
+    ],
+    [
+     "readout",
+     0.20000000298023224
+    ],
+    [
+     "overlay:clear",
+     0.10000000894069672
+    ],
+    [
+     "overlay:sketches",
+     0.09999999403953552
+    ]
+   ]
+  }
+ },
+ "onScreenCounter": {
+  "cpuMs": 12.5,
+  "fps": 9,
+  "frameMs": 23.6,
+  "idle": true,
+  "note": "at the moment of the snapshot, on a still map"
+ },
+ "world": {
+  "byCategoryMb": [
+   [
+    "target",
+    32.348971366882324
+   ],
+   [
+    "texture",
+    25.81055450439453
+   ],
+   [
+    "cellVertex",
+    10.318000793457031
+   ],
+   [
+    "cellIndex",
+    2.524280548095703
+   ],
+   [
+    "uniform",
+    0.00439453125
+   ]
+  ],
+  "cellsTotal": 4,
+  "cellsVisible": 4,
+  "draws": 112,
+  "pickingMb": 1.4248619079589844,
+  "residencyMb": 71.00620174407959,
+  "triangles": 277970
+ },
+ "streaming": {
+  "blobMeanMs": 0.02428842507005869,
+  "cellsCreated": 4,
+  "cellsEvicted": 0,
+  "lateCreates": 0,
+  "uploadMeanMs": 0.154079696400342,
+  "worstBlobMs": 5.899999991059303,
+  "worstCreateMs": 9.300000011920929
+ },
+ "symbology": {
+  "beaconCapacity": 150,
+  "beaconGrowths": 0,
+  "chips": 42,
+  "chipsDropped": 127,
+  "incidents": 19,
+  "measures": 0,
+  "modelTextureMb": 0,
+  "modelTypes": 0,
+  "stale": 0,
+  "symbols": 169,
+  "units": 150,
+  "unitsAsModels": 0,
+  "unitsAsSymbolOnly": 150,
+  "unitsUnresolvedModels": 3
+ },
+ "tracks": {
+  "bytes": 18370176,
+  "capacity": 7200,
+  "incidentEvents": 159,
+  "samples": 2102,
+  "tracks": 150,
+  "window": [
+   274,
+   61567
+  ]
+ },
+ "boot": {
+  "gpuMs": 469.3999999910593,
+  "openMs": 426.79999999701977,
+  "overlapMs": 425,
+  "phases": [
+   [
+    "init:pipelines",
+    294.90000000596046
+   ],
+   [
+    "init:device",
+    134.5
+   ],
+   [
+    "init:sky-lut",
+    15.799999997019768
+   ],
+   [
+    "init:resources",
+    14.700000002980232
+   ],
+   [
+    "init:targets",
+    8.399999991059303
+   ],
+   [
+    "init:canvas",
+    0.7999999970197678
+   ]
+  ]
+ },
+ "device": {
+  "adapter": "arm bifrost",
+  "css": "360x320",
+  "dpr": 2,
+  "featureLevel": "core",
+  "missing": [
+   "texture-compression-bc",
+   "timestamp-query"
+  ]
+ },
+ "surface": {
+  "cssHeight": 320,
+  "cssWidth": 360,
+  "deviceHeight": 640,
+  "deviceWidth": 720,
+  "dpr": 2,
+  "renderScale": 1
+ },
+ "unavailable": [
+  "gpuPassMs, gpuPostMs, gpuProbeMs \u2014 this adapter has no timestamp-query, so GPU time is not measurable at all"
+ ],
+ "errors": [
+  "warn: [units] 'copcarls' is drawn as a symbol: this build carries no model of that name",
+  "warn: [units] 'ambulan' is drawn as a symbol: this build carries no model of that name",
+  "warn: [units] 'firetruk' is drawn as a symbol: this build carries no model of that name"
+ ],
+ "warnings": [
+  "only 47 frames sampled \u2014 let it settle to at least 300 before citing it"
+ ]
+}

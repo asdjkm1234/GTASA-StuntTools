@@ -1,0 +1,24 @@
+{
+  "date": "2026-07-12T13:02:57.478Z",
+  "draws": { "avg": 224.57472222222222, "max": 582 },
+  "env": {
+    "adapter": "apple metal-3",
+    "dpr": 2,
+    "height": 1846,
+    "search": "?pak=1&stream=1&src=pak-ls&bench=city",
+    "width": 3456
+  },
+  "frameMs": {
+    "avg": 8.339027777777778,
+    "max": 21.899999976158142,
+    "p50": 8.300000011920929,
+    "p95": 9.300000011920929
+  },
+  "gpuPassMs": { "avg": 2.673213440000062, "max": 9.371648, "p95": 4.521984 },
+  "heapMb": 21,
+  "measuredFrames": 3600,
+  "residencyMb": 409,
+  "scene": "city",
+  "submitMs": { "avg": 0.164999998923805, "max": 7.100000023841858, "p95": 0.30000001192092896 },
+  "converter": { "aoMs": 417766, "cells": 345, "pakMb": 1151, "sunVisMs": 342224, "timedObjects": 66 }
+}

@@ -1,0 +1,41 @@
+{
+  "date": "2026-07-12T14:55:28.637Z",
+  "draws": {
+    "avg": 84.93833333333333,
+    "max": 481
+  },
+  "env": {
+    "adapter": "apple metal-3",
+    "dpr": 2,
+    "height": 1846,
+    "search": "?pak=1&stream=1&src=pak-ls&bench=teleport",
+    "width": 3456
+  },
+  "frameMs": {
+    "avg": 8.333555555575424,
+    "max": 13.800000011920929,
+    "p50": 8.300000011920929,
+    "p95": 9.400000035762787
+  },
+  "gpuPassMs": {
+    "avg": 1.325065102222229,
+    "max": 6.5536,
+    "p95": 3.735552
+  },
+  "heapMb": 257,
+  "measuredFrames": 1800,
+  "residencyMb": 407,
+  "scene": "teleport",
+  "submitMs": {
+    "avg": 0.19822222275866402,
+    "max": 0.6000000238418579,
+    "p95": 0.3999999761581421
+  },
+  "converter": {
+    "aoMs": 419220,
+    "cells": 345,
+    "pakMb": 500,
+    "sunVisMs": 338905,
+    "timedObjects": 66
+  }
+}

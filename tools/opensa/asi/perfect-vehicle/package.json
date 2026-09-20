@@ -1,0 +1,18 @@
+{
+  "name": "@opensa/perfect-vehicle-asi",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Our own vehicle-side limit adjuster .asi for real GTA:SA 1.0 US: lifts carmods.dat's two fixed-size arrays (30 link pairs game-wide, 18 upgrade slots per car). Cross-compiled macOS→Win32 (MinGW-w64).",
+  "scripts": {
+    "build:asi": "npm run gen && make clean && make APPLY=1",
+    "build:verify": "npm run gen && make clean && make",
+    "build:debug": "npm run gen && make clean && make APPLY=1 DEBUG=1",
+    "clean": "make clean",
+    "gen": "tsx gen/generate.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

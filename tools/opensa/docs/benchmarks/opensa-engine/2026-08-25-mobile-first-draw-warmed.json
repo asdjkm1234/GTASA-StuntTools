@@ -1,0 +1,469 @@
+{
+ "build": "20:18 12-08-2026",
+ "bytes": {
+  "byKind": [
+   {
+    "bytes": 16622584,
+    "kind": "cell-hd",
+    "requests": 25
+   },
+   {
+    "bytes": 16587735,
+    "kind": "texture-array",
+    "requests": 46
+   },
+   {
+    "bytes": 2658756,
+    "kind": "water.bin",
+    "requests": 1
+   },
+   {
+    "bytes": 1554571,
+    "kind": "cell-lod",
+    "requests": 21
+   }
+  ],
+  "requests": 93,
+  "totalBytes": 37423646
+ },
+ "camera": {
+  "at": [
+   1597.354128876178,
+   -1724.7872198635368
+  ],
+  "height": 267.1768784060938,
+  "projection": "ortho"
+ },
+ "cpu": {
+  "bodyMaxMs": 123,
+  "bodyMeanMs": 3.1519729430874412,
+  "outsideMeanMs": 42.66786922173409,
+  "segmentsMs": [
+   [
+    "overlay-2d",
+    1.0892897402823576
+   ],
+   [
+    "engine-frame",
+    0.9832018036584306
+   ],
+   [
+    "other",
+    0.5744081179883325
+   ],
+   [
+    "stream",
+    0.30868094695864295
+   ],
+   [
+    "board",
+    0.16809470163660362
+   ],
+   [
+    "overlay:symbols",
+    0.02288613304613408
+   ],
+   [
+    "readout",
+    0.00450958296438215
+   ],
+   [
+    "overlay:sketches",
+    0.0007891769876877915
+   ],
+   [
+    "overlay:clear",
+    0.00011273956486982585
+   ]
+  ],
+  "shareOfFrame": 0.06879056745218097,
+  "worstFrame": {
+   "atMs": 59.10000002384186,
+   "bodyMs": 123,
+   "canvasPixels": 639360,
+   "cellsCreated": 0,
+   "cellsEvicted": 0,
+   "cellsVisible": 0,
+   "draws": 12,
+   "dtMs": 140.10000002384186,
+   "pending": 4,
+   "segmentsMs": [
+    [
+     "engine-frame",
+     77.90000000596046
+    ],
+    [
+     "overlay:symbols",
+     20.30000001192093
+    ],
+    [
+     "stream",
+     2.5
+    ],
+    [
+     "board",
+     1.5
+    ],
+    [
+     "overlay-2d",
+     1.0999999940395355
+    ],
+    [
+     "overlay:sketches",
+     0.699999988079071
+    ],
+    [
+     "readout",
+     0.19999998807907104
+    ],
+    [
+     "overlay:clear",
+     0.09999999403953552
+    ]
+   ]
+  }
+ },
+ "device": {
+  "adapter": "arm bifrost",
+  "css": "360x377",
+  "dpr": 2,
+  "featureLevel": "core",
+  "features": [
+   "core-features-and-limits",
+   "float32-filterable",
+   "indirect-first-instance",
+   "primitive-index",
+   "rg11b10ufloat-renderable",
+   "shader-f16",
+   "texture-component-swizzle",
+   "texture-compression-astc",
+   "texture-compression-astc-sliced-3d",
+   "texture-compression-etc2",
+   "texture-formats-tier1",
+   "texture-formats-tier2"
+  ],
+  "missing": [
+   "texture-compression-bc",
+   "timestamp-query"
+  ]
+ },
+ "district": "los-santos-centre",
+ "errors": [],
+ "frame": {
+  "dtHistogramMs": [
+   [
+    0,
+    1
+   ],
+   [
+    2,
+    1
+   ],
+   [
+    4,
+    22
+   ],
+   [
+    6,
+    25
+   ],
+   [
+    8,
+    33
+   ],
+   [
+    10,
+    39
+   ],
+   [
+    12,
+    47
+   ],
+   [
+    14,
+    30
+   ],
+   [
+    16,
+    45
+   ],
+   [
+    18,
+    30
+   ],
+   [
+    20,
+    21
+   ],
+   [
+    22,
+    18
+   ],
+   [
+    24,
+    25
+   ],
+   [
+    26,
+    17
+   ],
+   [
+    28,
+    26
+   ],
+   [
+    30,
+    31
+   ],
+   [
+    32,
+    60
+   ],
+   [
+    34,
+    32
+   ],
+   [
+    36,
+    13
+   ],
+   [
+    38,
+    12
+   ],
+   [
+    40,
+    5
+   ],
+   [
+    42,
+    3
+   ],
+   [
+    44,
+    10
+   ],
+   [
+    46,
+    5
+   ],
+   [
+    48,
+    7
+   ],
+   [
+    50,
+    12
+   ],
+   [
+    52,
+    7
+   ],
+   [
+    54,
+    9
+   ],
+   [
+    56,
+    6
+   ],
+   [
+    58,
+    7
+   ],
+   [
+    60,
+    5
+   ],
+   [
+    62,
+    6
+   ],
+   [
+    64,
+    5
+   ],
+   [
+    66,
+    8
+   ],
+   [
+    68,
+    6
+   ],
+   [
+    70,
+    12
+   ],
+   [
+    72,
+    8
+   ],
+   [
+    74,
+    9
+   ],
+   [
+    76,
+    4
+   ],
+   [
+    78,
+    3
+   ],
+   [
+    80,
+    4
+   ],
+   [
+    82,
+    7
+   ],
+   [
+    84,
+    5
+   ],
+   [
+    86,
+    4
+   ],
+   [
+    88,
+    7
+   ],
+   [
+    90,
+    9
+   ],
+   [
+    92,
+    22
+   ],
+   [
+    94,
+    39
+   ],
+   [
+    96,
+    32
+   ],
+   [
+    98,
+    28
+   ],
+   [
+    100,
+    65
+   ]
+  ],
+  "dtMaxMs": 140.10000002384186,
+  "dtMeanMs": 45.81984216482153,
+  "dtP50Ms": 33.19999998807907,
+  "dtP95Ms": 100.59999999403954,
+  "fps": 30
+ },
+ "frames": 887,
+ "framesSkipped": 638,
+ "note": "The after-row for the overlay warm, on the same device and the same ASTC pak (`20:18 12-08-2026`, `build/phone`). App rebuilt with `warmOverlaySurface` + the drawing `warmTextMetrics` + the resize guard (616f1f2).\n\n**`overlay:clear` on the first frame: 212.1 ms → 0.1 ms.** The window mean moves with it, 0.566 → 0.000113 ms, which is the same statement said twice: the cost was one allocation and it now happens at boot, overlapped with the wait for the pak, instead of on the first drawn frame. Worst frame overall **333.1 → 123.0 ms**, and `dtMax` **390.5 → 140.1**.\n\n| first-frame segment | before (08-25 split) | after | |\n| --- | ---: | ---: | --- |\n| `overlay:clear` | 212.1 ms | **0.1 ms** | the allocation, warmed at boot |\n| `engine-frame` | 77.9 ms | 77.9 ms | unchanged, and now the largest item |\n| `overlay:symbols` | 22.6 ms | 20.3 ms | **the glyph warm barely moved it** |\n| worst frame | 333.1 ms | **123.0 ms** | |\n\n**Two things this row does NOT claim.** The `fillText('0')` added to `warmTextMetrics` was supposed to warm the glyph atlas and it bought 2.3 ms of 22.6 — so whatever `symbology.render` pays for on its first pass, drawing one digit off-canvas is not it. Left in (it is free and it is not wrong) but not counted as a fix. And **`engine-frame` at 77.9 ms is identical in both captures**, to the tenth: that is a fixed first-frame cost of the engine's own pass, untouched by any of this, and it is what the next round would go after.\n\n**The frame-rate numbers here are NOT a before/after and must not be read as one.** This run is a different workload: `projection: ortho` at height 267 (the operator toggled PLAN and pulled back), 42 cells created against 14, a 46.9 s window against 24.2. `fps 21 → 30`, `dtP50 47.9 → 33.2` and `dtMean 60.5 → 45.8` belong to that, not to a one-shot 212 ms removed from a 47-second window. What IS attributable is the span that was measured directly.\n\nEverything else holds. Resident **76.4 MB**, content **38.6 MB for 4 cells** — the fourth capture running. Streaming quiet at four times the cell churn: 42 creates, 0 evictions, **0 late**, worst blob 4.5 ms, worst create 20.9. Idle-dominated as always (638 of 1 525 frames skipped; the 65-frame spike at 100 ms is the gate). And **`chipsDropped: 0` with 12 chips** — pulled back in plan view the declutter fits every label, against 5 of 10 dropped at street height in the row before, which is 3/03's rule doing exactly what it says.\n\nConditions: MGA-LX3 / ARM Bifrost, 360x377 CSS @ DPR 2, ASTC + ETC2, no BC, no `timestamp-query`. District `los-santos-centre`. Pasted into chat rather than filed through the panel.",
+ "passes": [
+  {
+   "available": true,
+   "maxMs": 10.5,
+   "meanMs": 1.7664036069405522,
+   "name": "submitMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuPassMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuPostMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuProbeMs"
+  }
+ ],
+ "spans": [],
+ "streaming": {
+  "blobMeanMs": 0.02807215316454211,
+  "cellsCreated": 42,
+  "cellsEvicted": 0,
+  "lateCreates": 0,
+  "uploadMeanMs": 0.13122886130344774,
+  "worstBlobMs": 4.5,
+  "worstCreateMs": 20.900000005960464
+ },
+ "surface": {
+  "cssHeight": 377,
+  "cssWidth": 360,
+  "deviceHeight": 754,
+  "deviceWidth": 720,
+  "dpr": 2,
+  "renderScale": 1
+ },
+ "symbology": {
+  "beaconCapacity": 150,
+  "beaconGrowths": 0,
+  "chips": 12,
+  "chipsDropped": 0,
+  "incidents": 3,
+  "measures": 0,
+  "stale": 0,
+  "symbols": 12,
+  "units": 9
+ },
+ "tracks": {
+  "bytes": 1102240,
+  "capacity": 7200,
+  "incidentEvents": 10,
+  "samples": 97,
+  "tracks": 9,
+  "window": [
+   381,
+   46953
+  ]
+ },
+ "unavailable": [
+  "gpuPassMs, gpuPostMs, gpuProbeMs — this adapter has no timestamp-query, so GPU time is not measurable at all"
+ ],
+ "warnings": [],
+ "windowMs": 46884.40000000596,
+ "world": {
+  "byCategoryMb": [
+   [
+    "target",
+    37.779452323913574
+   ],
+   [
+    "texture",
+    25.81055450439453
+   ],
+   [
+    "cellVertex",
+    10.318000793457031
+   ],
+   [
+    "cellIndex",
+    2.524280548095703
+   ],
+   [
+    "uniform",
+    0.00439453125
+   ]
+  ],
+  "cellsTotal": 4,
+  "cellsVisible": 4,
+  "draws": 112,
+  "pickingMb": 1.4248619079589844,
+  "residencyMb": 76.43668270111084,
+  "triangles": 277970
+ }
+}

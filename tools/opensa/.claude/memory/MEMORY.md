@@ -1,0 +1,33 @@
+- [Test fixtures](test-fixtures.md) — fixtures/original = real Rockstar (gitignored, regenerate via `npm run test:fixtures` from game-src/original — MANDATORY before tests); fixtures/custom = committed mods/curated; never read static/
+- [RenderWare DFF/TXD loader](renderware-loader.md) — how GTA SA model/texture loading is structured in src/renderware
+- [Map pipeline](map-pipeline.md) — DAT/IDE/IPL parsers + region builder, now under src/renderware/map
+- [Map render approach](binary-ipl-render-approach.md) — model catalog + InstancedMesh; tolerant asset loading
+- [Engine refactor status](engine-refactor-status.md) — plan 006; game/renderware split; phases 0–5 DONE (R3F gone); CURRENT src layout
+- [COL collision plan](col-collision-plan.md) — plan 007; COL parse/bind; 215 col libs / 8061 models in gta3.img (COL2+COL3, 100% bind)
+- [Player cube placeholder](player-cube-placeholder.md) — HISTORICAL: cube removed, player is now the Tommy DFF skinned mesh (plan 011)
+- [Character physics plan](character-physics-plan.md) — plan 008; first char spawn at CJ home; bitECS + Rapier; Z-up physics
+- [World streaming plan](world-streaming-plan.md) — plan 009; SA sectioned grid + LOD rendering; dual draw distance
+- [Collision streaming plan](collision-streaming-plan.md) — plan 010; stream static COL per grid cell around the player
+- [Time-of-day objects TODO](render-time-of-day-objects-todo.md) — tobj kept in MapDefinitions.timedCatalog, not rendered yet (day/night gating later)
+- [Prelit darkness + model viewer](prelit-darkness-and-model-viewer.md) — "dark" models = data, not parser; standalone DFF viewer at /viewer.html
+- [Standalone viewers](standalone-viewers.md) — dev tools src/standalone: /object-viewer, /vehicle-viewer (parts/doors/damage/collision/LOD), /character-viewer (skeleton/collision/anim)
+- [IPL interior area-code](ipl-interior-area-code.md) — real id = value & 0xFF; exterior = id 0 or {13}; isInterior filter + per-code audit
+- [Character model plan](character-model-plan.md) — plan 011; replace cube with Tommy DFF/TXD; bind-pose + real skeleton (DONE)
+- [Animation manager plan](animation-manager-plan.md) — plan 012; walk/run/jump/idle from ped.ifp (ANP3) driving Tommy's skeleton (DONE)
+- [Player physics plan](player-physics-plan.md) — plan 013; kinematic capsule character controller (collision/inertia/steps/slopes) (DONE)
+- [Simple water plan](simple-water-plan.md) — plan 014; flat textured water surface from water.dat (no shader yet)
+- [Vehicle loading plan](vehicle-loading-plan.md) — plan 015 (DONE); parse vehicle data + static painted/wheeled cars; incl. BinMeshPLG material recovery for modded DFFs; + COL + wheel rig (dummy)
+- [Enter vehicle plan](enter-vehicle-plan.md) — plan 016 (DONE); Enter near a car → CJ aligns/opens door/gets in/sits, exit + camera (driver side)
+- [Vehicle driving plan](vehicle-driving-plan.md) — plan 017; arcade WSAD driving — SUPERSEDED by plan 018 (real physics)
+- [Vehicle physics plan](vehicle-physics-plan.md) — plan 018; real Rapier dynamic car (COL convex-hull collider + gravity + raycast wheels), replaces arcade; iter 1 DONE, iters 2–4 (engine/steer, get-in polish, damage) pending
+- [Diagnostics logging](diagnostics-logging.md) — plan 020; gated log channel (Config.showLogs + Logger + 'log' event); use logger.debug at tricky spots, not console.log
+- [Vehicle LOD plan](vehicle-lod-plan.md) — plan 021 (DONE); \_vlo low-detail + Config.vehicle distance thresholds (HD/vlo/cull/unload) via VehicleLodSystem
+- [In-game debugger](in-game-debugger.md) — plan 023 (DONE); F2 debug overlay (menu: player/vehicles/game/map), debugMode→mapViewer; old Ctrl+X overlay deleted
+- [Fog](fog.md) — plan 024 (DONE); distance fog (FogPlugin, Config.fog.distance default 800, Game.setFogDistance, debugger slider; off in mapViewer)
+- [Vehicle glass](vehicle-glass.md) — plan 025 (DONE); two-pass back/front glass in build-vehicle (SilentPatch/SkyGFX fix); windows no longer vanish at angles
+- [Game time](game-time.md) — plan 026 (DONE); in-game clock (GameClock, Config.time, Game.getTime/setTime, 'time' event, debugger Time tab); foundation for timecyc
+- [HUD layer](hud-layer.md) — plan 027 (DONE); DOM overlay over canvas (src/ui/hud), clock top-right, font/colors from config; hidden in map-viewer + fly; UI/menu layer reserved above
+- [Timecyc](timecyc.md) — plan 028 (DONE); parse/convert(8→24h)/sample timecyc colour-lighting table (renderware/parsers/text); data layer for sky/sun/light
+- [Graphics](graphics.md) — plan 029; timecyc-driven sky/sun/fog (+godrays next); SkyPlugin gradient dome DONE (phase 1)
+- [Vehicle reflections plan](vehicle-reflections-plan.md) — plan 030 (researched, NOT built); SA env-map via DFF MatFX/reflection/specular plugins + vehicleenvmap128; sky-cube probe approach
+- [Locked DFF/TXD recovery](locked-dff-recovery.md) — anti-rip locks: inflated chunk SIZES (recoverLockedList/forEachClumpChild) AND hidden TexDictionary wrapper (recoverLockedTextures byte-scan); cheetah/yosemite/gostown-lodveg SOLVED

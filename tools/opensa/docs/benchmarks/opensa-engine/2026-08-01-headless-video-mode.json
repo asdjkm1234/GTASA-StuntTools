@@ -1,0 +1,83 @@
+{
+  "note": "Plan 096/08 close-out. What VIDEO MODE costs, measured on `build/original/opensa` (pak of 2026-07-31, the vehicle-mods rebake) through tools-debug/bench-harness/drive.js at DPR 1, headless Chrome, seed 47, this machine. NOT a `[bench]` sweep — the runs below carry the `[video]` scene protocol's own fields, so do not compare their numbers against the ingame/drive sweeps in this folder. WHY there is no video-on-vs-off frame comparison: with video off nothing drives, nothing streams and the camera does not move, so the difference between the two would be the scene, not the module. What is measured instead is the module's ENTIRE per-frame footprint directly — the one step the host runs between the car's render pose and the camera snapshot (`setVideoStep`), which contains the director, the shot framing, the autopilot's steering solve and the live occlusion probes. READ BEFORE USING stepMs: `performance.now()` is coarsened to 0.1 ms in headless Chrome, so a single frame's reading is 0 or 0.1 and only the MEAN over thousands of frames is a measurement; treat maxMs as 'one frame was slow', not as a calibrated figure.",
+  "runs": [
+    {
+      "key": "video-drive-4",
+      "what": "seed 47 scenes 1-4, all drives (LA, VEGAS, SF, COUNTRYSIDE) — the drive scene is the expensive kind: director + framing + autopilot + tripod probes every frame.",
+      "scenes": 4,
+      "kinds": { "drive": 4 },
+      "directedFrames": 18016,
+      "safeFrame": 0.9881,
+      "camJumpLines": 0,
+      "cuts": 16,
+      "panClipped": 0.0224,
+      "sceneEnds": { "shots-done": 4 },
+      "stepMs": { "frames": 22817, "meanMs": 0.0172, "p95Worst": 0.1, "maxMs": 3.8 },
+      "settleMs": { "min": 247, "max": 251 }
+    },
+    {
+      "key": "video-soak-40",
+      "what": "seed 47 scenes 1-40 unattended — 32.7 minutes of scene time, the 096/08 soak. All three kinds, so the mean stepMs is LOWER than the drive-only run above: a fly scene has no director, no subject and no autopilot.",
+      "scenes": 40,
+      "kinds": { "drive": 25, "fly": 10, "walk": 5 },
+      "directedFrames": 139524,
+      "safeFrame": 0.9898,
+      "camJumpLines": 0,
+      "cuts": 117,
+      "panClipped": 0.0182,
+      "cutCauses": { "empty": 17, "occluded": 3, "opening": 30, "scheduled": 126 },
+      "sceneEnds": { "shots-done": 29, "stuck": 1 },
+      "flights": { "passesFlown": 50, "passesPlanned": 50, "stagingLiftM": 0, "guardHits": 6, "guardProbes": 450 },
+      "stepMs": { "frames": 235348, "meanMs": 0.0096, "p95Worst": 0.1, "maxMs": 2.7 },
+      "sceneSeconds": { "min": 18.64, "max": 55.02, "mean": 49.0, "totalMinutes": 32.7 },
+      "throws": 0,
+      "slowFrameLines": 104,
+      "drift": {
+        "what": "the soak's leak/drift evidence — ten-scene blocks, first to last",
+        "settleMsMean": [249, 249, 250, 250],
+        "stepMeanMs": [0.0117, 0.0091, 0.0096, 0.0084],
+        "safeFrame": [0.9874, 0.9869, 0.9973, 0.9881]
+      },
+      "staging": {
+        "what": "the staging timeline: how long the fps stability gate held the overlay down after each teleport (ms), all 40 scenes in play order",
+        "settleMs": [
+          250, 251, 250, 250, 249, 247, 249, 248, 250, 250, 250, 250, 241, 250, 248, 249, 250, 252, 250, 250, 251, 250,
+          250, 252, 250, 250, 251, 250, 251, 248, 250, 250, 251, 250, 249, 250, 249, 249, 249, 249
+        ]
+      },
+      "variety": {
+        "what": "096/08 task A2 — do two NEIGHBOURING scenes ever share car AND hour AND weather? Measured before deciding whether a reroll is worth adding; it is not. Car repeats count only pairs where BOTH scenes have a car: a fly and a walk have none, and counting two of them in a row as 'the same car' reports a repeat the viewer cannot see.",
+        "pairs": 39,
+        "carCarryingPairs": 20,
+        "sameCar": 2,
+        "sameHour": 11,
+        "sameWeather": 2,
+        "sameAllThree": 0,
+        "distinctCars": 12
+      }
+    },
+    {
+      "key": "video-watchdog-12",
+      "what": "seed 47 scenes 1-12 after the planted watchdog got its own cut cause — the run D4's shot-length table was frozen on. Two earlier attempts at this run are NOT here: one was truncated by a Vite reload (a source file was saved mid-run), one straddled a machine sleep. Both are void, see docs/development/benchmarks.md.",
+      "scenes": 12,
+      "kinds": { "drive": 9, "fly": 2, "walk": 1 },
+      "directedFrames": 44182,
+      "safeFrame": 0.9877,
+      "cuts": 40,
+      "panClipped": 0.0151,
+      "camJumpLines": 0,
+      "cutCauses": { "empty": 7, "occluded": 1, "opening": 10, "scheduled": 41, "watchdog": 1 },
+      "sceneEnds": { "shots-done": 10 },
+      "flights": { "passesFlown": 10, "passesPlanned": 10, "stagingLiftM": 0, "guardHits": 0, "guardProbes": 90 },
+      "stepMs": { "frames": 68173, "meanMs": 0.0109, "p95Worst": 0.1, "maxMs": 0.9 },
+      "shotLengths": {
+        "what": "D4 frozen on this: a planted shot's 15 s clock is a WATCHDOG, not a length. 9 planted shots dealt, 8 ended on the guard (7 the car leaving frame, 1 the sightline), 1 on the watchdog. All 41 riding shots ended on their 10 s clip, which is by construction — the car cannot leave a frame mounted on it.",
+        "plantedShots": 9,
+        "plantedEndedByGuard": 8,
+        "plantedEndedByWatchdog": 1,
+        "ridingShots": 41,
+        "ridingEndedByClip": 41
+      }
+    }
+  ]
+}

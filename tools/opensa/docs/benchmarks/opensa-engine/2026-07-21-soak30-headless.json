@@ -1,0 +1,53 @@
+{
+  "date": "2026-07-21",
+  "purpose": "063 cell-disposal GPU-leak concept check on the own engine: does 30 min of scene cycling grow GPU residency or heap?",
+  "harness": "tools-debug/bench-harness drive.js TAG=[soak], headless Chromium --use-angle=metal, DPR 2, M3 Pro, ?loader=http-dir",
+  "build": "build/original/opensa (buildTime 10:45 21-07-2026)",
+  "companion": "unit-level invariant already green: engine.frame.test.ts 'unloading a cell releases its GPU resources - the ledger returns to its prior line' (fake GPUDevice)",
+  "verdict": "PASS",
+  "finalReport": {
+    "legs": 102,
+    "minutes": 30,
+    "checks": {
+      "coverage": { "detail": "102 legs over 30 min", "pass": true },
+      "heapFlat": { "detail": "3586 -> 3586 MB (allowance 897)", "pass": true },
+      "residencyFlat": { "detail": "residency peak before 1805 MB vs last quarter 1804 MB", "pass": true },
+      "textureFlat": { "detail": "texture peak before 1277 MB vs last quarter 1276 MB", "pass": true },
+      "lateBounded": { "detail": "0 late creates (budget 6)", "pass": true },
+      "longTasksBounded": { "detail": "0 long tasks (budget 6)", "pass": true },
+      "frameStable": { "detail": "p95 median 9.2 -> 10.0 ms", "pass": true },
+      "slowBounded": { "detail": "223 slow of 183424 frames (0.12 %)", "pass": true }
+    }
+  },
+  "sampleLegs": {
+    "first": {
+      "avgMs": 8.334,
+      "frames": 1801,
+      "heapMb": 3586,
+      "lateCreates": 0,
+      "longTasks": 0,
+      "p95Ms": 9.2,
+      "scene": "country-dusk",
+      "slowFrames": 0,
+      "t": 786,
+      "cells": 96,
+      "residencyMb": 1705,
+      "textureMb": 1221
+    },
+    "last": {
+      "avgMs": 8.336,
+      "frames": 1801,
+      "heapMb": 3586,
+      "lateCreates": 0,
+      "longTasks": 0,
+      "p95Ms": 9.2,
+      "scene": "ls-rain-night",
+      "slowFrames": 0,
+      "t": 1815,
+      "cells": 96,
+      "residencyMb": 1749,
+      "textureMb": 1187
+    }
+  },
+  "reading": "102 scene-cycling legs stream cells in and out continuously; GPU residency and the texture bucket end the run within 1 MB of their earlier peaks, heap is byte-flat, zero late creates or long tasks. Together with the ledger unit test this closes the 063 'streamed-out cells may not release GPU resources' follow-up as a NON-ISSUE on the own engine."
+}

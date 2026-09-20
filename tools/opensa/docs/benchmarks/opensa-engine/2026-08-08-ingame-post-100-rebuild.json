@@ -1,0 +1,181 @@
+{
+  "note": "Plan 100 + plan 07 capture manifest: the 8-scene ?bench=all sweep on the FIRST full rebuild after plan 100 shipped (2dfx carried at LOD range) \u2014 the streaming/frame baseline plan 07/04 owes at TODAY's procobj density, so a later density arm has a before. Run by Claude on the user's Mac (darwin 25.5.0), headless bench-harness at DPR=2, ?loader=http-dir over serve-static. PAK: build/original/opensa/pak, manifest buildTime '11:42 08-08-2026', game original, appVersion 0.4.0, 1272045568 B, 1137 cells, particles 1831, roadsigns 962 (the pre-100 pak welded 943 and 481 \u2014 this pak carries both levels). Built by pmb --exclude sa --keep-work + fetch-pack. Procobj density unchanged by this build and re-measured on it: 15286 placed objects, 6487 permanent rows, 20146 map-wide rows / 38 slots. READ BEFORE COMPARING: avgMs is pinned at ~8.33 by the 120 fps vsync cap in every row, so gpuMs.pass is the only responsive column. And per 2026-08-08-ingame-fx-cull-distance.json, a POSITIVE CONTROL (every emitter culled) landed SLOWER than both arms on these same scenes \u2014 the sweep cannot see particle cost at all. So country-dusk pass 3.868 here vs 3.875 on the pre-100 pak, and lv-night 3.603 vs 3.600, are NOT evidence that carrying 2dfx at LOD range is free; they are evidence that this instrument cannot price it. What they DO establish is the density baseline: nothing in the rebuild moved the frame, and these are the numbers a raised-density arm is compared against. The bench sweep never enters the 440-1000 u transition band deliberately, so it also says nothing about the doubling question.",
+  "runs": [
+    {
+      "avgDrawCalls": 1094,
+      "avgMs": 8.332,
+      "avgTriangles": 2312482,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 2.671,
+        "post": 0.835,
+        "probe": 0.903,
+        "submit": 0.326
+      },
+      "key": "ls-noon",
+      "lateCreates": 0,
+      "p95Ms": 10,
+      "residency": "cellIndex 41 \u00b7 cellVertex 165 \u00b7 target 345 \u00b7 texture 1001 \u00b7 uniform 0",
+      "vehicles": {
+        "live": 24,
+        "maxMs": 1.2,
+        "meanMs": 0.293
+      }
+    },
+    {
+      "avgDrawCalls": 956,
+      "avgMs": 8.348,
+      "avgTriangles": 1495306,
+      "fps": 119.8,
+      "frames": 1798,
+      "gpuMs": {
+        "pass": 2.265,
+        "post": 0.826,
+        "probe": 1.203,
+        "submit": 0.427
+      },
+      "key": "sf-fog-dawn",
+      "lateCreates": 0,
+      "p95Ms": 10,
+      "residency": "cellIndex 32 \u00b7 cellVertex 150 \u00b7 target 345 \u00b7 texture 1077 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 22,
+        "maxMs": 0.5,
+        "meanMs": 0.272
+      }
+    },
+    {
+      "avgDrawCalls": 2253,
+      "avgMs": 8.334,
+      "avgTriangles": 2058697,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 3.603,
+        "post": 0.995,
+        "probe": 0.913,
+        "submit": 0.665
+      },
+      "key": "lv-night",
+      "lateCreates": 0,
+      "p95Ms": 9.9,
+      "residency": "cellIndex 30 \u00b7 cellVertex 193 \u00b7 target 345 \u00b7 texture 1167 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 43,
+        "maxMs": 0.7,
+        "meanMs": 0.408
+      }
+    },
+    {
+      "avgDrawCalls": 875,
+      "avgMs": 8.331,
+      "avgTriangles": 1226073,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 3.868,
+        "post": 0.856,
+        "probe": 1.024,
+        "submit": 0.448
+      },
+      "key": "country-dusk",
+      "lateCreates": 0,
+      "p95Ms": 10,
+      "residency": "cellIndex 23 \u00b7 cellVertex 168 \u00b7 target 345 \u00b7 texture 1082 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 4,
+        "maxMs": 0.4,
+        "meanMs": 0.088
+      }
+    },
+    {
+      "avgDrawCalls": 85,
+      "avgMs": 8.333,
+      "avgTriangles": 846539,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 2.666,
+        "post": 0.806,
+        "probe": 0.236,
+        "submit": 0.381
+      },
+      "key": "ocean-horizon",
+      "lateCreates": 0,
+      "p95Ms": 10.2,
+      "residency": "cellIndex 8 \u00b7 cellVertex 116 \u00b7 target 345 \u00b7 texture 904 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 0,
+        "maxMs": 0.1,
+        "meanMs": 0.006
+      }
+    },
+    {
+      "avgDrawCalls": 841,
+      "avgMs": 8.334,
+      "avgTriangles": 1748446,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 2.451,
+        "post": 0.873,
+        "probe": 1.037,
+        "submit": 0.466
+      },
+      "key": "ls-rain-night",
+      "lateCreates": 0,
+      "p95Ms": 10,
+      "residency": "cellIndex 41 \u00b7 cellVertex 228 \u00b7 target 345 \u00b7 texture 1056 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 24,
+        "maxMs": 0.6,
+        "meanMs": 0.314
+      }
+    },
+    {
+      "avgDrawCalls": 1265,
+      "avgMs": 8.323,
+      "avgTriangles": 1575838,
+      "fps": 120.1,
+      "frames": 1804,
+      "gpuMs": {
+        "pass": 3.07,
+        "post": 0.859,
+        "probe": 1.095,
+        "submit": 0.387
+      },
+      "key": "ganton-noon",
+      "lateCreates": 0,
+      "p95Ms": 9.1,
+      "residency": "cellIndex 35 \u00b7 cellVertex 218 \u00b7 target 345 \u00b7 texture 1070 \u00b7 uniform 2",
+      "vehicles": {
+        "live": 33,
+        "maxMs": 0.6,
+        "meanMs": 0.371
+      }
+    },
+    {
+      "avgDrawCalls": 1100,
+      "avgMs": 8.32,
+      "avgTriangles": 2009165,
+      "fps": 120.2,
+      "frames": 1804,
+      "gpuMs": {
+        "pass": 2.756,
+        "post": 0.927,
+        "probe": 0.362,
+        "submit": 0.244
+      },
+      "key": "strip-noon",
+      "lateCreates": 0,
+      "p95Ms": 9.2,
+      "residency": "cellIndex 29 \u00b7 cellVertex 219 \u00b7 target 345 \u00b7 texture 1199 \u00b7 uniform 2",
+      "vehicles": {
+        "live": 26,
+        "maxMs": 0.5,
+        "meanMs": 0.158
+      }
+    }
+  ]
+}

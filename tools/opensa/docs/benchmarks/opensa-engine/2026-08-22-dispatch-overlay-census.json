@@ -1,0 +1,36 @@
+{
+  "findings": [
+    "**At 150 units and 40 calls, a 1920×1080 desk places 179 of the 190 names and drops 11. The same board on a 360×640 phone places 86 and drops 104.** The rule is one rule and the screen decides — which is the whole point of a collision index over a hand-tuned distance cut, and it is the number 3/03 owed.",
+    "**No budget constant exists, and none was needed.** The ceiling is a property of the viewport — `floor(area / chipArea)` = 1371 on the desk, 152 on the phone — and the index cannot place past it however many labels are asked for. Same shape of answer as 8/04's trails: the constant the step warned about is not taken.",
+    "**Every SYMBOL is still drawn; only names compete.** The dropped count is reported to the operator (`namesHidden` in the readout, shown in the status bar), so a crowded map is not mistaken for a complete one.",
+    "**The radar's dirty check holds: a frame where nothing moved costs ZERO canvas calls.** Not 'few' — the layer returns before touching the context. At 60 fps over a still map with a 20 Hz board that is 20 repaints a second instead of 60, and over a console nobody is touching it is none, which is the shape chain 4 needs rather than something to retrofit.",
+    "**One radar repaint is 914 calls at the declared worst case** (150 units, 40 calls, a 160-box city). The largest single contributor is the district outline — 160 `rect` calls in one path — and it is the part that never changes; caching it to an offscreen canvas is priced in `docs/performance/deferred-optimizations/radar-outline-cache.md` and deliberately not taken while the repaint is already conditional.",
+    "**Ten annotations cost 422 calls, 42 per shape of eight points.** They are drawn every frame the overlay is drawn, because they sit on the symbology canvas with the chips — so this is the number that has to stay small, and it is roughly one call per point plus the halo/label pair.",
+    "The counts are not comparable to [5/02's symbology census](2026-08-21-dispatch-symbology-call-counts.json), which counted three specific call KINDS (`fillText`, `measureText`, font assignments) rather than every call. Both are stub-context desk counts; neither is a timing."
+  ],
+  "note": "WHAT THE CONSOLE'S 2D LAYERS ASK OF THE CANVAS, AND WHAT THE DECLUTTERING KEEPS (201/3-03 the labels, 7-04 the radar, 7-05 the sketches). A DESK COUNT, not a timing: the layers are driven with a stub 2D context that records calls. Board 150 units + 40 calls, 160 district boxes, 10 sketches of 8 points, radar 132 CSS px. The label rows put the board on a deterministic golden-angle spread rather than a grid or a single pixel — a board at city zoom is neither, and either would flatter or damn the placement by construction. Instrument: `scripts/debug/overlay-census.ts`. Milliseconds are owed by 2/03's device run — this says how much work is requested, never how long a browser takes to do it.",
+  "openQuestions": [
+    "Whether 86 names of 150 reads as ENOUGH on a phone in an operator's hand. The count is honest and the symbols are all there, but the verdict is a field one — and the lever if it is not is collapsing a cluster into a count rather than dropping its members.",
+    "What 914 calls a repaint costs in milliseconds on a Mali-G51. A 132 px dial is a small surface, but 2D canvas on a phone is where this console's frame budget has been surprised before (overlay-2d at 2.44 ms drawing nine units).",
+    "Whether an operator wants the radar at all zoom levels. It frames the WHOLE world, so at block zoom the footprint polygon is a few pixels — legible as a position, useless as a shape. A second scale (the district box) is the obvious answer and nobody has asked for it yet."
+  ],
+  "readings": {
+    "labelsDesk": {
+      "calls": 5084,
+      "ceiling": 1371,
+      "dropped": 11,
+      "placed": 179
+    },
+    "labelsPhone": {
+      "calls": 3782,
+      "ceiling": 152,
+      "dropped": 104,
+      "placed": 86
+    },
+    "radarRepaintCalls": 914,
+    "radarSkipCalls": 0,
+    "radarSkipped": true,
+    "sketchCalls": 422,
+    "sketchCallsPerShape": 42
+  }
+}

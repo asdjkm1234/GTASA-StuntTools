@@ -1,0 +1,16 @@
+{
+  "name": "@opensa/game",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Game framework: ECS systems (streaming, vehicles, characters, zones, time, weather) + world adapters. Renderer-agnostic.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./input": "./src/input/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:engine"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "note": "The C1 side-by-side, PROD side, on the user's display. Its partner is opensa-engine/2026-07-16-ingame-display-c1.json — same display, same 841-car population. Transcribed from 2026-07-18-series.md.",
+  "engine": "three.js / WebGL2 (prod)",
+  "host": "M3 Pro @2x retina (user's display)",
+  "roadCars": 841,
+  "runs": [
+    { "key": "ls-noon", "avgMs": 58.9, "p95Ms": 67.6, "fps": 17.0, "avgDrawCalls": 5894, "gpuFrameEmaMs": 31.1 },
+    { "key": "sf-fog-dawn", "avgMs": 58.3, "p95Ms": 67.5, "fps": 17.1, "avgDrawCalls": 7953, "gpuFrameEmaMs": 29.8 },
+    { "key": "lv-night", "avgMs": 51.3, "p95Ms": 75.1, "fps": 19.5, "avgDrawCalls": 5040, "gpuFrameEmaMs": 38.6 },
+    { "key": "country-dusk", "avgMs": 37.3, "p95Ms": 42.5, "fps": 26.8, "avgDrawCalls": 3835, "gpuFrameEmaMs": 31.8 },
+    { "key": "ocean-horizon", "avgMs": 18.4, "p95Ms": 25.0, "fps": 54.3, "avgDrawCalls": 55, "gpuFrameEmaMs": 29.9 },
+    { "key": "ls-rain-night", "avgMs": 74.0, "p95Ms": 83.4, "fps": 13.5, "avgDrawCalls": 8956, "gpuFrameEmaMs": 18.8 }
+  ]
+}

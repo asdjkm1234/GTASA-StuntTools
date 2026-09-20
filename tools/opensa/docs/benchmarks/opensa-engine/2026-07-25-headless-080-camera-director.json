@@ -1,0 +1,92 @@
+{
+ "note": "Plan 080/01 (camera director) verification run, taken by Claude on the dev machine, NOT by the user. Headless bench-harness (?loader=http-dir, DPR=2, Chromium/ANGLE-Metal) on the working tree with the director wired in; pak = build/original/opensa (087-ring rebuild, the same pak as 2026-07-24-ingame-617556f-087ring.json). ONE scene only (ls-noon). NOT pass-comparable to the user's in-game rows: different harness, and road cars registered 296 vs the in-game 1126 — headless boots with far fewer cars alive at bench start. The leg is vsync-capped (120 fps / 8.33 ms), so it cannot resolve a small CPU regression; it is recorded as evidence that the bench path still runs, draws the same class of frame (1181 draws vs 1238 in-game) and never touches the director (resolveCamera's bench branch wins, pinned by camera-director.test.ts). No BEFORE run was taken: producing one meant stashing the change under the user's live dev server, which was not worth the disturbance for a vsync-capped leg.",
+ "commit": "f46d3e3+working-tree",
+ "pak": "build/original/opensa (087-ring rebuild, 1137 cells)",
+ "host": "headless Chromium / ANGLE-Metal @DPR=2, 1440x900 viewport",
+ "roadCars": 296,
+ "runs": [
+  {
+   "key": "ls-noon",
+   "avgMs": 8.334,
+   "p95Ms": 9.2,
+   "fps": 120,
+   "frames": 1802,
+   "avgDrawCalls": 1181,
+   "avgTriangles": 2287719,
+   "gpuMs": {
+    "pass": 3.13,
+    "post": 1.175,
+    "probe": 2.264,
+    "submit": 0.376
+   },
+   "residency": "cellIndex 41 · cellVertex 184 · target 345 · texture 1155 · uniform 1",
+   "lateCreates": 0
+  },
+  {
+   "key": "ls-noon (with render interpolation)",
+   "avgMs": 8.329,
+   "p95Ms": 9.1,
+   "fps": 120.1,
+   "frames": 1803,
+   "avgDrawCalls": 1181,
+   "avgTriangles": 2287705,
+   "gpuMs": {
+    "pass": 2.634,
+    "post": 0.846,
+    "probe": 0.951,
+    "submit": 0.341
+   },
+   "residency": "cellIndex 41 · cellVertex 184 · target 345 · texture 1167 · uniform 1",
+   "lateCreates": 0,
+   "note": "After adding render interpolation (ped + car + focus drawn at lerp/slerp of the last two fixed steps) and turning the camera position weight back ON. Vsync-capped 120 fps, draws/tris identical to the pre-interpolation row — the lerp per drawn body is free at this scale."
+  }
+ ],
+ "microbench": [
+  {
+   "plan": "080/01",
+   "what": "one stepCamera call (look + zoom + mode rig + resolve), foot mode, no smoothing channels yet",
+   "where": "node/tsx on the dev machine, 200k calls in 20 rounds after a 20k warm-up",
+   "meanUs": 0.078,
+   "p95Us": 0.089
+  },
+  {
+   "plan": "080/02",
+   "what": "the same call with the 02 channels live: input damper, planar spring + vertical damp + dead zone, steered-yaw channel, zoom damp",
+   "where": "node/tsx on the dev machine, 200k calls in 20 rounds after a 20k warm-up",
+   "meanUs": 0.185,
+   "p95Us": 0.208,
+   "note": "2.4x the 01 seams — and still 0.0002 ms, i.e. 240x under plan 02's own 0.05 ms p95 budget. The follow rig is not a perf question."
+  },
+  {
+   "plan": "080/03",
+   "what": "the same call with the 03 composition channels added: heading tracking + turn-follow/idle recenter and the look-ahead offset",
+   "where": "node/tsx on the dev machine, 200k calls in 20 rounds after a 20k warm-up",
+   "meanUs": 0.203,
+   "p95Us": 0.214,
+   "note": "+10% over 02 (0.185/0.208). The whole director is still ~0.0002 ms per frame."
+  },
+  {
+   "plan": "080/05",
+   "what": "the same call with the vehicle camera live: the tuning-table substitution, the speed→distance and speed→FOV curves and the drift lean. Measured in BOTH modes in one run — foot is the control.",
+   "where": "node/tsx on the dev machine, 200k calls in 20 rounds after a 20k warm-up, snapshots PRE-BUILT (assembling one allocates an object, a tuple and a Set — the host's cost, not the director's)",
+   "meanUs": 0.545,
+   "p95Us": 0.57,
+   "footControlMeanUs": 0.385,
+   "footControlP95Us": 0.41,
+   "vehicleTuningAloneUs": 0.061,
+   "note": "NOT comparable to the 01/02/03 rows above: this trace differs (it holds turn-follow armed every step) and the snapshots are pre-built, so its FOOT control reads 0.385 where 03 recorded 0.203. The comparable figure is foot vs vehicle in the SAME run: +0.16 µs (+42%), of which the per-step tuning-table spread is 0.061 µs. Absolute cost is 0.0005 ms/frame — ~100x under plan 05's 0.05 ms budget, so the vehicle camera is not a perf question either. Stable across 3 consecutive runs (foot 0.381-0.389, vehicle 0.537-0.555)."
+  },
+  {
+   "plan": "080/06",
+   "what": "the same call with the additive motion layer live: bob, the landing dip, impact shake and the sprint FOV kick. The trace lands every 90th frame and crashes every 300th, so the one-shots are inside the measured path.",
+   "where": "node/tsx on the dev machine, 200k calls in 20 rounds after a 20k warm-up, snapshots pre-built; `reducedMotion: true` is the control (the layer is still CALLED, it just does no work)",
+   "meanUs": 0.568,
+   "p95Us": 0.62,
+   "footReducedMotionMeanUs": 0.399,
+   "vehicleMotionLiveMeanUs": 0.634,
+   "vehicleReducedMotionMeanUs": 0.486,
+   "note": "The layer costs +0.17 us on foot (+42% over the same rig with reducedMotion on) and +0.15 us in a car. Absolute 0.0006 ms/frame — the whole director is still ~1/80 of a 60 Hz frame's 1% budget. Stable across 3 consecutive runs. Same harness caveat as the 080/05 row: not comparable to the 01-03 rows, which is why the control was measured alongside."
+  }
+ ],
+ "budget": "plan 080 ground rule 6 allows 0.1 ms p95 for the whole director (0.05 ms at the 02 stage)"
+}

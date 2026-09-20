@@ -1,0 +1,80 @@
+{
+  "commit": "worktree (plan 093 world ambient term + deliberate floor, uncommitted at run time)",
+  "host": "headless Chromium / M3 Pro @DPR=2 (drive.js over ?loader=http-dir — same harness as the 07-29 092 row)",
+  "pak": "build/original/opensa/pak, buildTime 10:53 29-07-2026 — SAME pak as the 092 sweep (the 093 change is engine-side only; the pak did not change, so this IS a clean A/B against that row)",
+  "note": "The sweep after plan 093: worldShade/clutter gained the additive ambient term (lit = (prelit*sunIndirect + ambient) * ao + ...), frame uniform grew 100 -> 104 floats, driver computes ambient = max(lin(timecyc Amb) * knob, floor 0.13 * (1 - dn)). VERDICT: no cost — all NINE scenes at the 120 Hz cap (avg 8.33-8.36, p95 9.2-9.3, lateCreates 0), gpuMs.pass 1.50-2.69 within the 092 band. Attributable: same pak, same harness, only the engine changed. FIRST RUN of the new 'strip-noon' scene (south Strip street level at the Flamingo block, added this day): 119.9 fps steady-state — which confirms the field-reported hitches at &spawn=1934,1177 are the COLD-LOAD transient (first frame collision 235 ms cell-collision-read; then ~20 frames of 110-170 ms mostly UNATTRIBUTED while cells 0->95 stream in, plus the known 091 per-type vehicle hitch), not a steady-state regression. The unattributed transient + a double-count in the [slow] attribution (other lists cell-collision-read AND collision counts it -> unattributed -226.1 on one line) are queued as the 091 follow-up inputs.",
+  "runs": [
+    {
+      "avgDrawCalls": 1220,
+      "avgMs": 8.33,
+      "avgTriangles": 2287975,
+      "gpuMs": { "pass": 2.25, "post": 0.384, "probe": 1.022, "submit": 0.408 },
+      "key": "ls-noon",
+      "p95Ms": 9.3
+    },
+    {
+      "avgDrawCalls": 1002,
+      "avgMs": 8.334,
+      "avgTriangles": 1383364,
+      "gpuMs": { "pass": 2.246, "post": 0.448, "probe": 2.005, "submit": 0.427 },
+      "key": "sf-fog-dawn",
+      "p95Ms": 9.3
+    },
+    {
+      "avgDrawCalls": 1563,
+      "avgMs": 8.361,
+      "avgTriangles": 1597439,
+      "gpuMs": { "pass": 2.464, "post": 0.413, "probe": 1.004, "submit": 0.422 },
+      "key": "lv-night",
+      "p95Ms": 9.3
+    },
+    {
+      "avgDrawCalls": 875,
+      "avgMs": 8.333,
+      "avgTriangles": 1210991,
+      "gpuMs": { "pass": 2.689, "post": 0.322, "probe": 1.137, "submit": 0.434 },
+      "key": "country-dusk",
+      "p95Ms": 9.3
+    },
+    {
+      "avgDrawCalls": 27,
+      "avgMs": 8.333,
+      "avgTriangles": 136358,
+      "gpuMs": { "pass": 1.504, "post": 0.813, "probe": 0.479, "submit": 0.302 },
+      "key": "ocean-horizon",
+      "p95Ms": 9.3
+    },
+    {
+      "avgDrawCalls": 976,
+      "avgMs": 8.334,
+      "avgTriangles": 1725785,
+      "gpuMs": { "pass": 2.541, "post": 0.445, "probe": 1.512, "submit": 0.484 },
+      "key": "ls-rain-night",
+      "p95Ms": 9.2
+    },
+    {
+      "avgDrawCalls": 1415,
+      "avgMs": 8.348,
+      "avgTriangles": 1493783,
+      "gpuMs": { "pass": 2.35, "post": 0.39, "probe": 1.512, "submit": 0.413 },
+      "key": "ganton-noon",
+      "p95Ms": 9.3
+    },
+    {
+      "avgDrawCalls": 1091,
+      "avgMs": 8.338,
+      "avgTriangles": 1998004,
+      "gpuMs": { "pass": 2.615, "post": 0.398, "probe": 0.475, "submit": 0.307 },
+      "key": "strip-noon",
+      "p95Ms": 9.3
+    },
+    {
+      "avgDrawCalls": 608,
+      "avgMs": 8.333,
+      "avgTriangles": 1458330,
+      "gpuMs": { "pass": 2.633, "post": 0.456, "probe": 0.191, "submit": 0.341 },
+      "key": "ganton-night",
+      "p95Ms": 9.3
+    }
+  ]
+}

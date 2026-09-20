@@ -1,0 +1,29 @@
+{
+  "findings": [
+    "**p50 0.200 ms, p95 0.649, worst 1.055** for all 150 legs. Resolved at the BOARD's rate (20 Hz) rather than the frame's, so the 60 fps loop redraws from the same object between ticks and pays only the copy.",
+    "**51 points per unit on a ~6-minute leg**, 7 500 segments across the board = 176 kB written into the debug-line buffer per frame. That is the number to watch on a phone, and it is the reason the leg is capped at 240 points.",
+    "The cap is not what bounds a normal shift: a 6 min leg is 90 samples at the publish rate and the stationary collapse cuts that further. It only stops one very long leg from growing the per-frame copy without limit.",
+    "**A measurement defect worth recording, because it produced a confident zero.** The first run reported 0 points for all 150 units. The code was right: the probe sampled at exactly `t = SHIFT_MS`, which in the synthetic is the instant every unit changes status — and a leg one sample long is correctly no trail at all. The number was a property of the harness, not of the thing measured.",
+    "**A regression the numbers above caused, found by reviewing the same diff.** 45 000 floats of trail do not fit a set allocated for 150 markers (2 700), so the `trail` set grew five times on the FIRST frame that drew one — and every growth is counted into `grownSets`, the number the inventory panel warns on to say *the board went past its declared unit budget* (201/5-02). One frame of trails and that warning is permanently on and means nothing. The trail set has its own budget now (64 points/unit, covering the measured 51), and growth past it stays out of the marker counter."
+  ],
+  "note": "WHAT 150 TRAILS COST (201/8-04). The step owes the cost of 150 trails and the rule for how far back one goes. A Node run against the real `BoardHistory`: a whole 8 h shift of 150 units recorded at the app's 20 Hz, units changing status every ~6 min, then 200 resolves of the full trail set. The resolve and the geometry it produces, not the paint — no GPU was involved.",
+  "openQuestions": [
+    "What the 176 kB per-frame buffer write costs on a Mali-G51. The resolve is cheap and measured; the upload is not, and 2/03's capture is where that shows up.",
+    "Whether a trail should be coloured by the unit's status. It is one dim colour today — colouring by status needs a line set per status and would compete with the units themselves for attention. A field verdict decides it."
+  ],
+  "readings": {
+    "kBOfLineBuffer": 176,
+    "maxMs": 1.055,
+    "p50Ms": 0.2,
+    "p95Ms": 0.649,
+    "pointsPerUnit": 51,
+    "segments": 7500,
+    "totalPoints": 7650,
+    "what": "one `BoardHistory.trails(t)` — every unit's leg resolved out of its ring"
+  },
+  "rule": {
+    "howFarBack": "the unit's current LEG — back to its last status change",
+    "note": "DERIVED, not a constant. 8/04 asked for 'the last N minutes' and warned that a constant chosen by eye is a debt (docs/hacks/). The leg needs no such constant and says something a clock cannot: where a responding car came from since it was dispatched, where a patrol has been since it went available.",
+    "workBound": "240 points per unit — a cap on what one unit may contribute to a frame (16 min at the 4 s publish rate), not a look choice"
+  }
+}

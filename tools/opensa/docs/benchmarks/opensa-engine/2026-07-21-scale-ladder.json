@@ -1,0 +1,235 @@
+{
+  "date": "2026-07-21",
+  "purpose": "072 tier-ladder decision data: does the single ?scale knob cover what a quality-tier ladder would?",
+  "harness": "tools-debug/bench-harness drive.js, headless Chromium --use-angle=metal, DPR 2, viewport 1440x900, M3 Pro",
+  "build": "build/original/opensa (buildTime 10:45 21-07-2026), ?loader=http-dir via serve-static :3001",
+  "caveats": [
+    "machine not quiescent (vite dev + serve-static alongside)",
+    "gpuMs from the engine's own GPU timers; cross-run deltas same-session comparable",
+    "all scenes vsync-locked at 120 fps at every scale - avgMs/fps carry no signal, gpuMs.pass/post do"
+  ],
+  "runs": {
+    "scale-1.0": [
+      {
+        "avgDrawCalls": 1157,
+        "avgMs": 8.297,
+        "avgTriangles": 2312376,
+        "fps": 120.5,
+        "frames": 1809,
+        "gpuMs": { "pass": 2.761, "post": 0.845, "probe": 0.985, "submit": 0.316 },
+        "key": "ls-noon",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 41 · cellVertex 172 · target 345 · texture 1181 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 1009,
+        "avgMs": 8.329,
+        "avgTriangles": 1409110,
+        "fps": 120.1,
+        "frames": 1802,
+        "gpuMs": { "pass": 2.179, "post": 0.849, "probe": 1.286, "submit": 0.313 },
+        "key": "sf-fog-dawn",
+        "lateCreates": 0,
+        "p95Ms": 9,
+        "residency": "cellIndex 33 · cellVertex 134 · target 345 · texture 1244 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 1647,
+        "avgMs": 8.327,
+        "avgTriangles": 1857044,
+        "fps": 120.1,
+        "frames": 1803,
+        "gpuMs": { "pass": 3.524, "post": 0.894, "probe": 0.851, "submit": 0.348 },
+        "key": "lv-night",
+        "lateCreates": 0,
+        "p95Ms": 9,
+        "residency": "cellIndex 32 · cellVertex 150 · target 345 · texture 1275 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 882,
+        "avgMs": 8.324,
+        "avgTriangles": 1337154,
+        "fps": 120.1,
+        "frames": 1803,
+        "gpuMs": { "pass": 3.869, "post": 0.824, "probe": 1.006, "submit": 0.398 },
+        "key": "country-dusk",
+        "lateCreates": 0,
+        "p95Ms": 9,
+        "residency": "cellIndex 23 · cellVertex 115 · target 345 · texture 1219 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 16,
+        "avgMs": 8.321,
+        "avgTriangles": 126110,
+        "fps": 120.2,
+        "frames": 1804,
+        "gpuMs": { "pass": 2.146, "post": 1.153, "probe": 0.312, "submit": 0.298 },
+        "key": "ocean-horizon",
+        "lateCreates": 0,
+        "p95Ms": 9.2,
+        "residency": "cellIndex 10 · cellVertex 66 · target 345 · texture 1007 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 942,
+        "avgMs": 8.32,
+        "avgTriangles": 1671448,
+        "fps": 120.2,
+        "frames": 1804,
+        "gpuMs": { "pass": 2.33, "post": 0.863, "probe": 0.993, "submit": 0.359 },
+        "key": "ls-rain-night",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 42 · cellVertex 174 · target 345 · texture 1187 · uniform 1"
+      }
+    ],
+    "scale-0.75": [
+      {
+        "avgDrawCalls": 1157,
+        "avgMs": 8.321,
+        "avgTriangles": 2312404,
+        "fps": 120.2,
+        "frames": 1804,
+        "gpuMs": { "pass": 2.567, "post": 0.645, "probe": 1.07, "submit": 0.309 },
+        "key": "ls-noon",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 41 · cellVertex 172 · target 195 · texture 1181 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 1009,
+        "avgMs": 8.329,
+        "avgTriangles": 1409532,
+        "fps": 120.1,
+        "frames": 1802,
+        "gpuMs": { "pass": 2.083, "post": 0.718, "probe": 1.575, "submit": 0.322 },
+        "key": "sf-fog-dawn",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 33 · cellVertex 134 · target 195 · texture 1244 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 1649,
+        "avgMs": 8.328,
+        "avgTriangles": 1857355,
+        "fps": 120.1,
+        "frames": 1803,
+        "gpuMs": { "pass": 2.978, "post": 0.658, "probe": 0.912, "submit": 0.339 },
+        "key": "lv-night",
+        "lateCreates": 0,
+        "p95Ms": 9,
+        "residency": "cellIndex 32 · cellVertex 150 · target 195 · texture 1275 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 883,
+        "avgMs": 8.319,
+        "avgTriangles": 1338484,
+        "fps": 120.2,
+        "frames": 1804,
+        "gpuMs": { "pass": 3.107, "post": 0.59, "probe": 1.061, "submit": 0.395 },
+        "key": "country-dusk",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 23 · cellVertex 116 · target 195 · texture 1219 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 16,
+        "avgMs": 8.33,
+        "avgTriangles": 126111,
+        "fps": 120,
+        "frames": 1802,
+        "gpuMs": { "pass": 1.911, "post": 1.129, "probe": 0.377, "submit": 0.306 },
+        "key": "ocean-horizon",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 10 · cellVertex 66 · target 195 · texture 1007 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 942,
+        "avgMs": 8.333,
+        "avgTriangles": 1671258,
+        "fps": 120,
+        "frames": 1801,
+        "gpuMs": { "pass": 2.212, "post": 0.696, "probe": 1.151, "submit": 0.356 },
+        "key": "ls-rain-night",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 42 · cellVertex 174 · target 195 · texture 1187 · uniform 1"
+      }
+    ],
+    "scale-0.5": [
+      {
+        "avgDrawCalls": 1157,
+        "avgMs": 8.323,
+        "avgTriangles": 2312510,
+        "fps": 120.2,
+        "frames": 1804,
+        "gpuMs": { "pass": 2.519, "post": 0.488, "probe": 1.201, "submit": 0.303 },
+        "key": "ls-noon",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 41 · cellVertex 172 · target 88 · texture 1181 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 1009,
+        "avgMs": 8.32,
+        "avgTriangles": 1409395,
+        "fps": 120.2,
+        "frames": 1804,
+        "gpuMs": { "pass": 1.889, "post": 0.551, "probe": 1.793, "submit": 0.324 },
+        "key": "sf-fog-dawn",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 33 · cellVertex 134 · target 88 · texture 1245 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 1647,
+        "avgMs": 8.33,
+        "avgTriangles": 1856883,
+        "fps": 120,
+        "frames": 1802,
+        "gpuMs": { "pass": 2.807, "post": 0.532, "probe": 1.073, "submit": 0.34 },
+        "key": "lv-night",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 32 · cellVertex 150 · target 88 · texture 1275 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 882,
+        "avgMs": 8.328,
+        "avgTriangles": 1337886,
+        "fps": 120.1,
+        "frames": 1803,
+        "gpuMs": { "pass": 2.787, "post": 0.447, "probe": 1.22, "submit": 0.396 },
+        "key": "country-dusk",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 23 · cellVertex 115 · target 88 · texture 1220 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 16,
+        "avgMs": 8.331,
+        "avgTriangles": 126117,
+        "fps": 120,
+        "frames": 1802,
+        "gpuMs": { "pass": 1.449, "post": 1.099, "probe": 0.513, "submit": 0.29 },
+        "key": "ocean-horizon",
+        "lateCreates": 0,
+        "p95Ms": 9.1,
+        "residency": "cellIndex 10 · cellVertex 66 · target 88 · texture 1008 · uniform 1"
+      },
+      {
+        "avgDrawCalls": 942,
+        "avgMs": 8.334,
+        "avgTriangles": 1671639,
+        "fps": 120,
+        "frames": 1801,
+        "gpuMs": { "pass": 2.248, "post": 0.579, "probe": 1.401, "submit": 0.353 },
+        "key": "ls-rain-night",
+        "lateCreates": 0,
+        "p95Ms": 9.2,
+        "residency": "cellIndex 42 · cellVertex 174 · target 88 · texture 1187 · uniform 1"
+      }
+    ]
+  }
+}

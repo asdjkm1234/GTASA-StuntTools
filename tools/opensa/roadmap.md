@@ -1,0 +1,243 @@
+- [✅] Creating a basic character - a cube
+- [✅] Parsing and collision binding
+- [✅] Basic physics engine
+- [✅] Character movement using controllers
+  - [✅] Camera is following by the player
+  - [✅] Mouse camera rotation
+- [✅] Rendering the character by coordinates
+- [✅] Temporary accelerating speed of the player
+- [✅] World drawing and LODs
+  - [✅] Render only the zone where coordinates are passed
+  - [✅] The game tracks where the character is moving.
+  - [✅] New areas ahead are gradually loaded.
+  - [✅] Unnecessary data is removed from the background.
+  - [✅] Distant LODs are replaced with full-fledged objects as they approach. - [ ] Streaming
+- [✅] Enable debug
+  - [✅] Make zones load by checking a box, like in MapEditor
+  - [✅] Enable FlyMode
+- [✅] When this is ready, review and fix the rendering of the remaining map
+  - [✅] Empty spaces in the desert, etc.
+  - [✅] Add the missing 7 files - see .claude memory/plans
+- [✅] Loading a character
+  - [✅] Generate collision for peds
+- [✅] Physics improvement - not lock in the steps
+- [✅] Animation controls - walking, running, etc.
+- [✅] Water rendering
+- [✅] Vehicle loader
+  - [✅] Car collision
+  - [✅] A full dummy framework (rotation/doors/headlights/seats)
+  - [✅] Getting into a car
+    - [✅] Door opening animation
+  - [✅] Car physic
+  - [✅] Basic car controls
+  - [✅] Car damage system
+    - [✅] Car ramming
+    - [✅] Striked car damage
+  - [✅] Vehicle VLO
+  - [✅] Car2 / Car4 carcols
+  - [✅] Extract parking places to configuration array
+- [✅] Debugger Improvements
+  - [✅] Flymode rename to map-viewer
+  - [✅] Multi menu
+  - [✅] Map-viewer will be activated by checkbox (all map zones will be available after that)
+  - [✅] Show current coords - button to past coords to console or by X
+  - [✅] Flip vehicle
+  - [✅] Car spawning
+  - [✅] Tommy respawn (if stuck in the map)
+- [✅] Camera fly mode for screenshots (without UI layer) K+M
+- [✅] Add logger
+- [✅] Viewers
+  - [✅] Rename model-viewer to object-viewer
+  - [✅] Car viewer
+    - [✅] Select element press E to open
+    - [✅] Show collision
+    - [✅] Damage / repair part + chassis_vlo LOD toggle
+  - [✅] Player viewer
+    - [✅] Press mouse to play animations
+    - [✅] Show collision
+    - [✅] Skeleton
+- [✅] Fog
+  - [✅] Streaming fade objects
+  - [✅] Draw distance limit (1000)
+  - [✅] Debugger "game" draw distance slider control
+- [✅] Game time
+- [✅] Timecyc (sunny weather only)
+  - [✅] 2 strategies
+    - [✅] If you run a regular timecyc Python algorithm in 24h format
+    - [✅] If 24h, then as is
+- [✅] Graphics
+  - [✅] Light
+  - [✅] Shadows
+  - [✅] Volumetric cloud / Skybox
+  - [✅] Sky
+    - [✅] Check sample - https://discourse.threejs.org/t/complete-sky-system-for-three-js-skybox-sun-moon-day-night-cycle-clouds-stars-lensflares/88311
+    - [✅] Check sample - https://discourse.threejs.org/t/how-do-i-get-dynamic-realistic-sun-rays-in-webgpu/66430
+  - [✅] Water shader
+  - [✅] Night objects (Tobj)
+  - [✅] 2dfx
+  - [✅] Car headlights - Direct Light + texture from Vehicle
+- [✅] Car reflections
+- [✅] Weather manager
+- [✅] UI Layer
+  - [✅] The Ui layer should not be involved in post processing.
+  - [✅] Find good fonts
+  - [✅] Show current time
+- [✅] Weather manager zone detection (map.zon support)
+- [✅] Zones and text
+  - [✅] Info.zon parser
+  - [✅] District decection
+  - [✅] gxt parser
+  - [✅] Show text
+- [✅] Add teleports
+  - [✅] Vegas
+  - [✅] San Fierro
+- [✅] Animation objects
+  - [✅] Animation textures
+  - [✅] Animation DFF
+- [✅] Player camera enhancements
+- [✅] Procobj trash, rocks
+- [✅] Roadsigns
+- [✅] Verify all plans
+- [✅] Effects Basic
+- [✅] Particles Basic
+- [✅] Destroyable objects Basic
+- [✅] Fog enhanced
+- [✅] Fix car headlight
+- [✅] Increase test coverage
+- [✅] Optimizing game archives
+  - [✅] Drop unuzed files
+  - [✅] Add build scripts
+  - [✅] Gzip
+  - [✅] Client Caching
+  - [✅] Scripts for creating different archive types
+  - [✅] Load at startup
+    - [✅] Procobj
+    - [✅] LODs
+    - [✅] Vehicles
+    - [✅] Characters
+  - [✅] Load in background
+    - [✅] Map parts
+- [✅] Google Analytics
+- [✅] Version in cache file names (reset user caches when update)
+- [✅] Browser caching
+- [✅] Testing
+  - [✅] Map
+  - [✅] Mods
+- [✅] Rename project
+- [✅] Routine deals
+  - [✅] Readme
+  - [✅] Dev Docs
+  - [✅] Create site
+  - [✅] Articles
+  - [✅] Screenshots
+  - [✅] Video
+- [✅] Buy domain name
+- [✅] CI/CD
+- [✅] Release v 0.1.0
+
+Known issues:
+
+- [✅] Country - Truth's Farm Problems with rendering
+- [✅] Vehicle's windscreen alpha channel bug [SilentPatch fix or SkyGFX]
+- [ ] If the camera directly above on the scene, then Tommy only moves forward
+- [✅] Rigging models bug
+- [✅] Water in whole map (flooded tunnels)
+- [ ] Exiting a car that's flipped over while already in it—Tommy emerges from the wrong side (the door calculation only takes into account yaw). We'll come back when you decide.
+- [ ] Ugly water foam
+- [✅] Shadow acne on small objects (temporal solution: disable shadows for smal objects)
+- [✅] Streaming is blinking
+
+Next iterations:
+
+Platform reach is the LEAD of this cycle (decided 2026-08-04) — a phone boots the engine and cannot open the
+world, because a pak built from SA assets is BC throughout and no mobile GPU has BC. Full chain and its
+measured evidence: [docs/plans/200-platform-reach/](docs/plans/200-platform-reach/readme.md).
+
+The DISPATCH CONSOLE leads beside it (decided 2026-08-06) — the engine's second consumer, a CAD 3D map for
+dispatchers over the same streamed world, and the only surface here that runs on a phone. It carries the
+mobile work and the "trim the engine to what the map draws" work, with the world's life explicitly protected:
+cars and peds are drawn, vegetation sways, the day turns, and one engine serves PC and mobile.
+Full chain: [docs/plans/201-dispatch-console/](docs/plans/201-dispatch-console/readme.md).
+
+What that console is FOR is the final plan: **a web dispatch application for a SA-MP server**, paired with a
+client-side CAD plugin (PCAD), in which OpenSA is one component — the 3D map. Product, field survey, seams,
+phases and risks: [docs/plans/202-pcad-dispatch/](docs/plans/202-pcad-dispatch/readme.md).
+
+- [ ] Run the real map on a phone
+  - [✅] Boot the engine on a mobile GPU (BC taken when offered, never demanded)
+  - [✅] Refuse a world the device cannot display BEFORE it streams, naming the world
+  - [✅] Make the build say which GPUs it runs on, and fail when it claims one it cannot
+  - [✅] `--rgba8` converts the models too, not just the world (a car is not in the pak)
+  - [ ] Universal textures: one pak, transcoded per device (needs the quality go/no-go)
+  - [ ] A district loaded and driven on a real phone, with its own benchmark row
+  - [ ] Touch controls and chrome that fit 360 CSS px with a real world behind them
+  - [ ] A residency budget derived from the device — measured, never a per-device table
+- [ ] Take the hitches off the main thread
+  - [✅] Bake a cell's collision at build time (`.oscol`), so the browser never parses a COL
+  - [ ] Read the baked collision at runtime — the half that actually removes the spike
+  - [ ] Cell collider assembly and `.osm` parsing into workers
+  - [ ] Physics in a worker, IF a phone measurement demands it
+- [ ] WebGL2 fallback for devices without a WebGPU adapter (concept-gated, may be refused)
+- [ ] The dispatch console: a CAD 3D map for dispatchers
+  - [✅] The console itself — top-down map, units, call queue, click-to-inspect over the streamed world
+  - [ ] Trim the engine to what the map draws — and only that (cars, peds, sway, the day cycle stay)
+  - [ ] A real district, on a real phone, with the repo's first real-world mobile benchmark row
+  - [ ] An operator surface that works at 360 CSS px, on real touch hardware
+  - [ ] Render on demand — a console idles most of a shift, a game never does
+  - [ ] Picking off the `debugPicking` flag, and units drawn as models rather than debug lines
+  - [ ] Three display modes: live render, a baked 3D city map, flat 2D tiles — the operator picks
+  - [ ] The operator's map: orthographic mode, flyTo, follow a unit, bookmarks, minimap, measuring, drawing
+  - [ ] The time axis: interpolated movement, scrub the shift, unit trails
+- [ ] CJ
+  - [ ] Clothes
+  - [ ] Bodies
+- [ ] Effects Enhancements
+- [ ] Particles Enhancements
+  - [ ] Smoke from wheels
+  - [ ] Fire
+  - [ ] Car scratches
+  - [ ] Objects with effects (skulls' fire in pirate ship in Las Ventura)
+- [ ] Weapons
+  - [ ] All types of weapons
+    - [ ] Animation
+    - [ ] Shooting
+    - [ ] Damage
+- [ ] Peds spawning system
+- [ ] Veh paths
+- [ ] Destroyable objects Enhancements
+- [ ] Birds
+- [ ] Weather
+  - [ ] Rain
+  - [ ] Sand storm
+- [ ] Advanced Water: floating/bouncing, underwater fog, flow from water.dat, clipping.
+- [ ] Car damage
+- [ ] Car explosion
+- [ ] Car physic improvements
+  - [ ] surface.dat support - different behavior on different surface
+  - [ ] Boarding through the passenger door
+  - [ ] Jumping out of the car while it's moving
+    - [ ] Jumping and rolling animations
+  - [ ] If the driver's door is blocked by a wall or another car, get in from the passenger side. If both are blocked, don't
+        get in.
+  - [ ] Entry animation interrupted.
+- [ ] Interiors
+- [ ] Health for User
+- [ ] Health for Peds
+- [ ] Health for vehs
+- [ ] HUD
+  - [ ] Health Bar
+  - [ ] Radar
+  - [ ] Ammunition
+- [ ] Spotlights from lamps at night
+- [ ] Car sidelights, braking, light + vehiclelightson128
+- [ ] Trafficlights
+- [ ] Proper Fixes adaptation
+- [ ] GTA SA Like Camera
+- [ ] Sound
+  - [ ] surfaud.dat support - different sounds in different surface
+- [ ] Swimming
+- [ ] Bicycles
+- [ ] Bikes
+- [ ] Helicopter
+- [ ] Planes
+- [ ] Swimming / Underwater

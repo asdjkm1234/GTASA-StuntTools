@@ -1,0 +1,437 @@
+{
+ "build": "20:18 12-08-2026",
+ "bytes": {
+  "byKind": [
+   {
+    "bytes": 16429036,
+    "kind": "texture-array",
+    "requests": 26
+   },
+   {
+    "bytes": 7982308,
+    "kind": "cell-hd",
+    "requests": 12
+   },
+   {
+    "bytes": 2658756,
+    "kind": "water.bin",
+    "requests": 1
+   },
+   {
+    "bytes": 670050,
+    "kind": "cell-lod",
+    "requests": 8
+   }
+  ],
+  "requests": 47,
+  "totalBytes": 27740150
+ },
+ "camera": {
+  "at": [
+   1319.4149898962949,
+   -1544.7807620203714
+  ],
+  "height": 59.163882174388036,
+  "projection": "perspective"
+ },
+ "cpu": {
+  "bodyMaxMs": 1996.9000000059605,
+  "bodyMeanMs": 7.477517984807491,
+  "outsideMeanMs": 50.723920864220574,
+  "segmentsMs": [
+   [
+    "overlay-2d",
+    4.865107914205078
+   ],
+   [
+    "engine-frame",
+    1.3124100712241886
+   ],
+   [
+    "other",
+    0.712230214916115
+   ],
+   [
+    "stream",
+    0.3462230215827338
+   ],
+   [
+    "board",
+    0.23129496412525932
+   ],
+   [
+    "readout",
+    0.010251798754115757
+   ]
+  ],
+  "shareOfFrame": 0.1284765142010293,
+  "worstFrame": {
+   "atMs": 1896.0999999940395,
+   "bodyMs": 1996.9000000059605,
+   "canvasPixels": 639360,
+   "cellsCreated": 0,
+   "cellsEvicted": 0,
+   "cellsVisible": 0,
+   "draws": 12,
+   "dtMs": 2029,
+   "pending": 4,
+   "segmentsMs": [
+    [
+     "overlay-2d",
+     1850.300000011921
+    ],
+    [
+     "engine-frame",
+     130.69999998807907
+    ],
+    [
+     "stream",
+     3.2000000178813934
+    ],
+    [
+     "board",
+     2.199999988079071
+    ],
+    [
+     "readout",
+     0.09999999403953552
+    ]
+   ]
+  }
+ },
+ "device": {
+  "adapter": "arm bifrost",
+  "css": "360x609",
+  "dpr": 2,
+  "featureLevel": "core",
+  "features": [
+   "core-features-and-limits",
+   "float32-filterable",
+   "indirect-first-instance",
+   "primitive-index",
+   "rg11b10ufloat-renderable",
+   "shader-f16",
+   "texture-component-swizzle",
+   "texture-compression-astc",
+   "texture-compression-astc-sliced-3d",
+   "texture-compression-etc2",
+   "texture-formats-tier1",
+   "texture-formats-tier2"
+  ],
+  "missing": [
+   "texture-compression-bc",
+   "timestamp-query"
+  ]
+ },
+ "district": "los-santos-centre",
+ "errors": [],
+ "frame": {
+  "dtHistogramMs": [
+   [
+    2,
+    13
+   ],
+   [
+    4,
+    11
+   ],
+   [
+    6,
+    16
+   ],
+   [
+    8,
+    16
+   ],
+   [
+    10,
+    8
+   ],
+   [
+    12,
+    14
+   ],
+   [
+    14,
+    21
+   ],
+   [
+    16,
+    26
+   ],
+   [
+    18,
+    19
+   ],
+   [
+    20,
+    20
+   ],
+   [
+    22,
+    9
+   ],
+   [
+    24,
+    10
+   ],
+   [
+    26,
+    10
+   ],
+   [
+    28,
+    10
+   ],
+   [
+    30,
+    5
+   ],
+   [
+    32,
+    18
+   ],
+   [
+    34,
+    12
+   ],
+   [
+    36,
+    8
+   ],
+   [
+    38,
+    6
+   ],
+   [
+    42,
+    10
+   ],
+   [
+    44,
+    5
+   ],
+   [
+    46,
+    12
+   ],
+   [
+    48,
+    15
+   ],
+   [
+    50,
+    17
+   ],
+   [
+    52,
+    20
+   ],
+   [
+    54,
+    13
+   ],
+   [
+    56,
+    7
+   ],
+   [
+    58,
+    5
+   ],
+   [
+    60,
+    10
+   ],
+   [
+    62,
+    12
+   ],
+   [
+    64,
+    16
+   ],
+   [
+    66,
+    7
+   ],
+   [
+    68,
+    6
+   ],
+   [
+    70,
+    2
+   ],
+   [
+    72,
+    5
+   ],
+   [
+    74,
+    6
+   ],
+   [
+    76,
+    5
+   ],
+   [
+    78,
+    1
+   ],
+   [
+    80,
+    2
+   ],
+   [
+    82,
+    2
+   ],
+   [
+    84,
+    5
+   ],
+   [
+    86,
+    1
+   ],
+   [
+    88,
+    2
+   ],
+   [
+    90,
+    3
+   ],
+   [
+    92,
+    4
+   ],
+   [
+    94,
+    11
+   ],
+   [
+    96,
+    3
+   ],
+   [
+    98,
+    4
+   ],
+   [
+    100,
+    93
+   ]
+  ],
+  "dtMaxMs": 2728.800000011921,
+  "dtMeanMs": 58.201438849028065,
+  "dtP50Ms": 47.5,
+  "dtP95Ms": 101.09999999403954,
+  "fps": 21
+ },
+ "frames": 556,
+ "framesSkipped": 332,
+ "note": "The FIRST moving-camera capture on real content on the target phone, and the first clean one: `errors` and `warnings` are both empty, 556 frames drawn over 35.7 s with 332 skipped by the idle gate, 4/4 cells resident, 277 970 triangles, 112 draws. It is what 201/1-01 has been owed since the collector was fixed on 2026-08-25 (the panel's poll was starved, so every earlier moving capture recorded only the boot frame).\n\n**READ THE PAK LINE BEFORE THE NUMBERS.** The run was opened against `?src=.../build/phone-ls-rgba8` after an rgba8 convert, but the manifest it actually loaded says **buildTime 20:18 12-08-2026**, and the resident texture cost is **25.8 MB** — which is the ASTC figure for this district (23.4 MB, [the 08-10 budget row](2026-08-10-district-texture-budget-los-santos-centre-astc.json)) and not the rgba8 one (99.7 MB, [the 08-09 row](2026-08-09-district-texture-budget-los-santos-centre.json)). So **this is an ASTC pak from 12 August, not the rgba8 pak built on 25 August**, and it is NOT the rgba8 side of the texture A/B however the folder is named. **What is established, and what is not.** ESTABLISHED: the pak this capture read is ASTC, built 20:18 12-08-2026 — the buildTime is in the file and the 25.8 MB resident texture cost matches it. ESTABLISHED the next day from the device's own `npm run phone` output: `build/phone/pak` is exactly that pak — *8 cell entries · 20 arrays · 619 layers · 18.8 M texels · by format as built: ASTC4x4 · 25.4 MB resident · built 20:18 12-08-2026* — and `phone.sh` reused it correctly, reporting `pak matches the request` because the run asked for the default `astc`. So the capture almost certainly read `build/phone`, i.e. one of the URLs the script itself printed, rather than the hand-typed `?src=…/build/phone-ls-rgba8` it was reported with. NOT ESTABLISHED, and not worth guessing at again: what `build/phone-ls-rgba8` currently holds. `readlink -f` did rule out the 2026-08-09 symlink trap — the three build folders resolve to three distinct directories — which was this row's first, wrong explanation.\n\n**Why it was invisible.** The reuse line named the game, the rect, the collision side and the build time, and did not name the texture format; the budget block that does print it scrolls past during a long run. `textures=` and `models=` are on that line from 2026-08-25 for exactly this.\n\nWhat the numbers say, on that pak: **IDLE-DOMINATED, and the frame is WAITING rather than working.** CPU body mean 7.48 ms against a 58.2 ms interval — 12.8 % of the frame — with `outsideMeanMs` 50.7, so fps 21 is the rate of DRAWN frames and not a frame cost. The histogram's 93-frame spike at 100 ms is the render gate's idle poll (201/4-01), not a stall. GPU time is unmeasurable here: Bifrost has no `timestamp-query`, and `submitMs` (1.78 mean, 7.5 max) is the CPU side of submission only.\n\n**The one real defect is the worst frame: 1 996.9 ms, of which `overlay-2d` is 1 850.3.** It lands at 1 896 ms — the first frame after boot, with `cellsVisible` 0 and `draws` 12, so the world was not up yet and the 2 s is the overlay's first draw alone. `warmTextMetrics` (2026-08-25) moved ~1.5 s of font resolution off that frame; this capture is the first to measure the frame afterwards and it is still two seconds, so **the warm did not cover what actually costs it**. That is a finding for 5/02, and it is the largest single number in the file.\n\nResidency **98.5 MB**, of which `target` is 59.9 and does not grow with the world — so the content is **38.7 MB for 4 cells**, which lands on the 08-23 finding (~38.6 MB) to within 0.1. Streaming is quiet: 16 cells created, none evicted, no late creates, worst blob 2.9 ms, worst create 15.9 ms. Symbology dropped **4 of 9 unit chips** at 360x609 — the declutter working as 3/03 specified, and the first count of it on a real device.\n\nConditions: MGA-LX3 / ARM Bifrost, **360x609 CSS at DPR 2** (the first capture at the real phone width — the 08-23 one was 403x334), `texture-compression-astc` present, `texture-compression-bc` and `timestamp-query` missing. District `los-santos-centre`, camera at 1319,-1545 h59 perspective. Pasted into chat rather than filed through the panel, so the panel's own pak stamp is absent from this note and the pak line above was reconstructed by cross-referencing the two texture-budget rows.",
+ "passes": [
+  {
+   "available": true,
+   "maxMs": 7.5,
+   "meanMs": 1.7832733808661536,
+   "name": "submitMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuPassMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuPostMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuProbeMs"
+  }
+ ],
+ "spans": [],
+ "streaming": {
+  "blobMeanMs": 0.018165467454375122,
+  "cellsCreated": 16,
+  "cellsEvicted": 0,
+  "lateCreates": 0,
+  "uploadMeanMs": 0.17553956828100217,
+  "worstBlobMs": 2.9000000059604645,
+  "worstCreateMs": 15.900000005960464
+ },
+ "surface": {
+  "cssHeight": 609,
+  "cssWidth": 360,
+  "deviceHeight": 1218,
+  "deviceWidth": 720,
+  "dpr": 2,
+  "renderScale": 1
+ },
+ "symbology": {
+  "beaconCapacity": 150,
+  "beaconGrowths": 0,
+  "chips": 9,
+  "chipsDropped": 4,
+  "incidents": 4,
+  "measures": 0,
+  "stale": 0,
+  "symbols": 13,
+  "units": 9
+ },
+ "tracks": {
+  "bytes": 1102304,
+  "capacity": 7200,
+  "incidentEvents": 11,
+  "samples": 84,
+  "tracks": 9,
+  "window": [
+   4309,
+   40527
+  ]
+ },
+ "unavailable": [
+  "gpuPassMs, gpuPostMs, gpuProbeMs — this adapter has no timestamp-query, so GPU time is not measurable at all"
+ ],
+ "warnings": [],
+ "windowMs": 35652,
+ "world": {
+  "byCategoryMb": [
+   [
+    "target",
+    59.86979961395264
+   ],
+   [
+    "texture",
+    25.81055450439453
+   ],
+   [
+    "cellVertex",
+    10.318000793457031
+   ],
+   [
+    "cellIndex",
+    2.524280548095703
+   ],
+   [
+    "uniform",
+    0.00439453125
+   ]
+  ],
+  "cellsTotal": 4,
+  "cellsVisible": 4,
+  "draws": 112,
+  "pickingMb": 1.4248619079589844,
+  "residencyMb": 98.5270299911499,
+  "triangles": 277970
+ }
+}

@@ -1,0 +1,62 @@
+{
+  "commit": "3cf13e7",
+  "label": "HEAD — reflections v1 + 2dfx particles/coronas (B5r+B6)",
+  "pak": "pak-map bakeless",
+  "host": "Chrome / M3 Pro",
+  "scenes": [
+    {
+      "key": "ls-noon",
+      "avgMs": 8.333,
+      "p95Ms": 9.4,
+      "fps": 120,
+      "frames": 1801,
+      "avgDrawCalls": 438,
+      "gpuMs": { "pass": 2.005, "submit": 0.237 }
+    },
+    {
+      "key": "sf-fog-dawn",
+      "avgMs": 8.334,
+      "p95Ms": 9.3,
+      "fps": 120,
+      "frames": 1802,
+      "avgDrawCalls": 463,
+      "gpuMs": { "pass": 2.18, "submit": 0.236 }
+    },
+    {
+      "key": "lv-night",
+      "avgMs": 8.333,
+      "p95Ms": 9.3,
+      "fps": 120,
+      "frames": 1802,
+      "avgDrawCalls": 372,
+      "gpuMs": { "pass": 2.921, "submit": 0.268 }
+    },
+    {
+      "key": "country-dusk",
+      "avgMs": 8.334,
+      "p95Ms": 9.3,
+      "fps": 120,
+      "frames": 1801,
+      "avgDrawCalls": 297,
+      "gpuMs": { "pass": 3.141, "submit": 0.397 }
+    },
+    {
+      "key": "ocean-horizon",
+      "avgMs": 8.333,
+      "p95Ms": 9.2,
+      "fps": 120,
+      "frames": 1801,
+      "avgDrawCalls": 8,
+      "gpuMs": { "pass": 1.679, "submit": 0.31 }
+    },
+    {
+      "key": "ls-rain-night",
+      "avgMs": 8.333,
+      "p95Ms": 9.4,
+      "fps": 120,
+      "frames": 1801,
+      "avgDrawCalls": 463,
+      "gpuMs": { "pass": 2.926, "submit": 0.321 }
+    }
+  ]
+}

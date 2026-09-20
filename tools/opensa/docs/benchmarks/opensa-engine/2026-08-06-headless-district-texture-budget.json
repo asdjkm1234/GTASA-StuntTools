@@ -1,0 +1,20 @@
+{
+  "note": "The FIRST real texture price of a mobile district, read off the user's own pak in Termux on the target phone with `scripts/debug/texture-budget.ts` (a manifest computation, not an engine run — no GPU touched). Pak: `build/district/pak`, buildTime 17:25 04-08-2026, built with `--rgba8 --max-texture 256` for a Mali-G51 that has no BC. 8 cell entries (a 2x2 district, hd+lod), 18 arrays, 663 layers, 21.4 M texels at mip 0. What it establishes: the format multipliers this bundle has been quoting are REAL on SA content, not just in theory — RGBA8 costs 8.5x what BC1 would and 4.2x what ASTC 4x4 would, on the same texels. That is the arithmetic behind 'a phone buys a district and not the map', and the reason plan 097 chain 2 turned to a direct ASTC encode. Layers by longest edge: 288 at 256 px, 197 at 128, 142 at 64, 28 at 32, 8 at 4 — so a further --max-texture cut still has somewhere to bite.",
+  "runs": [
+    {
+      "arrays": 18,
+      "cellEntries": 8,
+      "diskBytesDeflated": 38587596,
+      "engine": "opensa-engine",
+      "gpuBytesAstc4x4": 28521267,
+      "gpuBytesBc1": 14260633,
+      "gpuBytesRgba8": 121006489,
+      "label": "district pak (--rgba8 --max-texture 256), texture budget",
+      "layers": 663,
+      "pakBuildTime": "17:25 04-08-2026",
+      "surface": "headless",
+      "texelsMipZero": 21400000,
+      "when": "2026-08-06"
+    }
+  ]
+}

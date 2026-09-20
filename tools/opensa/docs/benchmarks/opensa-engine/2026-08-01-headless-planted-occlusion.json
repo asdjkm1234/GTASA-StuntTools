@@ -1,0 +1,30 @@
+{
+  "note": "Plan 096/09 — what the planted-shot occlusion check costs, and how often it actually finds the world in the way. Measured on `build/original/opensa` (pak of 2026-07-31, the vehicle-mods rebake) through tools-debug/bench-harness/drive.js at DPR 1, headless Chrome, this machine. Same protocol and the same caveats as the 096/08 row: these are `[video]` scene-protocol numbers, NOT a `[bench]` sweep, so do not compare them against the ingame/drive sweeps in this folder. READ BEFORE USING stepMs: `performance.now()` is coarsened to 0.1 ms in headless Chrome, so a single frame reads 0 or 0.1 and only the MEAN over thousands of frames is a measurement. WHAT THIS DOES NOT SHOW: blockedPlants is 0 in both runs, i.e. the ladder was never actually walked — three `flyby` plants across 14 scenes all found their authored spot clear. That bounds how COMMON planting into geometry is on these routes; it is not evidence that it cannot happen, which is exactly the assumption the phase exists to stop making. The mechanism itself is pinned by unit tests, not by these runs.",
+  "runs": [
+    {
+      "key": "plant-seed47-drive-4",
+      "what": "seed 47 scenes 1-4, all drives (LA, VEGAS, SF, COUNTRYSIDE) — the same four scenes 096/08 measured, re-run with the plant check live.",
+      "scenes": 4,
+      "kinds": { "drive": 4 },
+      "flybyPlanted": 2,
+      "blockedPlants": 0,
+      "castsMaxWorst": 3,
+      "sceneEnds": { "shots-done": 4 },
+      "stepMs": { "frames": 22822, "meanMs": 0.018, "maxMs": 0.8 }
+    },
+    {
+      "key": "plant-seed911-mixed-10",
+      "what": "seed 911 scenes 1-10 — a wider sample across every region, including the walk and flythrough kinds (which have no planted shots and so report castsMax 0).",
+      "scenes": 10,
+      "flybyPlanted": 1,
+      "blockedPlants": 0,
+      "castsMaxWorst": 3,
+      "sceneEnds": { "shots-done": 7, "stuck": 1, "null": 2 },
+      "stepMs": { "frames": 54202, "meanMs": 0.0153, "maxMs": 1.1 }
+    }
+  ],
+  "reference": {
+    "096/08 drive-only stepMs meanMs": 0.0172,
+    "cast budget": "080 ground rule ≤ 5 casts/frame for the whole game; the follow rig spends 2, so this module's own ceiling is 3 (SURVEY_CASTS_PER_FRAME). Worst observed: 3."
+  }
+}

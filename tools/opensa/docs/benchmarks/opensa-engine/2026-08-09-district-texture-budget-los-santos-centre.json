@@ -1,0 +1,38 @@
+{
+  "note": "The texture price of the PINNED district — 201/1-01's `los-santos-centre` (rect 5,-7,6,-6, opening at 1480,-1720) — printed by `npm run phone`'s own pak check on the target phone (`scripts/debug/texture-budget.ts`: a manifest computation, not an engine run, no GPU touched). Pak `build/phone-ls-rgba8/pak`, buildTime 02:47 09-08-2026, `--textures rgba8 --max-texture 256 --no-ao --bake-collision --map-objects-in-rect --platforms mobile`, vehicles [admiral,infernus,comet] peds [bmycg,wmycr]. Recorded BEFORE it was analysed and before the frame capture it belongs to, per the standing rule. It is the ceiling — every array resident at once — and a drive holds the subset its cells draw. Comparable in KIND to the 08-06 row (same tool, same phone, same flags) and NOT in content: that one was the Ganton-shaped `build/district` pak, this is the chain's pinned ground, which is denser (20 arrays over 8 cell entries against 18, and 49 870 collision triangles against 48 163). The reason this row exists on rgba8 rather than astc: the ASTC encode stage OOMed the phone on the first attempt (one astcenc worker per core, each a V8 isolate reserving its own code range), so the capture was taken on the format the device could build today, which also keeps the ground the only variable that moved against the 08-07 Ganton frame row. ARTEFACT GONE (noted 2026-08-09): the pak this row was read off — `build/phone-ls-rgba8/pak` — no longer exists. That path was a SYMLINK to the same directory as `build/phone-ls`, `build/phone-ganton` and `build/phone`, so the ASTC converts that followed overwrote it. The NUMBERS here are what the tool printed at 02:47 on the rgba8 build and stand as measured; the folder name in this note is a name that can no longer be checked, and re-reading it today returns a different pak.",
+  "runs": [
+    {
+      "arrays": 20,
+      "cellEntries": 8,
+      "collisionCells": 9,
+      "collisionTriangles": 49870,
+      "diskBytesDeflated": 31142707,
+      "district": "los-santos-centre",
+      "engine": "opensa-engine",
+      "gpuBytesAstc4x4": 24536023,
+      "gpuBytesBc1": 12268011,
+      "gpuBytesRgba8": 104542208,
+      "label": "pinned-district pak (--textures rgba8 --max-texture 256), texture budget",
+      "layers": 597,
+      "layersByLongestEdge": {
+        "4": 4,
+        "16": 2,
+        "32": 38,
+        "64": 123,
+        "128": 164,
+        "256": 266
+      },
+      "pakBuildTime": "02:47 09-08-2026",
+      "rect": "5,-7,6,-6",
+      "surface": "phone (Mali-G51, Termux)",
+      "texelsMipZero": 18400000,
+      "when": "2026-08-09"
+    }
+  ],
+  "readings": {
+    "whatItCosts": "99.7 MB resident as built, every array at once, against the 300–500 MB hard ceiling 201 is held to — so the world's TEXTURES alone are a fifth to a third of the whole budget before geometry, collision, or a single unit model is counted.",
+    "whatTheFormatWouldBuy": "The same content is 23.4 MB in ASTC 4x4 and 11.7 MB in BC1. ASTC is therefore worth 76 MB on this district — 4.3x — which is the number the ASTC encode stage exists for and the reason its OOM is a blocker rather than a nuisance. BC1 is desktop-only and not reachable here.",
+    "againstTheOtherDistrict": "The 08-06 row read 121 MB over 18 arrays and 663 layers on a Ganton-shaped rect; this one reads 99.7 MB over 20 arrays and 597 layers. Fewer, larger-mip layers on denser ground — not a contradiction, and not a comparison either: different rects, different content, one tool.",
+    "whereMaxTextureStillBites": "266 layers are still at 256 px, the cap `--max-texture 256` set. Halving the cap to 128 would touch that whole plurality, which is the lever with the most room left in it — priced, not taken, and not part of this capture."
+  }
+}

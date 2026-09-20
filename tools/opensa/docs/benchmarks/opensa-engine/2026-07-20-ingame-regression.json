@@ -1,0 +1,71 @@
+{
+  "note": "Field sweep 2026-07-20 pasted by the user into chat (NOT captured from a file). Same machine and same 841-car road population as the 07-18 baseline in series.md. Recorded here because it documents a large, unexplained regression - see docs/plans/084-vehicle-appearance/readme.md row 4.",
+  "runs": [
+    {
+      "key": "ls-noon",
+      "avgMs": 9.66,
+      "p95Ms": 24.0,
+      "fps": 103.5,
+      "frames": 1554,
+      "avgDrawCalls": 1202,
+      "gpuMs": { "pass": 4.841, "post": 1.087, "probe": 1.154, "submit": 1.417 },
+      "residency": "cellIndex 41 · cellVertex 172 · target 424 · texture 1181 · uniform 1",
+      "lateCreates": 0
+    },
+    {
+      "key": "sf-fog-dawn",
+      "avgMs": 15.442,
+      "p95Ms": 56.2,
+      "fps": 64.8,
+      "frames": 974,
+      "avgDrawCalls": 1023,
+      "gpuMs": { "pass": 4.427, "post": 1.049, "probe": 1.94, "submit": 0.535 },
+      "residency": "cellIndex 33 · cellVertex 139 · target 424 · texture 1247 · uniform 1",
+      "lateCreates": 0
+    },
+    {
+      "key": "lv-night",
+      "avgMs": 14.349,
+      "p95Ms": 37.3,
+      "fps": 69.7,
+      "frames": 1047,
+      "avgDrawCalls": 1678,
+      "gpuMs": { "pass": 9.1, "post": 1.194, "probe": 1.643, "submit": 3.325 },
+      "residency": "cellIndex 32 · cellVertex 152 · target 424 · texture 1277 · uniform 1",
+      "lateCreates": 0
+    },
+    {
+      "key": "country-dusk",
+      "avgMs": 17.156,
+      "p95Ms": 35.5,
+      "fps": 58.3,
+      "frames": 878,
+      "avgDrawCalls": 932,
+      "gpuMs": { "pass": 12.555, "post": 1.067, "probe": 1.89, "submit": 2.602 },
+      "residency": "cellIndex 23 · cellVertex 117 · target 424 · texture 1221 · uniform 1",
+      "lateCreates": 0
+    },
+    {
+      "key": "ocean-horizon",
+      "avgMs": 8.523,
+      "p95Ms": 17.5,
+      "fps": 117.3,
+      "frames": 1761,
+      "avgDrawCalls": 19,
+      "gpuMs": { "pass": 1.799, "post": 0.992, "probe": 0.53, "submit": 0.196 },
+      "residency": "cellIndex 10 · cellVertex 68 · target 424 · texture 1009 · uniform 1",
+      "lateCreates": 0
+    },
+    {
+      "key": "ls-rain-night",
+      "avgMs": 8.949,
+      "p95Ms": 18.4,
+      "fps": 111.7,
+      "frames": 1678,
+      "avgDrawCalls": 959,
+      "gpuMs": { "pass": 4.175, "post": 1.097, "probe": 1.258, "submit": 0.968 },
+      "residency": "cellIndex 42 · cellVertex 174 · target 424 · texture 1187 · uniform 1",
+      "lateCreates": 0
+    }
+  ]
+}

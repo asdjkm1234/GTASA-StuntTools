@@ -1,0 +1,104 @@
+[
+  {
+    "avgDrawCalls": 1009,
+    "avgMs": 8.333,
+    "avgTriangles": 1409820,
+    "fps": 120,
+    "frames": 1802,
+    "gpuMs": {
+      "pass": 1.986,
+      "post": 0.781,
+      "probe": 1.155,
+      "submit": 0.354
+    },
+    "key": "sf-fog-dawn",
+    "lateCreates": 0,
+    "p95Ms": 9.3,
+    "residency": "cellIndex 33 \u00b7 cellVertex 134 \u00b7 target 345 \u00b7 texture 1246 \u00b7 uniform 1"
+  },
+  {
+    "avgDrawCalls": 1157,
+    "avgMs": 8.333,
+    "avgTriangles": 2312529,
+    "fps": 120,
+    "frames": 1801,
+    "gpuMs": {
+      "pass": 2.641,
+      "post": 0.834,
+      "probe": 0.881,
+      "submit": 0.332
+    },
+    "key": "ls-noon",
+    "lateCreates": 0,
+    "p95Ms": 9.2,
+    "residency": "cellIndex 41 \u00b7 cellVertex 172 \u00b7 target 345 \u00b7 texture 1181 \u00b7 uniform 1"
+  },
+  {
+    "avgDrawCalls": 16,
+    "avgMs": 8.334,
+    "avgTriangles": 126125,
+    "fps": 120,
+    "frames": 1801,
+    "gpuMs": {
+      "pass": 2.029,
+      "post": 1.099,
+      "probe": 0.306,
+      "submit": 0.347
+    },
+    "key": "ocean-horizon",
+    "lateCreates": 0,
+    "p95Ms": 9.3,
+    "residency": "cellIndex 10 \u00b7 cellVertex 66 \u00b7 target 345 \u00b7 texture 1007 \u00b7 uniform 1"
+  },
+  {
+    "avgDrawCalls": 1647,
+    "avgMs": 8.334,
+    "avgTriangles": 1857137,
+    "fps": 120,
+    "frames": 1801,
+    "gpuMs": {
+      "pass": 3.562,
+      "post": 0.906,
+      "probe": 0.926,
+      "submit": 0.393
+    },
+    "key": "lv-night",
+    "lateCreates": 0,
+    "p95Ms": 9.2,
+    "residency": "cellIndex 32 \u00b7 cellVertex 150 \u00b7 target 345 \u00b7 texture 1273 \u00b7 uniform 1"
+  },
+  {
+    "avgDrawCalls": 882,
+    "avgMs": 8.333,
+    "avgTriangles": 1336708,
+    "fps": 120,
+    "frames": 1802,
+    "gpuMs": {
+      "pass": 3.902,
+      "post": 0.851,
+      "probe": 1.04,
+      "submit": 0.431
+    },
+    "key": "country-dusk",
+    "lateCreates": 0,
+    "p95Ms": 9.2,
+    "residency": "cellIndex 23 \u00b7 cellVertex 115 \u00b7 target 345 \u00b7 texture 1219 \u00b7 uniform 1"
+  },
+  {
+    "avgDrawCalls": 942,
+    "avgMs": 8.333,
+    "avgTriangles": 1671435,
+    "fps": 120,
+    "frames": 1802,
+    "gpuMs": {
+      "pass": 2.296,
+      "post": 0.863,
+      "probe": 0.969,
+      "submit": 0.393
+    },
+    "key": "ls-rain-night",
+    "lateCreates": 0,
+    "p95Ms": 9.3,
+    "residency": "cellIndex 42 \u00b7 cellVertex 174 \u00b7 target 345 \u00b7 texture 1187 \u00b7 uniform 1"
+  }
+]

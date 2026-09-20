@@ -1,0 +1,36 @@
+{
+  "note": "201/1-06's table, and a CORRECTION to 201/1-01's. Same measurement as the 2026-08-09 row (`npm run build -- --base=./ --sourcemap`, the chunks `dispatch.html` reaches by STATIC import, attributed to sources by walking each chunk's sourcemap) — but taken with an instrument that is now committed, `scripts/debug/bundle-inventory.ts`, because the 08-09 row was measured by a one-off script that left nothing behind and a before/after produced by two different scripts is not an A/B. Taken after merging 161 upstream commits (08-08 → 08-11), so it doubles as the answer to what four days of upstream work cost this surface: 5 kB raw, 1.1 kB gzipped. Desk measurement, no device, no GPU.",
+  "runs": [
+    {
+      "chunks": 6,
+      "engine": "opensa-engine",
+      "label": "dispatch.html, static import graph",
+      "shippedBytesGzip": 171612,
+      "shippedBytesRaw": 518661,
+      "surface": "headless build",
+      "when": "2026-08-12"
+    }
+  ],
+  "chunks": [
+    { "bytesGzip": 90112, "bytesRaw": 267054, "name": "src-*.js" },
+    { "bytesGzip": 58982, "bytesRaw": 189702, "name": "jsx-runtime-*.js" },
+    { "bytesGzip": 17612, "bytesRaw": 50176, "name": "dispatch-*.js" },
+    { "bytesGzip": 3482, "bytesRaw": 9011, "name": "engine-environment-driver-*.js" },
+    { "bytesGzip": 922, "bytesRaw": 1946, "name": "fly-rig-*.js" },
+    { "bytesGzip": 410, "bytesRaw": 715, "name": "modulepreload-polyfill-*.js" }
+  ],
+  "readings": {
+    "theBeforeTableHadA107kbHOLE": "THE HEADLINE, and it is a correction rather than a change. The 08-09 row attributed 394.2 kB of a 501.5 kB bundle and nobody noticed the 107.3 kB that went nowhere: it is `packages/engine/src/render/shaders.ts`, dropped by that walk (394.2 + 107.3 = 501.5 exactly). The file did not grow — 113.3 kB of source before this session's merge, 114.1 after. So the conclusion 1/01 drew from that table is WRONG, and it is the conclusion the chain has been carrying: `packages/engine` is 247.1 kB (48.8 %), against 185.1 kB (36.5 %) for react-dom + react + scheduler together. The engine is the LARGER half of what a map downloads, not the smaller one. What survives from the 08-09 reading is narrower and still true: `react-dom-client.production.js` at 170.4 kB is the largest single FILE in the bundle, and the console's own code (46.0 kB) is a fifth of the engine's.",
+    "whatTheBundleIS": "506.5 kB raw / 167.6 kB gzip over six chunks — against 501.5 / 166.5 on 08-09. The static import graph only: an `import()` chunk is downloaded later and does not belong in this number (the pak worker is the case that matters, and 2/02 owns it).",
+    "whatTheMERGEcost": "+5.0 kB raw, +1.1 kB gzip for 161 upstream commits. Four days of upstream work — the whole procobj/clutter line, plan 100's 2dfx carry, pmb 005 — reached this surface as one kilobyte of gzip, which is what the layer boundaries are for.",
+    "theLargestENGINEitem": "`shaders.ts`, 107.3 kB — 21.2 % of the bundle, and it is WGSL SOURCE TEXT shipped verbatim: 17 blocks, 106.5 kB raw / 37.0 kB gzip of it inside the template literals, which no minifier touches. `hosek-wilkie-data.ts` (33.4 kB), the item 1/01 named as the first thing to price, is a third of it and second in line.",
+    "deadCode": "Effectively none, which is 1/06's actual finding. knip over `apps/dispatch` reports two unused exports — `MARKER_CAPACITY` (`map/beacons.ts`) and `COMPACT_MAX_WIDTH` (`ui/use-compact.ts`) — and BOTH are used inside their own file: what is dead is the `export` keyword, not the constant. Un-exported in this change, and it saves exactly ZERO bytes. Five exported types are flagged in knip's separate 'unused exported types' list and kept: they name the fields of an exported `InventoryReport`. The bundle carries no dead weight; it carries live weight, and the one lever over it is priced separately.",
+    "whatAMapShipsFromTheGAME": "5.1 kB `packages/game` (the environment driver — the one permitted seam), 3.6 kB `packages/renderware` (the timecyc parser behind it), 2.4 kB `apps/engine-lab` (the `?demo=1` synthetic city) and 1.9 kB `apps/web` — still the GAME app's camera maths, imported by `apps/dispatch/src/map/map-camera.ts`. Unchanged since 08-09, including the app-to-app import the boundary lint permits."
+  },
+  "levers": [
+    "WGSL comments and indentation, priced at 50.6 kB raw / 22.1 kB gzip — 13.2 % of what a phone downloads — for a build-time text transform that changes no shader. NOT taken here: it moves every shader-error line number, which is the one class of defect this repo has a restriction about because no test in it can see one. Filed in docs/performance/deferred-optimizations/wgsl-source-text.md with what would have to be true to pull it."
+  ],
+  "openQuestions": [
+    "Does the console COMPILE every pipeline the WGSL declares, or only the ones a map draws? The text ships either way (it is one module of template literals), so this does not change the bundle — but it decides whether there is a compile-time cost at boot on a phone as well, and 1/04 owns that half. Unmeasured."
+  ]
+}

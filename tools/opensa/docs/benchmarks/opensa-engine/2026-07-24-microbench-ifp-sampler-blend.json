@@ -1,0 +1,17 @@
+{
+  "note": "CPU microbench, NOT a scene run: IfpSampler single vs two-clip blended sampling (plan 088/02 crossfade cost gate). Run by the agent on the user's dev machine (darwin, node 24.15.0) via tsx: synthetic 32-bone chain, 20-key quat track per bone, 20k iterations after 2k warmup, per-call wall time. No GPU, no pak involved. Times are MICROSECONDS per call (avgUs), not ms.",
+  "runs": [
+    {
+      "key": "ifp-sampler-single-32bone-20key",
+      "avgUs": 6.01,
+      "iterations": 20000
+    },
+    {
+      "key": "ifp-sampler-blended-32bone-20key-alpha0.5",
+      "avgUs": 8.24,
+      "iterations": 20000,
+      "vsSingle": "1.37x"
+    }
+  ],
+  "verdict": "A blended frame costs +2.2 us over single (one extra evaluate + slerp per bone) - invisible next to the ~2 ms resolution-independent pass floor. Crossfades ship with no perf gate needed."
+}

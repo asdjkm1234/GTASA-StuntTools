@@ -1,0 +1,218 @@
+{
+  "note": "THE 201/1-01 BEFORE-TABLE, on the district the chain PINNED. First capture that is both clean by the collector's own test (`warnings` empty, 414 frames over 153.9 s) and on the right ground (`los-santos-centre`, the pak's rect 5,-7,6,-6, 4/4 cells resident). It supersedes the 08-07 Ganton row as the chain's baseline; that row remains a valid measurement of Ganton and is not a before/after partner for this one. User-run on their own phone (Mali-G51, Android 10, 360x364 CSS px @ DPR 2), from the prebuilt app over localhost, against pak `build/phone-ls-rgba8/pak` buildTime 02:47 09-08-2026 (`--textures rgba8 --max-texture 256 --no-ao --bake-collision --map-objects-in-rect --platforms mobile`; vehicles [admiral,infernus,comet], peds [bmycg,wmycr]). Its texture budget is filed separately as 2026-08-09-district-texture-budget-los-santos-centre.json. rgba8 rather than astc because the ASTC encode stage OOMed this device on the first attempt — which also leaves the GROUND as the only variable that moved against the Ganton row. Recorded verbatim before it was analysed, per the standing rule.",
+  "device": {
+    "adapter": "arm bifrost",
+    "gpu": "Mali-G51 (ARM, Bifrost) — same device as the 08-04 and 08-07 rows",
+    "featureLevel": "core",
+    "css": "360x364",
+    "dpr": 2,
+    "missing": [
+      "texture-compression-bc",
+      "timestamp-query"
+    ],
+    "hasAstc": "texture-compression-astc IS present — the format the ASTC encode stage exists to write, on the device that would read it",
+    "noTimestamps": "gpuPassMs / gpuPostMs / gpuProbeMs are ABSENT on this adapter, not zero — no GPU time is measurable here at all"
+  },
+  "world": {
+    "pak": "02:47 09-08-2026",
+    "rect": "5,-7,6,-6 (los-santos-centre, opening at 1480,-1720)",
+    "flags": "--textures rgba8 --max-texture 256 --no-ao --bake-collision --map-objects-in-rect --platforms mobile; vehicles [admiral,infernus,comet], peds [bmycg,wmycr]",
+    "verifiedBy": "scripts/debug/pak-recipe.ts via `npm run phone`'s reuse gate — the pak's own recipe, read back rather than remembered",
+    "collision": "baked, 9 cells on the 256 game grid, 565 regions / 49870 triangles / 100 breakable"
+  },
+  "runs": [
+    {
+      "key": "dispatch-inventory-los-santos-centre",
+      "surface": "dispatch console, ?inventory=1&district=los-santos-centre, prebuilt app over localhost",
+      "frames": 414,
+      "windowMs": 153946.80000001192,
+      "fps": 33,
+      "dtMeanMs": 27.563285024197782,
+      "dtP50Ms": 30.30000001192093,
+      "dtP95Ms": 48.099999994039536,
+      "dtMaxMs": 205.30000001192093,
+      "dtHistogramMs": [
+        [
+          8,
+          9
+        ],
+        [
+          10,
+          36
+        ],
+        [
+          12,
+          43
+        ],
+        [
+          14,
+          18
+        ],
+        [
+          16,
+          18
+        ],
+        [
+          18,
+          37
+        ],
+        [
+          20,
+          13
+        ],
+        [
+          22,
+          2
+        ],
+        [
+          24,
+          12
+        ],
+        [
+          26,
+          7
+        ],
+        [
+          28,
+          9
+        ],
+        [
+          30,
+          35
+        ],
+        [
+          32,
+          31
+        ],
+        [
+          34,
+          46
+        ],
+        [
+          36,
+          31
+        ],
+        [
+          38,
+          30
+        ],
+        [
+          40,
+          9
+        ],
+        [
+          42,
+          3
+        ],
+        [
+          44,
+          1
+        ],
+        [
+          46,
+          2
+        ],
+        [
+          48,
+          5
+        ],
+        [
+          50,
+          5
+        ],
+        [
+          52,
+          3
+        ],
+        [
+          54,
+          1
+        ],
+        [
+          56,
+          2
+        ],
+        [
+          58,
+          2
+        ],
+        [
+          62,
+          1
+        ],
+        [
+          68,
+          1
+        ],
+        [
+          86,
+          1
+        ],
+        [
+          100,
+          1
+        ]
+      ],
+      "cpuBodyMeanMs": 5.832850241718661,
+      "cpuBodyMaxMs": 185.90000000596046,
+      "cpuOutsideMeanMs": 21.730434782479122,
+      "cpuShareOfFrame": 0.21161665732506146,
+      "cpuSegmentsMs": [
+        [
+          "overlay-2d",
+          2.443719807310381
+        ],
+        [
+          "engine-frame",
+          2.1026570042550277
+        ],
+        [
+          "stream",
+          0.5956521736107011
+        ],
+        [
+          "other",
+          0.3393719808922864
+        ],
+        [
+          "board",
+          0.3342995173545275
+        ],
+        [
+          "readout",
+          0.01714975829573645
+        ]
+      ],
+      "submitMeanMs": 1.8644927530616955,
+      "submitMaxMs": 9.199999988079071,
+      "gpuPassMs": null,
+      "draws": 110,
+      "triangles": 265079,
+      "cellsVisible": 4,
+      "cellsTotal": 4,
+      "residencyMb": 148.020827293396,
+      "cameraAtReport": {
+        "at": [
+          1504.4410564400682,
+          -1563.7559793519551
+        ],
+        "height": 327.60003897992533
+      },
+      "spans": []
+    }
+  ],
+  "readings": {
+    "theFrameIsWAITING_notWORKING": "The question the 08-07 row could not answer, answered: the main thread runs for 5.83 ms of a 27.56 ms frame — 21.2 % — and is idle for the other 21.73 ms. Whatever the cost is, it is downstream of the CPU: present, GPU, or the wait for either. Tuning the loop body could at best return a fifth of the frame, and only if every millisecond of it vanished.",
+    "andItIsNotAHalfRateLOCK": "The other half of that question. A frame merely presenting at half rate piles into one bin at a vsync multiple; this one spreads across thirty bins with two humps — 25.6 % of frames land at 8–15 ms and 41.8 % at 30–39 ms, with 8.9 % past 40. A world that can produce a 10 ms frame is not locked out of one, so the slow frames are paying for something real and variable rather than missing a deadline by construction.",
+    "whereTheBodyGOES": "overlay-2d 2.44 ms, engine-frame 2.10, stream 0.60, other 0.34, board 0.33, readout 0.02. The 2D symbology overlay is the LARGEST CPU item in a 3D map's frame — larger than the engine's own record and submit — and it is drawing nine units and four calls. That is a finding for 201/5-02 (units as instanced symbols), not for the profile: at 150 units the current path scales into the frame budget it is a fifth of today.",
+    "residencyAgainstTheCEILING": "148.0 MB resident over 4 cells, against the 300–500 MB hard ceiling. The pak's own texture ceiling for the same district is 99.7 MB with every array at once, so ~48 MB of this is everything else — geometry, collision, the water mesh. Notably LOWER than Ganton's 239 MB over the same cell count, which is not explained yet and is worth one measurement rather than one theory.",
+    "againstTheBudgets": "201 names 60 fps on a phone. This is 33 fps at p50 30.3 ms — half the budget, on a 2 x 2-cell district at 110 draws and 265 k triangles, with the CPU idle four fifths of the time. The chain's first honest statement of the gap it has to close, and of where the closing cannot come from.",
+    "spansStillEmpty": "No between-frame span fired in 154 s, exactly as on 08-07: the district is 4 cells, all resident, so no cell collider build, .osm parse or texture upload had to run inside the sampled window. The transient half of 091's picture is still unmeasured on this device — a moving camera over a larger pak is what would show it."
+  },
+  "openQuestions": [
+    "What owns the 21.7 ms outside the loop? No timestamp-query on this adapter, so it cannot be split into GPU vs present vs compositor from inside the page. A render-scale or resolution sweep would separate fill cost from the rest without needing a GPU timer.",
+    "Why is this district 148 MB where Ganton was 239 MB over the same 4 cells, when it is DENSER on disk (20 arrays vs 18, 29.7 MB deflated)? One of the two numbers is measuring something the other is not.",
+    "Is overlay-2d's 2.44 ms proportional to the symbol count? At nine units it is already the largest body item; 201's budget names 150.",
+    "The capture was taken with the camera at 1504,-1564 h=328 — the operator worked the view rather than holding the opening pose, which is what was asked for and also means the numbers average over zoom levels rather than describing one."
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "note": "The renderer shoot-out that justified writing an own engine, ls-noon / Los Santos. Transcribed from the Engine comparison table in opensa-engine/2026-07-18-series.md. The own-engine row of that table is a DIFFERENT harness (lab `city`, full LS streamed) and lives at opensa-engine/2026-07-12-city-full-ls.json — 8.34 ms / 2.67 GPU / 225 draws / 409 MB. Caveat recorded with the original: prod ls-noon ran the full game (dynamics/water/post) where the own engine was static-world, but the 073 measurements showed the WORLD dominated all three budgets, so the comparison stands directionally.",
+  "host": "M3 Pro @2x retina",
+  "runs": [
+    {
+      "engine": "three WebGL (prod)",
+      "scene": "ls-noon",
+      "avgMs": 65,
+      "fps": 15,
+      "renderCpuSubmitMs": 65,
+      "gpuMs": 31,
+      "avgDrawCalls": 14454,
+      "jsHeap": "GB-scale with caches",
+      "verdict": "shipped, CPU-bound on draws"
+    },
+    {
+      "engine": "three WebGPU (plan 073)",
+      "scene": "ls-noon",
+      "avgMs": "300-400",
+      "fps": "3-4",
+      "renderCpuSubmitMs": "4-6 (but unaccounted 300 ms frames)",
+      "gpuMs": "pool bug 250; worse than WebGL net",
+      "avgDrawCalls": "same scene graph",
+      "jsHeap": "3.4-6.2 GB",
+      "verdict": "FAILED — park verdict, blocker on three's side"
+    },
+    {
+      "engine": "Babylon (073 spike, snapshot)",
+      "scene": "synthetic",
+      "renderCpuSubmitMs": 0.12,
+      "avgDrawCalls": 15000,
+      "verdict": "spike only, not integrated — proved the browser was not the limit"
+    }
+  ]
+}

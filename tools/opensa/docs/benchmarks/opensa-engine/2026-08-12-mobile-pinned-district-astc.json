@@ -1,0 +1,86 @@
+{
+  "note": "THE FIRST CLEAN ASTC CAPTURE ON THE PINNED DISTRICT, and the format A/B's other side against 2026-08-09-mobile-pinned-district-inventory.json (same district, same rect 5,-7,6,-6, same phone, rgba8 there and astc here). It is also the run that proved the fix in `requireFormatSupport`: the capture taken 3.5 h earlier on this same pak reported 20 of 20 world arrays refused with 'this texture is BC-compressed', cellsTotal 0 and a VOID warning — the upload gate computed its demand as `format !== RGBA8 ⇒ BC` while OSTEX_FORMAT_FEATURE already mapped ASTC4x4 to texture-compression-astc, so an ASTC pak passed the manifest gate and was then refused per array on a GPU that carries ASTC. That capture is NOT filed as a measurement (it measured an empty world); this one supersedes it. User-run on their own phone (Mali-G51, Android 10, 360x364 CSS px @ DPR 2), prebuilt app over localhost, pak build/phone-ls/pak buildTime 20:18 12-08-2026 (--textures astc --max-texture 256 --no-ao --bake-collision --map-objects-in-rect --platforms mobile; vehicles [admiral,infernus,comet], peds [bmycg,wmycr]). Its texture ceiling is filed as 2026-08-09-district-texture-budget-los-santos-centre.json, which predicted 25.4 MB resident for ASTC4x4 — the ledger reports 25.81, so the prediction holds.",
+  "device": {
+    "adapter": "arm bifrost",
+    "css": "360x364",
+    "dpr": 2,
+    "featureLevel": "core",
+    "missing": ["texture-compression-bc", "timestamp-query"],
+    "note": "No timestamp-query, so gpuPassMs/gpuPostMs/gpuProbeMs are ABSENT rather than zero. Mobile rows are never comparable to the desktop series.",
+    "present": ["texture-compression-astc", "texture-compression-etc2", "shader-f16", "texture-formats-tier2"]
+  },
+  "world": {
+    "camera": { "at": [1486.4, -1635.1], "heightM": 29.7 },
+    "cells": "4 of 4 resident and visible",
+    "district": "los-santos-centre",
+    "note": "Street level, the same working height as the 08-09 bytes row (25.7 m), so the byte columns are comparable to it. The 08-09 INVENTORY row was taken higher, so fps/frame numbers there are not a single-variable partner for these — residency is, because the texture format is the only thing that moves texture bytes.",
+    "pak": "build/phone-ls/pak, buildTime 20:18 12-08-2026, --textures astc"
+  },
+  "runs": [
+    {
+      "frames": 685,
+      "harness": "dispatch console, ?inventory=1&district=los-santos-centre",
+      "warnings": "empty — the capture passes the collector's own validity test",
+      "windowS": 24.05
+    }
+  ],
+  "readings": {
+    "bytes": {
+      "cellHdMb": 2.64,
+      "note": "17 of 20 texture arrays read at this camera position, against 20 of 20 on the 08-09 bytes row from a wider view. NO cell-lod and NO collision requests — the collision finding of 201/1-01 reproduces on an ASTC pak.",
+      "requests": 22,
+      "textureArrayMb": 16.4,
+      "totalMb": 21.7,
+      "waterMb": 2.66
+    },
+    "cpu": {
+      "bodyMeanMs": 5.09,
+      "outsideMeanMs": 25.77,
+      "segmentsMs": {
+        "board": 0.34,
+        "engine-frame": 2.16,
+        "other": 0.35,
+        "overlay-2d": 1.88,
+        "readout": 0.02,
+        "stream": 0.34
+      },
+      "shareOfFrame": 0.165,
+      "worstBodyMs": 154.1,
+      "worstBodySegmentsMs": { "engine-frame": 95.3, "overlay-2d": 49.2, "stream": 3.5 }
+    },
+    "frame": {
+      "dtMaxMs": 714.8,
+      "dtMeanMs": 30.86,
+      "fps": 31,
+      "note": "The histogram is not a vsync lock: 100 frames land in the 8-12 ms bins and 309 in the 30-38 ms band, so a world that can produce a 10 ms frame is not being held out of one.",
+      "p50Ms": 32.0,
+      "p95Ms": 51.4,
+      "submitMeanMs": 1.99
+    },
+    "residency": {
+      "byCategoryMb": {
+        "cellIndex": 2.52,
+        "cellVertex": 10.06,
+        "target": 36.54,
+        "texture": 25.81,
+        "uniform": 0.004
+      },
+      "note": "THE HEADLINE. Total 74.9 MB against 148 MB on the rgba8 side of this A/B — the texture category alone falls to 25.81 MB, a quarter of what the same texels cost as RGBA8, which is exactly what 200/2-02 was built for. And the second reading of the same table: `target` at 36.54 MB is now the LARGEST resident category, larger than every texture in the district. Render targets are a cost of RESOLUTION, not of content, and no amount of trimming the world touches them.",
+      "totalMb": 74.94
+    },
+    "streaming": {
+      "blobMeanMs": 0.02,
+      "cellsCreated": 2454,
+      "cellsEvicted": 0,
+      "uploadMeanMs": 0.18,
+      "worstCreateMs": 25.5
+    },
+    "world": { "draws": 111, "triangles": 277970 }
+  },
+  "openQuestions": [
+    "ANSWERED 2026-08-12, and the answer is a bug in the COLLECTOR, not churn in the streamer: `cellsCreated` 2454 is four creates counted once per frame for the rest of a 685-frame window. `StreamStats.created/evicted/lateCreates` are running totals the driver never resets (only `blobMs` is reset and `uploadMs` reassigned per update), and the console SUMMED all five. The rest of the capture was right to disagree with it — blobMean 0.02 ms, uploadMean 0.18, 0 evictions. Fixed in `apps/dispatch/src/world/inventory.ts` (read, never sum), pinned by a test that fails at 400-for-4 when the defect is reintroduced, and recorded as a restriction (`docs/restrictions/architecture.md`). READ THIS FIELD AS: at least 4 creates, no evidence of churn, exact count NOT recoverable from this capture — 2454 = sum over frames of the running total, which any of several create timings satisfies. The next run reports it honestly.",
+    "ANSWERED 2026-08-12 by desk arithmetic over the engine's own allocations — see 2026-08-12-dispatch-render-target-attribution.json, which sums to this exact 36.54 MB over 23 textures. MSAA 4x is 23.99 MB of it (65.7 %), the bloom chain 6.67 (4.00 of that the ONE full-res prefilter), the env probe 1.88. The finding the question did not anticipate: the category is FIXED COST — a function of resolution and sample count and of nothing in the world — so it is the largest item today only because the district is four cells, and it stays 36.54 MB on a full-map build while every other category grows. Largest, therefore, but not the first priority. The MSAA lever is priced in docs/performance/deferred-optimizations/msaa-sample-count.md and not taken; `?scale=` now exists on the console for the next field run, and the report records the surface it was drawn at.",
+    "One dt of 714.8 ms and one body of 154.1 ms (engine-frame 95.3 + overlay-2d 49.2). The window is 24 s, so a single stall of that size moves the mean; a longer window would say whether it recurs.",
+    "fps fell 33 -> 31 against the rgba8 row while memory halved. The camera height differs between the two (that row was taken higher), so this is NOT evidence that ASTC costs frame time — it is a reason the two rows may not be compared on fps at all."
+  ]
+}

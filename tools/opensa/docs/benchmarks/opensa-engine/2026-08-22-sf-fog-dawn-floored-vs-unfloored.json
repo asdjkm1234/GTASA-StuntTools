@@ -1,0 +1,123 @@
+{
+  "arms": {
+    "unfloored": [
+      {
+        "avgDrawCalls": 1728,
+        "avgMs": 5.404,
+        "avgTriangles": 2906943,
+        "fps": 185,
+        "frames": 2799,
+        "gpuMs": {
+          "pass": 3.969,
+          "post": 0.802,
+          "probe": 1.874,
+          "submit": 2.607
+        },
+        "hitch": {
+          "maxMs": 149.9,
+          "p99Ms": 131.4,
+          "slowFrames": 74
+        },
+        "p95Ms": 7.7
+      },
+      {
+        "avgDrawCalls": 1716,
+        "avgMs": 5.415,
+        "avgTriangles": 2901855,
+        "fps": 184.7,
+        "frames": 2794,
+        "gpuMs": {
+          "pass": 3.98,
+          "post": 0.795,
+          "probe": 1.901,
+          "submit": 2.32
+        },
+        "hitch": {
+          "maxMs": 151.2,
+          "p99Ms": 131.5,
+          "slowFrames": 74
+        },
+        "p95Ms": 7.5
+      },
+      {
+        "avgDrawCalls": 1727,
+        "avgMs": 5.422,
+        "avgTriangles": 2903786,
+        "fps": 184.4,
+        "frames": 2789,
+        "gpuMs": {
+          "pass": 3.937,
+          "post": 0.767,
+          "probe": 1.808,
+          "submit": 2.575
+        },
+        "hitch": {
+          "maxMs": 152.9,
+          "p99Ms": 129.8,
+          "slowFrames": 60
+        },
+        "p95Ms": 8.3
+      }
+    ],
+    "floored": [
+      {
+        "avgDrawCalls": 1706,
+        "avgMs": 5.421,
+        "avgTriangles": 2881224,
+        "fps": 184.5,
+        "frames": 2794,
+        "gpuMs": {
+          "pass": 3.909,
+          "post": 0.802,
+          "probe": 1.918,
+          "submit": 2.402
+        },
+        "hitch": {
+          "maxMs": 152.6,
+          "p99Ms": 130.2,
+          "slowFrames": 74
+        },
+        "p95Ms": 7.7
+      },
+      {
+        "avgDrawCalls": 1733,
+        "avgMs": 5.404,
+        "avgTriangles": 2893144,
+        "fps": 185,
+        "frames": 2781,
+        "gpuMs": {
+          "pass": 3.887,
+          "post": 0.779,
+          "probe": 1.957,
+          "submit": 2.136
+        },
+        "hitch": {
+          "maxMs": 156.3,
+          "p99Ms": 132.5,
+          "slowFrames": 39
+        },
+        "p95Ms": 8.8
+      },
+      {
+        "avgDrawCalls": 1710,
+        "avgMs": 5.421,
+        "avgTriangles": 2902914,
+        "fps": 184.5,
+        "frames": 2777,
+        "gpuMs": {
+          "pass": 3.916,
+          "post": 0.798,
+          "probe": 1.906,
+          "submit": 2.268
+        },
+        "hitch": {
+          "maxMs": 149.4,
+          "p99Ms": 129.4,
+          "slowFrames": 53
+        },
+        "p95Ms": 9.0
+      }
+    ]
+  },
+  "note": "Headless lab lane (tools-debug/bench-harness/drive.js), ?bench=sf-fog-dawn, DPR=2, UNCAPPED=1, six runs ALTERNATED U F U F U F on one machine in one session, same pak build/original/opensa 2026-08-22 09:57. The ONLY variable is one line of engine-environment-driver.ts: the timecyc fog start passed through as authored (unfloored, main at 55ca77ba) vs clamped to >= 0 (floored, the pre-104 behaviour), reverted in the working tree per run and restored after. The scene runs at hour 7, where FOGGY_SF authors FogSt -200 / FarClp 150 = 72.9% fog at the camera unfloored against 0% floored — checked before the runs. Treatment verified to land: the exit screenshots differ and the unfloored PNG is 2.69 MB against the floored 3.93 MB. NOT comparable to the user's display lane: 252 road cars here against his 1219, residency target 345 against 422. Uncapped mode's 149-156 ms hitches and 39-74 slow frames appear in BOTH arms and cancel. Write-up: 2026-08-22-sf-fog-dawn-floored-vs-unfloored.md"
+}

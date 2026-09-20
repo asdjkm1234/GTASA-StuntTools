@@ -1,0 +1,185 @@
+{
+  "boot": {
+    "gpuMs": 2607.5
+  },
+  "build": "20:18 12-08-2026",
+  "bytes": {
+    "byKind": [
+      { "bytes": 16822346, "kind": "texture-array", "requests": 52 },
+      { "bytes": 11914029, "kind": "cell-hd", "requests": 18 },
+      { "bytes": 2658756, "kind": "water.bin", "requests": 1 },
+      { "bytes": 1288987, "kind": "cell-lod", "requests": 17 }
+    ],
+    "cachedBytes": 10670628,
+    "cachedRequests": 59,
+    "requests": 88,
+    "totalBytes": 32684118
+  },
+  "camera": { "at": [1402.5, -1775.505915286113], "height": 900, "projection": "perspective" },
+  "cpu": {
+    "bodyMaxMs": 148.0999999642372,
+    "bodyMeanMs": 5.07361963391304,
+    "outsideMeanMs": 40.83006134921788,
+    "segmentsMs": [
+      ["overlay-2d", 1.5680981602039805],
+      ["engine-frame", 1.527914110319746],
+      ["other", 0.8947852756713797],
+      ["stream", 0.7460122706334283],
+      ["board", 0.23895705550726207],
+      ["overlay:symbols", 0.08742331288343558],
+      ["readout", 0.006748466952446779],
+      ["overlay:sketches", 0.002147239410072748],
+      ["overlay:clear", 0.0015337423312883436]
+    ],
+    "shareOfFrame": 0.11052751163414407,
+    "worstFrame": {
+      "atMs": 70,
+      "bodyMs": 148.0999999642372,
+      "canvasPixels": 639360,
+      "cellsCreated": 0,
+      "cellsEvicted": 0,
+      "cellsVisible": 0,
+      "draws": 12,
+      "dtMs": 177.5,
+      "pending": 4,
+      "segmentsMs": [
+        ["engine-frame", 95.80000001192093],
+        ["overlay:symbols", 22.19999998807907],
+        ["stream", 4.699999988079071],
+        ["board", 4.5],
+        ["overlay-2d", 1.300000011920929],
+        ["overlay:sketches", 0.6000000238418579],
+        ["readout", 0.20000004768371582],
+        ["overlay:clear", 0.19999998807907104]
+      ]
+    }
+  },
+  "device": {
+    "adapter": "arm bifrost",
+    "css": "360x444",
+    "dpr": 2,
+    "featureLevel": "core",
+    "features": [
+      "core-features-and-limits",
+      "float32-filterable",
+      "indirect-first-instance",
+      "primitive-index",
+      "rg11b10ufloat-renderable",
+      "shader-f16",
+      "texture-component-swizzle",
+      "texture-compression-astc",
+      "texture-compression-astc-sliced-3d",
+      "texture-compression-etc2",
+      "texture-formats-tier1",
+      "texture-formats-tier2"
+    ],
+    "missing": ["texture-compression-bc", "timestamp-query"]
+  },
+  "district": "los-santos-centre",
+  "errors": [],
+  "firstFrames": [
+    [
+      ["frame:sky-lut", 75.79999995231628],
+      ["frame:record", 7.5],
+      ["frame:submit", 0.800000011920929],
+      ["frame:probe", 0.6000000238418579],
+      ["frame:cull", 0.30000001192092896],
+      ["frame:targets", 0.10000002384185791]
+    ],
+    [
+      ["frame:record", 1.0999999642372131],
+      ["frame:submit", 0.30000001192092896],
+      ["frame:targets", 0.09999996423721313],
+      ["frame:sky-lut", 0],
+      ["frame:probe", 0],
+      ["frame:cull", 0]
+    ],
+    [
+      ["frame:record", 1.600000023841858],
+      ["frame:submit", 0.8999999761581421],
+      ["frame:targets", 0.10000002384185791],
+      ["frame:sky-lut", 0.09999996423721313],
+      ["frame:probe", 0],
+      ["frame:cull", 0]
+    ]
+  ],
+  "frame": {
+    "dtHistogramMs": [
+      [0, 1], [2, 1], [4, 9], [6, 8], [8, 12], [10, 13], [12, 9], [14, 17], [16, 8], [18, 11],
+      [20, 7], [22, 9], [24, 15], [26, 13], [28, 9], [30, 17], [32, 10], [34, 13], [36, 3], [38, 6],
+      [40, 4], [42, 8], [44, 8], [46, 2], [48, 3], [50, 6], [52, 5], [54, 2], [56, 5], [60, 1],
+      [62, 4], [64, 2], [66, 3], [68, 2], [72, 4], [74, 3], [76, 1], [82, 1], [88, 1], [96, 3],
+      [98, 3], [100, 64]
+    ],
+    "dtMaxMs": 190.5999999642372,
+    "dtMeanMs": 45.90368098313092,
+    "dtP50Ms": 33.40000003576279,
+    "dtP95Ms": 101,
+    "fps": 30
+  },
+  "frames": 326,
+  "framesSkipped": 140,
+  "passes": [
+    { "available": true, "maxMs": 13.5, "meanMs": 1.930981593080825, "name": "submitMs" },
+    { "available": false, "maxMs": 0, "meanMs": 0, "name": "gpuPassMs" },
+    { "available": false, "maxMs": 0, "meanMs": 0, "name": "gpuPostMs" },
+    { "available": false, "maxMs": 0, "meanMs": 0, "name": "gpuProbeMs" }
+  ],
+  "spans": [],
+  "streaming": {
+    "blobMeanMs": 0.13036809834234553,
+    "cellsCreated": 35,
+    "cellsEvicted": 0,
+    "lateCreates": 0,
+    "uploadMeanMs": 0.299079754601227,
+    "worstBlobMs": 18.69999998807907,
+    "worstCreateMs": 24.400000035762787
+  },
+  "surface": {
+    "cssHeight": 444,
+    "cssWidth": 360,
+    "deviceHeight": 888,
+    "deviceWidth": 720,
+    "dpr": 2,
+    "renderScale": 1
+  },
+  "symbology": {
+    "beaconCapacity": 150,
+    "beaconGrowths": 0,
+    "chips": 10,
+    "chipsDropped": 1,
+    "incidents": 2,
+    "measures": 0,
+    "stale": 0,
+    "symbols": 11,
+    "units": 9
+  },
+  "tracks": {
+    "bytes": 1101984,
+    "capacity": 7200,
+    "incidentEvents": 6,
+    "samples": 49,
+    "tracks": 9,
+    "window": [3896, 20788]
+  },
+  "unavailable": [
+    "gpuPassMs, gpuPostMs, gpuProbeMs — this adapter has no timestamp-query, so GPU time is not measurable at all"
+  ],
+  "warnings": [],
+  "windowMs": 16414.69999998808,
+  "world": {
+    "byCategoryMb": [
+      ["target", 44.15615367889404],
+      ["texture", 25.84546661376953],
+      ["cellVertex", 4.185844421386719],
+      ["cellIndex", 1.5700225830078125],
+      ["uniform", 0.00439453125]
+    ],
+    "cellsTotal": 4,
+    "cellsVisible": 4,
+    "draws": 61,
+    "pickingMb": 0.33377647399902344,
+    "residencyMb": 75.7618818283081,
+    "triangles": 158245
+  }
+}

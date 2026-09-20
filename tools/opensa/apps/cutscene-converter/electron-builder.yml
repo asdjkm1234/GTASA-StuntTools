@@ -1,0 +1,36 @@
+# One portable .exe, cross-built from macOS. Unsigned — DECIDED (plan 001): the tutorial explains
+# SmartScreen's "More info → Run anyway" instead of a certificate with a recurring bill.
+appId: cc.opensa.cutscene-converter
+productName: Cutscene Converter
+copyright: © OpenSA — AGPL-3.0-only
+
+directories:
+  output: release
+
+# Only the built halves. `npm run build` produces all three, and it FAILS when the plugin is absent.
+#
+# `!node_modules/**` is not tidiness: electron-builder packs the workspace ROOT's runtime dependencies by
+# default, and this app needs none of them — esbuild bundles the main process (electron itself is the only
+# external) and vite bundles the renderer. Leaving it in shipped rapier, bitecs, react and meshoptimizer
+# inside the asar: 18 MB of an 87 MB exe that no line of the app ever loads.
+files:
+  - dist/main/**
+  - dist/renderer/**
+  - '!node_modules/**'
+
+# The plugin the converted fleet requires, beside the exe rather than inside the asar — the app copies it
+# into the user's output folder, so it has to be a real file on disk.
+extraResources:
+  - from: dist/asi/perfect-cutscene.asi
+    to: perfect-cutscene.asi
+
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+
+portable:
+  artifactName: cutscene-converter-${version}.exe
+  # The exe unpacks to a temp folder and runs from there; a fixed name keeps that folder stable across runs.
+  unpackDirName: opensa-cutscene-converter

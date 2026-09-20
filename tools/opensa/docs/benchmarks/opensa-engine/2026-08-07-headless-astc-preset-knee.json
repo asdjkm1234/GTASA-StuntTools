@@ -1,0 +1,75 @@
+{
+  "note": "NOT an engine run — the second trial of the chain-2 encoder (`astc-encoder.js` 1.0.0, ARM astcenc via wasm), taken to pick the two settings `createAstcEncoder` now DEFAULTS to: the quality preset and the thread count. Ran by Claude in the session container (x64 Linux, node 22, 4 cores) on a synthetic 256x256 RGBA8: two colour ramps plus a 16x16 checkerboard of BINARY alpha, so every block boundary meets a hard alpha edge — the shape SA's cutout foliage is made of and the one a block codec is worst at. Not comparable to the 08-06 trial (different image, different size, different thread count) and not comparable to anything else in this folder: no GPU, no pak, no device. What it establishes: MEDIUM is the KNEE — it buys +3.07 dB over FAST for 1.35x the time, while THOROUGH buys only another 0.30 dB for 1.41x again — and that astcenc's own worker pool is worth taking (threads=0 auto is 2.38x one thread on 4 cores, at bit-identical output). Both are why the encoder defaults to MEDIUM and threads=0. What this does NOT establish is the number chain 2 actually owes: the district A/B, two paks from one tree with only `--textures` flipped, which needs game assets this container does not have.",
+  "runs": [
+    {
+      "astcBlock": "4x4",
+      "bytesPerTexel": 1.0,
+      "encodeMs": 235,
+      "engine": "opensa-engine",
+      "label": "FASTEST, 256x256 RGBA8 synthetic, threads=0 (4 cores)",
+      "psnr": 39.49,
+      "psnrAlpha": 44.77,
+      "psnrRgb": 38.24,
+      "quality": "FASTEST",
+      "surface": "headless",
+      "threads": 0,
+      "when": "2026-08-07"
+    },
+    {
+      "astcBlock": "4x4",
+      "bytesPerTexel": 1.0,
+      "encodeMs": 168,
+      "engine": "opensa-engine",
+      "label": "FAST, 256x256 RGBA8 synthetic, threads=0 (4 cores)",
+      "psnr": 39.26,
+      "psnrAlpha": 44.15,
+      "psnrRgb": 38.01,
+      "quality": "FAST",
+      "surface": "headless",
+      "threads": 0,
+      "when": "2026-08-07"
+    },
+    {
+      "astcBlock": "4x4",
+      "bytesPerTexel": 1.0,
+      "encodeMs": 227,
+      "engine": "opensa-engine",
+      "label": "MEDIUM, 256x256 RGBA8 synthetic, threads=0 (4 cores) — the encoder's default",
+      "psnr": 42.33,
+      "psnrAlpha": 45.73,
+      "psnrRgb": 41.08,
+      "quality": "MEDIUM",
+      "surface": "headless",
+      "threads": 0,
+      "when": "2026-08-07"
+    },
+    {
+      "astcBlock": "4x4",
+      "bytesPerTexel": 1.0,
+      "encodeMs": 321,
+      "engine": "opensa-engine",
+      "label": "THOROUGH, 256x256 RGBA8 synthetic, threads=0 (4 cores)",
+      "psnr": 42.63,
+      "psnrAlpha": 45.97,
+      "psnrRgb": 41.38,
+      "quality": "THOROUGH",
+      "surface": "headless",
+      "threads": 0,
+      "when": "2026-08-07"
+    },
+    {
+      "astcBlock": "4x4",
+      "bytesPerTexel": 1.0,
+      "encodeMs": 495,
+      "engine": "opensa-engine",
+      "label": "MEDIUM, 256x256 RGBA8 synthetic, threads=1 — the single-thread reference",
+      "psnr": 42.33,
+      "psnrAlpha": 45.73,
+      "psnrRgb": 41.08,
+      "quality": "MEDIUM",
+      "surface": "headless",
+      "threads": 1,
+      "when": "2026-08-07"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "note": "THE DIRECT COMPARISON PARTNER of opensa-engine/2026-07-18-ingame-preflip-baseline.json — prod and the own engine run BACK TO BACK on the same machine, same day, same 841-car road population, by the user. Transcribed from the prod columns of opensa-engine/2026-07-18-series.md (§ THE PRE-FLIP SWEEP). This is the row the flip decision was made on: the own engine came out 3.2-7.4x faster on frame time and 4.8-12.0x on draws.",
+  "engine": "three.js / WebGL2 (prod, tiered default)",
+  "host": "Chrome / M3 Pro @2x retina",
+  "roadCars": 841,
+  "runs": [
+    {
+      "key": "ls-noon",
+      "avgMs": 59.57,
+      "p95Ms": 67.6,
+      "fps": 16.8,
+      "avgDrawCalls": 8127,
+      "tris": 980000,
+      "gpuFrameMs": 30.7
+    },
+    {
+      "key": "sf-fog-dawn",
+      "avgMs": 53.63,
+      "p95Ms": 59.1,
+      "fps": 18.6,
+      "avgDrawCalls": 10119,
+      "tris": 2240000,
+      "gpuFrameMs": 17.27
+    },
+    {
+      "key": "lv-night",
+      "avgMs": 42.02,
+      "p95Ms": 65.9,
+      "fps": 23.8,
+      "avgDrawCalls": 5073,
+      "tris": 516000,
+      "gpuFrameMs": 17.7
+    },
+    {
+      "key": "country-dusk",
+      "avgMs": 26.46,
+      "p95Ms": 33.4,
+      "fps": 37.8,
+      "avgDrawCalls": 4275,
+      "tris": 678000,
+      "gpuFrameMs": 17.94
+    },
+    {
+      "key": "ocean-horizon",
+      "avgMs": 16.78,
+      "p95Ms": 22.3,
+      "fps": 59.6,
+      "avgDrawCalls": 60,
+      "tris": 6600,
+      "gpuFrameMs": 44.62,
+      "note": "prod's cheapest scene reports its HIGHEST frame timer — the timer is unreliable here"
+    },
+    {
+      "key": "ls-rain-night",
+      "avgMs": 61.59,
+      "p95Ms": 67.1,
+      "fps": 16.2,
+      "avgDrawCalls": 8771,
+      "tris": 1110000,
+      "gpuFrameMs": 19.02
+    }
+  ]
+}

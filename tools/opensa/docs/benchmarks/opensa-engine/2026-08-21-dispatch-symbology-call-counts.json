@@ -1,0 +1,47 @@
+{
+  "findings": [
+    "Text measurement is now paid ONCE PER DISTINCT LABEL for the life of the page instead of once per chip per frame: 190/frame forever becomes 151 once and 0 thereafter. A callsign is a callsign for a whole shift, which is what makes the cache sound rather than clever.",
+    "`ctx.font` was being re-assigned 190 times a frame — a font-shorthand re-parse each time — for a value that never varies. It is set once per frame now.",
+    "`fillText` is unchanged at one per chip and is the layer's remaining per-symbol cost. Nothing here reduces the number of symbols; that is 3/03's decluttering rule, not this step's.",
+    "The counts are in the inventory report (`symbology` block), so the next capture states the load it was drawn under instead of leaving a frame time to be read against an unknown symbol count.",
+    "**2026-08-22: 201/8-02 nearly undid this, and the count is what caught it.** A stale unit's chip carries the age of its fix (`4-XRAY-7 · 12s`), which is a different string every second — keyed into the width cache whole, it made 150 NEW entries per frame, blew the 512-entry cap, and re-measured everything: measured at **150 `measureText` per frame, forever**, against the 0 this row exists to hold. The width is assembled from cached PARTS now (the callsign, and the ~100-string age vocabulary), and the steady state is back to 0. Pinned by a test that fails on the composite key."
+  ],
+  "load": {
+    "chipsDropped": 0,
+    "incidents": 40,
+    "note": "Every symbol projects onto the canvas and no chip is past the depth cut — the layer's worst case, chosen deliberately. The 40 calls carry ONE distinct label between them (`10-50 · Traffic collision`), which is why the warm-up measure count is 151 rather than 190.",
+    "symbolsDrawn": 190,
+    "units": 150
+  },
+  "note": "WHAT THE 2D SYMBOLOGY LAYER ASKS OF THE CANVAS PER FRAME, at the count 201's budget table declares. A DESK COUNT, not a device run and not a timing: the layer is driven with a stub `CanvasRenderingContext2D` that records calls, so what is measured is how much work the layer requests, never how long the browser takes to do it. It exists because 201/1-01 measured `overlay-2d` at 2.44 ms — the LARGEST item in the frame body, more than `engine-frame`'s 2.10 — while drawing NINE units, and the declared worst case is 150. The milliseconds at 150 are owed by 2/03's field run and are NOT in this file.",
+  "openQuestions": [
+    "What `overlay-2d` costs in MILLISECONDS at 150 units on the pinned district, desktop and phone. Nothing on a desk answers it — the counts above say the requests fell, not that the frame did. `?units=150&calls=40&inventory=1` is how 2/03 takes it.",
+    "Whether 190 `fillText` calls are affordable at all on a Mali-G51, or whether the chip layer needs a decluttering rule before the symbol count reaches the budget (3/03)."
+  ],
+  "readings": {
+    "afterFirstFrame": {
+      "fillText": 190,
+      "fontAssignments": 1,
+      "measureText": 151
+    },
+    "afterSteadyState": {
+      "fillText": 190,
+      "fontAssignments": 1,
+      "measureText": 0
+    },
+    "beforeEveryFrame": {
+      "fillText": 190,
+      "fontAssignments": 190,
+      "measureText": 190
+    },
+    "note": "`fontAssignments` reads 1 rather than 3 because the stub projector puts the scale bar's two probe points on the same pixel, so it returns before setting its own font — on a live camera the steady-state figure is 3 (the frame's chip font, the scale bar's small font, and the restore)."
+  },
+  "source": {
+    "before": "apps/dispatch/src/map/overlay-2d.ts at 5cfa2dc — `chip()` assigned `ctx.font` and called `ctx.measureText` itself, once per chip",
+    "files": [
+      "apps/dispatch/src/map/overlay-2d.ts"
+    ],
+    "harness": "a stub 2d context counting property writes and method calls; `ScreenProjector` stubbed to a constant near point",
+    "pinnedBy": "apps/dispatch/src/map/overlay-2d.test.ts"
+  }
+}

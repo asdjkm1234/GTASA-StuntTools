@@ -1,0 +1,58 @@
+{
+  "note": "WHAT THE TIME AXIS COSTS (201/8-01), measured rather than accounted. A desk run in Node, no GPU and no device: 150 units are ticked through a whole shift at the app's own 20 Hz into the real `UnitTracks`, and the process's memory is read either side. It is here because the step owes the memory of 150 units x a shift against the chain's residency ceiling — and because the accounting figure had to be CHECKED against an allocation rather than trusted, which is exactly what 201/5-01 could not do for its own (`PLACEMENT_ROW_BYTES` remains an accounting figure to this day).",
+  "instrument": {
+    "harness": "node --expose-gc, process.memoryUsage() either side of a full-shift run, one scenario per process",
+    "note": "THE READING THAT WOULD HAVE LIED: `heapUsed` alone reports 0.2 MB for 17.5 MB of typed arrays, because a typed array's backing store lives OUTSIDE the V8 heap. `arrayBuffers` is the half that sees it, and the first version of this measurement watched only `heapUsed` — a plausible, self-consistent, completely wrong number of the same family as the 2454 cell creates.",
+    "source": "apps/dispatch/src/ops/tracks.ts",
+    "throwaway": "scripts/debug/.tmp-track-memory.ts, deleted before commit per CLAUDE.md"
+  },
+  "layout": {
+    "bytesPerSample": 17,
+    "columns": "t u32 (ms since epoch) · x f32 · y f32 · heading f32 · status u8 — parallel arrays, so no struct padding",
+    "note": "Column-wise on purpose: an array of objects would make the per-sample cost a guess, and this file exists to remove the guess.",
+    "samplesPerTrack": 7200,
+    "shiftHours": 8,
+    "sampleIntervalMs": 4000
+  },
+  "readings": {
+    "accountedMb": 17.51,
+    "note": "The ring is pre-allocated at capacity, so the store costs its ALLOCATION and not its content — all three scenarios pay the same 17.51 MB. What the sampling policy buys is not memory, it is HISTORY DEPTH.",
+    "scenarios": [
+      {
+        "arrayBuffersMb": 17.51,
+        "heapUsedMb": 0.21,
+        "holdsHours": 8.0,
+        "name": "all 150 moving the whole shift — the ring fills",
+        "samples": 1080000,
+        "slotsFullPct": 100.0
+      },
+      {
+        "arrayBuffersMb": 17.51,
+        "heapUsedMb": 0.22,
+        "holdsHours": 8.0,
+        "name": "all 150 parked the whole shift — the stationary collapse",
+        "samples": 300,
+        "slotsFullPct": 0.0
+      },
+      {
+        "arrayBuffersMb": 17.51,
+        "heapUsedMb": 0.22,
+        "holdsHours": 24.0,
+        "name": "150 units at a 25 % duty cycle (5 min rolling, 15 parked) — a plausible shift",
+        "samples": 820950,
+        "slotsFullPct": 76.0
+      }
+    ]
+  },
+  "findings": [
+    "**17.51 MB for 150 units x an 8 h shift, and the accounting is EXACT**: `arrayBuffers` moves by 17.51 MB against an accounted 17.51 MB. The figure the report prints is the allocation, not a model of it.",
+    "**It is HOST memory and may not be added to the residency ceiling.** The chain's 300-500 MB is `Engine.ledger()`, which counts GPU bytes; this is JS heap. The same distinction 5/01 drew for `pickingMb`, and the report keeps the two apart for the same reason.",
+    "**The stationary collapse buys history depth, not bytes.** Every scenario allocates the same 17.51 MB. What differs is what the ring HOLDS: 8.0 h when every unit moves for the whole shift, and 24.0 h at a plausible 25 % duty cycle — three times the declared window for the same memory, because a parked unit's run collapses to its two ends.",
+    "300 samples for 150 parked units is exactly 2 each, which is the collapse working: the moment it stopped, and where it still is.",
+    "The rate limit is the other half. The mock ticks at 20 Hz and PCAD publishes every 4 s; recording at tick rate would have made the mock's tracks 5x denser than the live feed's — a memory figure that flatters and a scrub that behaves differently in the two."
+  ],
+  "openQuestions": [
+    "What this costs on the PHONE. The layout is fixed and the byte count cannot differ, but nothing here says what 17.5 MB of extra host allocation does to a device already near its ceiling — 2/03's capture carries the `tracks` block now, so the row comes back with it.",
+    "Whether 8 h is the right window at all. It is the one number nobody named (`docs/hacks/dispatch-shift-length.md`) and the cost is linear in it: 4 h is 8.8 MB, 12 h is 26.3."
+  ]
+}

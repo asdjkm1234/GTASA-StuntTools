@@ -1,0 +1,109 @@
+{
+  "note": "THE BYTES COLUMN of 201/1-01, and the last table the step owed. Same phone, same pak (`build/phone-ls-rgba8/pak`, 02:47 09-08-2026, rgba8, --max-texture 256) and same pinned district as the 08-09 frame row, taken with the camera WORKED — down to street level (h 25.7) and across the district — because the column fills with what the streamer requests and a static camera asks for almost nothing after the first load. 799 frames / 33.1 s, `warnings` empty. It is a second capture, not a replacement: its frame numbers describe a harder camera at a lower eye than the 08-09 baseline row and are recorded here for context rather than as a revision of it. ARTEFACT GONE (noted 2026-08-09): see the texture-budget row of the same day — `build/phone-ls-rgba8` was a symlink sharing one directory with three other pak names, and later ASTC converts overwrote the pak this capture ran against. The capture itself is unaffected: it was taken live, and every number in it came out of the running console.",
+  "device": {
+    "adapter": "arm bifrost",
+    "gpu": "Mali-G51 (ARM, Bifrost)",
+    "css": "360x364",
+    "dpr": 2,
+    "missing": [
+      "texture-compression-bc",
+      "timestamp-query"
+    ]
+  },
+  "runs": [
+    {
+      "key": "dispatch-bytes-los-santos-centre",
+      "surface": "dispatch console, ?inventory=1&district=los-santos-centre, camera worked to street level",
+      "frames": 799,
+      "windowMs": 33114.1,
+      "fps": 31,
+      "dtP50Ms": 32.4,
+      "dtP95Ms": 68.9,
+      "dtMaxMs": 1097.2,
+      "cpuBodyMeanMs": 5.706883604707049,
+      "cpuBodyMaxMs": 1068.199999988079,
+      "cpuOutsideMeanMs": 30.17872340404644,
+      "cpuShareOfFrame": 0.15902987521752057,
+      "cpuSegmentsMs": [
+        [
+          "overlay-2d",
+          3.050438047798166
+        ],
+        [
+          "engine-frame",
+          1.7111389236396484
+        ],
+        [
+          "stream",
+          0.38110137660900256
+        ],
+        [
+          "board",
+          0.27734668308563615
+        ],
+        [
+          "other",
+          0.26933667134582073
+        ],
+        [
+          "readout",
+          0.017521902228774356
+        ]
+      ],
+      "submitMeanMs": 1.5764705881159355,
+      "draws": 110,
+      "triangles": 265079,
+      "cellsVisible": 4,
+      "cellsTotal": 4,
+      "residencyMb": 148.021071434021,
+      "cameraAtReport": {
+        "at": [
+          1253.5275640626141,
+          -1489.277055013705
+        ],
+        "height": 25.70757246528044
+      },
+      "pakBytesRead": 36415641,
+      "pakRequests": 28,
+      "pakByKind": [
+        {
+          "bytes": 31104178,
+          "kind": "texture-array",
+          "requests": 20
+        },
+        {
+          "bytes": 2658756,
+          "kind": "water.bin",
+          "requests": 1
+        },
+        {
+          "bytes": 2414018,
+          "kind": "cell-hd",
+          "requests": 4
+        },
+        {
+          "bytes": 238689,
+          "kind": "cell-lod",
+          "requests": 3
+        }
+      ]
+    }
+  ],
+  "againstWhatTheBuildContains": {
+    "textureArrays": "31 104 178 B read over 20 requests, against a deflated texture payload of 31 142 707 B in the pak — 99.9 %, and 20 arrays of 20. On this district the surface reads EVERY texture the build carries. There is no unread texture to omit; the lever is the format (ASTC would make the same content 23.4 MB resident instead of 99.7) and the cap, not selection.",
+    "cellEntries": "The pak holds 8 cell entries for its 4 cells (hd + lod). The run read 4 hd and 3 lod — one LOD entry was never requested, which is the ring policy behaving: a cell whose HD stays resident at this eye never needs its LOD.",
+    "collision": "ZERO requests. The pak carries a baked collision bake — 9 cells on the game grid, 565 regions, 49 870 triangles, 100 breakable — and the dispatch surface asked for none of it, in 33 seconds of working the camera. Confirmed in code as well as in the capture: `bootDispatch` never touches `setup.collision`, because the map runs no physics. This is the first hard evidence for 1/03's conditional candidate, and it is the only thing the build contains that this surface provably never reads.",
+    "water": "2 658 756 B in one request — 7.3 % of everything read, for a mesh whose whole job is to say 'this is the ocean, not missing data'. Not a candidate for removal (a map without a shoreline reads as a hole), but the largest single non-texture read and a candidate for a cheaper representation."
+  },
+  "readings": {
+    "whatAMapACTUALLYreads": "85.4 % of the bytes are texture arrays, 7.3 % water, 7.3 % cell geometry. A profile that hunts for unread entry KINDS finds exactly one — collision — and everything else is read in full.",
+    "theFrameIsStillWAITING": "15.9 % of the frame inside the loop this time, against 21.2 % on the baseline row: a lower eye and a moving camera made the frame longer without making the main thread busier. The direction is the same and stronger — the cost is downstream of the CPU.",
+    "overlay2dGrewWithTheWork": "3.05 ms against 2.44 on the baseline, still the largest item in the body and still drawing nine units. Whatever it scales with, it is not unit count alone.",
+    "aONEsecondBodyStall": "`cpuBodyMaxMs` 1068.2 ms, inside a `dtMaxMs` of 1097.2 — a full second spent INSIDE the loop body on one frame, where the baseline row's worst body was 185.9 ms. It is almost certainly a cell build or a texture upload landing on the main thread as the camera crossed into new ground, and the instrument cannot say which: it keeps per-segment MEANS and only a whole-body maximum. Per-segment maxima are the next cheap thing the collector owes."
+  },
+  "openQuestions": [
+    "Which segment owns the 1068 ms body? The collector needs per-segment maxima to answer, and this is the second capture in which the worst frame is the interesting one.",
+    "`spans` is empty again, over a run that DID stream (the camera moved and cells changed level) — so the between-frame recorder still catches nothing on this path, and the 1-second body suggests why: the work is landing inside `engine.frame`, not between frames.",
+    "Water at 2.66 MB is 7.3 % of the read for a flat surface. What does the same shoreline cost as a heightfield the shader evaluates?"
+  ]
+}

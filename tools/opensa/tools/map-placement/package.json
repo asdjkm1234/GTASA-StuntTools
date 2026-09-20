@@ -1,0 +1,26 @@
+{
+  "name": "@opensa/map-placement",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SA map placement workflows shared by the LOD tools: object-id allocation, IDE/gta.dat editing, swapped-HD retexture, procobj scatter conversion/stripping, and the curated SA vegetation roster.",
+  "exports": {
+    "./ide": "./src/ide.ts",
+    "./lod-twin": "./src/lod-twin.ts",
+    "./retxd": "./src/retxd.ts",
+    "./procobj-strip": "./src/procobj-strip.ts",
+    "./procobj": "./src/procobj/convert.ts",
+    "./procobj-density": "./src/procobj/density.ts",
+    "./vegetation": "./src/vegetation.ts",
+    "./ipl-text-strip": "./src/ipl-text-strip.ts",
+    "./ipl-text-retransform": "./src/ipl-text-retransform.ts",
+    "./ipl-binary-strip": "./src/ipl-binary-strip.ts",
+    "./streamed-areas": "./src/streamed-areas.ts",
+    "./permanent-areas": "./src/permanent-areas.ts",
+    "./ipl-binary-write": "./src/ipl-binary-write.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

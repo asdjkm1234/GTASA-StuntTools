@@ -1,0 +1,113 @@
+{
+  "note": "USER-RUN in-game ?bench=all sweep, 2026-07-27, taken immediately AFTER the texture-upload budget fix (resumable array uploads drained in-frame at UPLOAD_BUDGET_MS=1.5 — docs/performance/applied/texture-upload-budget.md) to confirm the fix costs nothing on averages. Code = head 0668c3f + the uncommitted fix. Chat paste; fields complete. pak = build/original/opensa/pak (the 087-ring rebuild, buildTime 08:41 24-07-2026 — same pak as the 07-24 617556f baseline). road cars registered: 1126 (same as 07-24). Field verdict on the drive that preceded it (paraphrased): looks great, no lags noticed. VERDICT vs 07-24 617556f: performance-NEUTRAL on every scene — ls-noon/sf-fog-dawn/country-dusk/ocean-horizon/ls-rain-night/ganton-noon/ganton-night all within a tenth of a ms; lv-night 13.121->13.784 avgMs (76.2->72.5 fps) with gpu pass IDENTICAL (8.692 vs 8.668) — a CPU-side wobble at the +-5% single-run noise boundary, not a pass regression. That neutrality is the expected shape: the fix buys smoothness, not throughput (same bytes move). The fix's own evidence is in the [slow] lines of the SAME sweep: every streaming slow frame now reads blob<=0.6 worst<=0.4 upload<=2.4 (one 2.4 overshoot — the budget check runs after a write, so overshoot is bounded by one write) where the pre-fix shape was blob 15-85 in one call; lateCreates 0 on ALL 8 scenes, so the pop-in price did not materialize. Remaining slow frames are scene-teleport/spawn frames dominated by 'other' 76-225 ms (the unmeasured vehicle-model-builder door) and country-dusk's known GPU-bound ~14 ms pass (trees).",
+  "commit": "0668c3f + uncommitted texture-upload-budget fix",
+  "pak": "build/original/opensa/pak (087-ring rebuild, buildTime 08:41 24-07-2026)",
+  "host": "Chrome / M3 Pro @2x retina (the 07-24 baseline host)",
+  "roadCars": 1126,
+  "runs": [
+    {
+      "avgDrawCalls": 1234,
+      "avgMs": 8.931,
+      "avgTriangles": 2426629,
+      "fps": 112,
+      "frames": 1681,
+      "gpuMs": { "pass": 4.973, "post": 1.281, "probe": 1.17, "submit": 0.395 },
+      "key": "ls-noon",
+      "lateCreates": 0,
+      "p95Ms": 10.6,
+      "residency": "cellIndex 41 · cellVertex 184 · target 424 · texture 1167 · uniform 1",
+      "vehicles": { "live": 80, "maxMs": 1, "meanMs": 0.64 }
+    },
+    {
+      "avgDrawCalls": 995,
+      "avgMs": 8.781,
+      "avgTriangles": 1370226,
+      "fps": 113.9,
+      "frames": 1710,
+      "gpuMs": { "pass": 4.225, "post": 1.035, "probe": 1.922, "submit": 0.411 },
+      "key": "sf-fog-dawn",
+      "lateCreates": 0,
+      "p95Ms": 10.6,
+      "residency": "cellIndex 33 · cellVertex 145 · target 424 · texture 1240 · uniform 1",
+      "vehicles": { "live": 66, "maxMs": 1, "meanMs": 0.67 }
+    },
+    {
+      "avgDrawCalls": 1683,
+      "avgMs": 13.784,
+      "avgTriangles": 1822747,
+      "fps": 72.5,
+      "frames": 1090,
+      "gpuMs": { "pass": 8.668, "post": 1.129, "probe": 1.462, "submit": 0.593 },
+      "key": "lv-night",
+      "lateCreates": 0,
+      "p95Ms": 15.7,
+      "residency": "cellIndex 30 · cellVertex 154 · target 424 · texture 1261 · uniform 1",
+      "vehicles": { "live": 58, "maxMs": 1.4, "meanMs": 0.667 }
+    },
+    {
+      "avgDrawCalls": 921,
+      "avgMs": 16.567,
+      "avgTriangles": 1245111,
+      "fps": 60.4,
+      "frames": 907,
+      "gpuMs": { "pass": 12.491, "post": 1.004, "probe": 2.088, "submit": 0.48 },
+      "key": "country-dusk",
+      "lateCreates": 0,
+      "p95Ms": 19.2,
+      "residency": "cellIndex 23 · cellVertex 129 · target 424 · texture 1207 · uniform 1",
+      "vehicles": { "live": 13, "maxMs": 0.4, "meanMs": 0.161 }
+    },
+    {
+      "avgDrawCalls": 26,
+      "avgMs": 8.376,
+      "avgTriangles": 138253,
+      "fps": 119.4,
+      "frames": 1793,
+      "gpuMs": { "pass": 1.804, "post": 0.957, "probe": 0.455, "submit": 0.345 },
+      "key": "ocean-horizon",
+      "lateCreates": 0,
+      "p95Ms": 9.3,
+      "residency": "cellIndex 8 · cellVertex 71 · target 424 · texture 1009 · uniform 1",
+      "vehicles": { "live": 0, "maxMs": 0.1, "meanMs": 0.002 }
+    },
+    {
+      "avgDrawCalls": 988,
+      "avgMs": 8.542,
+      "avgTriangles": 1785816,
+      "fps": 117.1,
+      "frames": 1757,
+      "gpuMs": { "pass": 4.293, "post": 1.236, "probe": 1.151, "submit": 0.566 },
+      "key": "ls-rain-night",
+      "lateCreates": 0,
+      "p95Ms": 10,
+      "residency": "cellIndex 41 · cellVertex 182 · target 424 · texture 1176 · uniform 1",
+      "vehicles": { "live": 57, "maxMs": 0.9, "meanMs": 0.583 }
+    },
+    {
+      "avgDrawCalls": 1427,
+      "avgMs": 12.798,
+      "avgTriangles": 1522911,
+      "fps": 78.1,
+      "frames": 1174,
+      "gpuMs": { "pass": 7.973, "post": 1.055, "probe": 1.659, "submit": 0.474 },
+      "key": "ganton-noon",
+      "lateCreates": 0,
+      "p95Ms": 15.3,
+      "residency": "cellIndex 35 · cellVertex 161 · target 424 · texture 1172 · uniform 1",
+      "vehicles": { "live": 73, "maxMs": 1.3, "meanMs": 0.89 }
+    },
+    {
+      "avgDrawCalls": 1431,
+      "avgMs": 12.899,
+      "avgTriangles": 1524685,
+      "fps": 77.5,
+      "frames": 1164,
+      "gpuMs": { "pass": 8.127, "post": 1.08, "probe": 1.646, "submit": 0.581 },
+      "key": "ganton-night",
+      "lateCreates": 0,
+      "p95Ms": 15.4,
+      "residency": "cellIndex 35 · cellVertex 161 · target 424 · texture 1172 · uniform 1",
+      "vehicles": { "live": 73, "maxMs": 1.2, "meanMs": 0.895 }
+    }
+  ]
+}

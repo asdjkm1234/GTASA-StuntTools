@@ -1,0 +1,79 @@
+{
+  "note": "Plan 100/04 A/B: per-system authored cullDist vs the flat DRAW_DISTANCE = 300. Run by Claude on the user's Mac (darwin 25.5.0), headless bench-harness at DPR=2, pak build/original/opensa (buildTime unread — the harness log was filtered to [bench] lines). BEFORE = the flat 300 for every fx system; AFTER = each system's authored cullDist with the two recorded departures (smoke → host draw distance 1500, insects/cigarette_smoke floored at 100). CONTROL = fxDrawDistance forced to 0, i.e. every emitter quad collapsed — a positive control run because the A/B difference was inside the noise, and it proves the SCENE cannot measure emitter cost at all: culling every particle in the map is indistinguishable from drawing them. Do not read these rows as 'no regression measured'; read them as 'the bench cannot see this change'. avgMs is pinned at 8.333 (the 120 fps vsync cap) in every row, so gpuMs.pass is the only responsive column, and avgTriangles is the only column that moves at all.",
+  "runs": [
+    {
+      "arm": "after",
+      "avgDrawCalls": 872,
+      "avgMs": 8.333,
+      "avgTriangles": 1229041,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": { "pass": 3.875, "post": 0.865, "probe": 0.978, "submit": 0.319 },
+      "key": "country-dusk",
+      "lateCreates": 0,
+      "p95Ms": 10,
+      "residency": "cellIndex 23 · cellVertex 106 · target 345 · texture 1007 · uniform 0",
+      "vehicles": { "live": 4, "maxMs": 0.3, "meanMs": 0.096 }
+    },
+    {
+      "arm": "before",
+      "avgDrawCalls": 872,
+      "avgMs": 8.333,
+      "avgTriangles": 1229094,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": { "pass": 3.867, "post": 0.874, "probe": 0.986, "submit": 0.316 },
+      "key": "country-dusk",
+      "lateCreates": 0,
+      "p95Ms": 10,
+      "residency": "cellIndex 23 · cellVertex 106 · target 345 · texture 1007 · uniform 0",
+      "vehicles": { "live": 4, "maxMs": 0.4, "meanMs": 0.095 }
+    },
+    {
+      "arm": "control-no-emitters",
+      "avgDrawCalls": 872,
+      "avgMs": 8.333,
+      "avgTriangles": 1229026,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": { "pass": 3.88, "post": 0.854, "probe": 0.99, "submit": 0.333 },
+      "key": "country-dusk",
+      "lateCreates": 0,
+      "p95Ms": 9.8,
+      "residency": "cellIndex 23 · cellVertex 106 · target 345 · texture 1007 · uniform 0",
+      "vehicles": { "live": 4, "maxMs": 0.4, "meanMs": 0.093 }
+    },
+    {
+      "arm": "after",
+      "avgDrawCalls": 2241,
+      "avgMs": 8.333,
+      "avgTriangles": 2046938,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": { "pass": 3.6, "post": 0.999, "probe": 0.897, "submit": 0.592 },
+      "key": "lv-night",
+      "lateCreates": 0,
+      "p95Ms": 9.8,
+      "residency": "cellIndex 30 · cellVertex 170 · target 345 · texture 1149 · uniform 1",
+      "vehicles": { "live": 43, "maxMs": 0.6, "meanMs": 0.373 }
+    },
+    {
+      "arm": "before",
+      "avgDrawCalls": 2243,
+      "avgMs": 8.333,
+      "avgTriangles": 2049828,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": { "pass": 3.629, "post": 0.928, "probe": 0.824, "submit": 0.598 },
+      "key": "lv-night",
+      "lateCreates": 0,
+      "p95Ms": 10,
+      "residency": "cellIndex 30 · cellVertex 170 · target 345 · texture 1149 · uniform 1",
+      "vehicles": { "live": 43, "maxMs": 0.6, "meanMs": 0.343 }
+    }
+  ],
+  "scenes": {
+    "country-dusk": "50 fx anchors within 300 u of the scene anchor: insects ×37, vent2 ×8, smoke30lit ×4, carwashspray ×1 — the densest emitter scene in the sweep, and the only one carrying both departures at once (insects tightened 300 → 100, smoke30lit raised 155 → 1500).",
+    "lv-night": "26 fx anchors within 300 u, all `fire` — the biggest single tightening in the set (300 → 35 authored), which is why its triangle delta is the largest measured: −2890 of 2 049 828 (−0.14 %)."
+  }
+}

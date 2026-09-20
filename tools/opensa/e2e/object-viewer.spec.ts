@@ -1,0 +1,52 @@
+import { expect, test } from '@playwright/test';
+
+/**
+ * Smoke + visual regression for the object-viewer — the asset-light real-pipeline page
+ * (fetch → parseTxd/parseDff → build-texture/build-clump → instanced render). In `--mode e2e` it renders
+ * the gitignored `fixtures/viewer/` fixtures (`npm run test:fixtures`, served at `/viewer`), so it runs in CI
+ * without the full game archive. (Interactive dev instead loads from the compare server.)
+ */
+test.describe('object viewer', () => {
+  test('boots and renders the default model without console/page errors', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        errors.push(message.text());
+      }
+    });
+    page.on('pageerror', (error) => errors.push(error.message));
+
+    await page.goto('/viewer.html');
+
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible();
+    await page.waitForLoadState('networkidle'); // the default model's dff/txd/col fetches settle
+
+    const box = await canvas.boundingBox();
+    expect(box?.width ?? 0).toBeGreaterThan(0);
+    expect(box?.height ?? 0).toBeGreaterThan(0);
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
+
+  test('overlays additional models via the checkbox lists', async ({ page }) => {
+    await page.goto('/viewer.html');
+    const checkboxes = page.locator('.model-list input[type="checkbox"]');
+    await expect(checkboxes.first()).toBeVisible();
+
+    const count = await checkboxes.count();
+    expect(count).toBeGreaterThan(1);
+
+    await checkboxes.nth(1).check(); // overlay a second model
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('canvas')).toBeVisible();
+  });
+
+  test('matches the rendered baseline (WebGPU, so the snapshot is machine-specific)', async ({ page }) => {
+    await page.goto('/viewer.html');
+    await expect(page.locator('canvas')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(500); // let a few frames render the loaded clump
+
+    await expect(page.locator('canvas')).toHaveScreenshot('object-viewer-default.png', { maxDiffPixelRatio: 0.05 });
+  });
+});

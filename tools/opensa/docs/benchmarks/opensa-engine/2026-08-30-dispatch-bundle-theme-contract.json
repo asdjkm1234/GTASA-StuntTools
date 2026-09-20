@@ -1,0 +1,100 @@
+{
+ "note": "201/7-10's owed bundle number, taken because the step's claim -- that an extra preset costs BYTES and not frame time -- is exactly the kind this repository does not take on trust. Same instrument and same invocation as the 08-09 and 08-12 rows (`npm run build -- --base=./ --sourcemap`, then `npx tsx scripts/debug/bundle-inventory.ts --entry dispatch.html`: the chunks reached by STATIC import, attributed by sourcemap walk), so the three builds below are comparable with each other. THREE were taken rather than two, because the step's total and one preset's cost are different questions: the baseline is the tree before 7-10's two commits, `four presets` is this tree with Mark43 alone removed from THEMES, and `five presets` is what ships -- so the preset row isolates the palette from the shape/density contract, the APCA move into src and the switchability work around it. Desk measurement, no device, no GPU: a bundle size is not a frame time and this row does not claim one. NOT comparable to the 08-12 totals in absolute terms (6 chunks and 171.6 kB gzipped there, 9 and 241.1 kB here, eighteen days of engine and console work apart); only the three builds inside this row are an A/B.",
+ "runs": [
+  {
+   "chunks": 12,
+   "engine": "opensa-engine",
+   "label": "dispatch.html, before 7-10 (baseline)",
+   "shippedBytesGzip": 239501,
+   "shippedBytesRaw": 709983,
+   "surface": "headless build",
+   "when": "2026-08-30"
+  },
+  {
+   "chunks": 12,
+   "engine": "opensa-engine",
+   "label": "dispatch.html, 7-10 with four presets",
+   "shippedBytesGzip": 240861,
+   "shippedBytesRaw": 713789,
+   "surface": "headless build",
+   "when": "2026-08-30"
+  },
+  {
+   "chunks": 12,
+   "engine": "opensa-engine",
+   "label": "dispatch.html, 7-10 as shipped (five presets)",
+   "shippedBytesGzip": 241058,
+   "shippedBytesRaw": 714478,
+   "surface": "headless build",
+   "when": "2026-08-30"
+  }
+ ],
+ "deltas": {
+  "onePresetBytesGzip": 197,
+  "onePresetBytesRaw": 689,
+  "wholeStepBytesGzip": 1557,
+  "wholeStepBytesRaw": 4495
+ },
+ "chunks": [
+  {
+   "bytesGzip": 97768,
+   "bytesRaw": 288736,
+   "name": "dxt-tAY4KNF5.js"
+  },
+  {
+   "bytesGzip": 59005,
+   "bytesRaw": 189702,
+   "name": "jsx-runtime-B-wFFhBA.js"
+  },
+  {
+   "bytesGzip": 49947,
+   "bytesRaw": 148081,
+   "name": "dispatch-DeGYslgt.js"
+  },
+  {
+   "bytesGzip": 14204,
+   "bytesRaw": 37044,
+   "name": "src-2boGTnjf.js"
+  },
+  {
+   "bytesGzip": 8868,
+   "bytesRaw": 23341,
+   "name": "textures-BDUG5wzh.js"
+  },
+  {
+   "bytesGzip": 4241,
+   "bytesRaw": 11872,
+   "name": "dff-CEhadQ32.js"
+  },
+  {
+   "bytesGzip": 2359,
+   "bytesRaw": 6013,
+   "name": "vehicle-defs.parser-B9zI8U2F.js"
+  },
+  {
+   "bytesGzip": 2287,
+   "bytesRaw": 5302,
+   "name": "engine-environment-driver-DOCkBJdn.js"
+  },
+  {
+   "bytesGzip": 878,
+   "bytesRaw": 1805,
+   "name": "col-e-dYxqKj.js"
+  },
+  {
+   "bytesGzip": 686,
+   "bytesRaw": 1200,
+   "name": "model-osm-CNXfGw3L.js"
+  },
+  {
+   "bytesGzip": 392,
+   "bytesRaw": 698,
+   "name": "modulepreload-polyfill-CXK8biUa.js"
+  },
+  {
+   "bytesGzip": 423,
+   "bytesRaw": 684,
+   "name": "ifp-C0FJ7gf6.js"
+  }
+ ]
+}

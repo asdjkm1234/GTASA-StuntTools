@@ -1,0 +1,16 @@
+{
+  "commit": "80ad8d0 (branch 089-02-tyre-smoke, after field round 3)",
+  "host": "headless Chromium / M3 Pro @DPR=2 (drive.js over ?loader=http-dir — directly comparable to the 07-28 091 rows)",
+  "note": "HEADLESS ?bench=all sweep taken by Claude on 2026-07-28 to answer a field impression that 'performance dropped in general' after the tyre-smoke branch. VERDICT: no regression — every scene at the 120 Hz cap (avg 8.33, p95 9.2-9.3, draws equal to the reference within units), gpu pass within +-0.04..0.16 ms of the same-day 091 reference in BOTH directions (run-to-run jitter). Consistent with inspection: an idle dynamic-particle lane issues zero draws and zero writes, and the smoke system is a per-step read of the driven car only. The user's [slow] lines during the impression showed a GPU-bound frame (gpu 12-17 ms at display resolution) with fluctuating car population (bodies 950->1623) plus the known cell-collision spikes (091) — none of it branch-attributable; the user also noted other host processes may have interfered.",
+  "pak": "build/original/opensa/pak (087-ring rebuild, buildTime 08:41 24-07-2026 — same pak as the 091 reference)",
+  "runs": [
+    { "avgDrawCalls": 1180, "avgMs": 8.363, "gpuMs": { "pass": 2.667, "post": 0.889, "probe": 0.918 }, "key": "ls-noon", "p95Ms": 9.3 },
+    { "avgDrawCalls": 996, "avgMs": 8.342, "gpuMs": { "pass": 2.023, "post": 0.827, "probe": 1.205 }, "key": "sf-fog-dawn", "p95Ms": 9.3 },
+    { "avgDrawCalls": 1535, "avgMs": 8.345, "gpuMs": { "pass": 3.294, "post": 0.963, "probe": 0.749 }, "key": "lv-night", "p95Ms": 9.2 },
+    { "avgDrawCalls": 860, "avgMs": 8.327, "gpuMs": { "pass": 3.926, "post": 0.948, "probe": 0.969 }, "key": "country-dusk", "p95Ms": 9.2 },
+    { "avgDrawCalls": 24, "avgMs": 8.333, "gpuMs": { "pass": 1.848, "post": 1.014, "probe": 0.221 }, "key": "ocean-horizon", "p95Ms": 9.2 },
+    { "avgDrawCalls": 957, "avgMs": 8.331, "gpuMs": { "pass": 2.248, "post": 0.892, "probe": 1.019 }, "key": "ls-rain-night", "p95Ms": 9.2 },
+    { "avgDrawCalls": 1403, "avgMs": 8.336, "gpuMs": { "pass": 2.982, "post": 0.95, "probe": 1.114 }, "key": "ganton-noon", "p95Ms": 9.3 },
+    { "avgDrawCalls": 1407, "avgMs": 8.347, "gpuMs": { "pass": 3.173, "post": 0.966, "probe": 1.104 }, "key": "ganton-night", "p95Ms": 9.3 }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@opensa/dispatch",
+  "version": "0.0.0",
+  "private": true,
+  "description": "OpenSA dispatch: a CAD (computer-aided dispatch) surface over the streamed map — top-down operations view, live units, incidents, click-to-inspect. Engine + streaming only; no game layer.",
+  "nx": {
+    "tags": [
+      "type:app"
+    ]
+  }
+}

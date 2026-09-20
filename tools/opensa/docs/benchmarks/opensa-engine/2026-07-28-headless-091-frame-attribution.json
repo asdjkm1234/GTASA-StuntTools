@@ -1,0 +1,469 @@
+{
+  "commit": "865ba50 + plan 091 instrumentation (uncommitted at capture time)",
+  "host": "headless Chromium / M3 Pro @DPR=2 (NOT display-comparable to the user's retina rows)",
+  "note": "HEADLESS ?bench=all sweep taken by Claude on 2026-07-28 (M3 Pro, DPR=2, Chromium/ANGLE-Metal, tools-debug/bench-harness/drive.js over ?loader=http-dir). Run FOR plan 091 (frame-time attribution) \u2014 its purpose is the [slow] lines, not the averages; the eight scene rows are here because the sweep produced them and every number gets recorded. Code = 865ba50 + the 091 instrumentation (in-loop props/world/pose/paused groups, the frame-span recorder, and the fix that makes the breakdown describe the interval dt actually measured). pak = build/original/opensa/pak, buildTime 08:41 24-07-2026 \u2014 the SAME pak as the 07-24 and 07-27 rows. road cars registered: 1126. VERDICT on the averages: every scene sits at the 120 Hz vsync cap (avgMs 8.33, p95 9.2-9.3, lateCreates 0 on all eight) \u2014 headless caps, so these rows judge nothing but 'no regression'; gpu pass is the only comparable column and it is at or below the 07-27 row on every scene. The instrumentation costs nothing measurable: two performance.now() calls per span, spans opened only by work that already costs milliseconds.",
+  "pak": "build/original/opensa/pak (087-ring rebuild, buildTime 08:41 24-07-2026)",
+  "priorRuns": {
+    "runs": [
+      {
+        "avgDrawCalls": 1183,
+        "avgMs": 8.31,
+        "fps": 120.3,
+        "frames": 1806,
+        "gpuMs": {
+          "pass": 2.679,
+          "post": 0.847,
+          "probe": 0.964,
+          "submit": 0.349
+        },
+        "label": "BEFORE 091 (code = 865ba50, no instrumentation)",
+        "lateCreates": 0,
+        "p95Ms": 10,
+        "reading": "The boot frame read 250.0 because the line printed the clamped sim dt; the same frame in the after-run is 576.1. So this row's 250.0 and the after-run's 576.1 are the SAME frame \u2014 not a regression.",
+        "residency": "cellIndex 41 \u00b7 cellVertex 184 \u00b7 target 345 \u00b7 texture 1167 \u00b7 uniform 2",
+        "scene": "ls-noon",
+        "slowFrames": [
+          {
+            "frame": 250.0,
+            "other": 228.2,
+            "spans": "none \u2014 `other` was one anonymous number"
+          },
+          {
+            "frame": 33.5,
+            "other": 13.2
+          },
+          {
+            "frame": 21.9,
+            "other": 15.1
+          },
+          {
+            "frame": 21.0,
+            "other": 7.9
+          }
+        ],
+        "vehicles": {
+          "live": 80,
+          "maxMs": 0.9,
+          "meanMs": 0.606
+        }
+      },
+      {
+        "avgDrawCalls": 1180,
+        "avgMs": 8.334,
+        "fps": 120,
+        "frames": 1801,
+        "gpuMs": {
+          "pass": 2.881,
+          "post": 0.889,
+          "probe": 0.972,
+          "submit": 0.344
+        },
+        "label": "INTERMEDIATE (three spans: vehicle-model, vehicle-spawn, cell-collision-bodies)",
+        "lateCreates": 0,
+        "p95Ms": 10,
+        "reading": "163.8 ms unattributed on the boot frame is what sent the next two spans into the ADAPTER (vehicle-osm, cell-collision-read): on the equivalent frame of the final run they took it to 49.0.",
+        "scene": "ls-noon",
+        "slowFrames": [
+          {
+            "frame": 250.0,
+            "other": 223.6,
+            "spans": {
+              "cell-collision(bodies)": 20.3,
+              "vehicle-model": 39.5
+            },
+            "unattributed": 163.8
+          },
+          {
+            "frame": 43.0,
+            "other": 14.7,
+            "spans": {
+              "vehicle-spawn": 8.7
+            },
+            "unattributed": 6.0
+          }
+        ]
+      }
+    ],
+    "what": "The two runs this one is the 'after' of \u2014 same pak, same host, same harness, same day. Recorded because the standing rule is that every measured number lands here, and because the whole method of plan 091 is visible in the three of them: each span was written where the previous run said the hole was."
+  },
+  "roadCars": 1126,
+  "runs": [
+    {
+      "avgDrawCalls": 1180,
+      "avgMs": 8.333,
+      "avgTriangles": 2287803,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 2.627,
+        "post": 0.847,
+        "probe": 0.974,
+        "submit": 0.358
+      },
+      "key": "ls-noon",
+      "lateCreates": 0,
+      "p95Ms": 9.3,
+      "residency": "cellIndex 41 \u00b7 cellVertex 184 \u00b7 target 345 \u00b7 texture 1167 \u00b7 uniform 2",
+      "vehicles": {
+        "live": 80,
+        "maxMs": 0.9,
+        "meanMs": 0.552
+      }
+    },
+    {
+      "avgDrawCalls": 996,
+      "avgMs": 8.333,
+      "avgTriangles": 1381011,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 1.958,
+        "post": 0.788,
+        "probe": 1.165,
+        "submit": 0.383
+      },
+      "key": "sf-fog-dawn",
+      "lateCreates": 0,
+      "p95Ms": 9.3,
+      "residency": "cellIndex 33 \u00b7 cellVertex 145 \u00b7 target 345 \u00b7 texture 1244 \u00b7 uniform 2",
+      "vehicles": {
+        "live": 66,
+        "maxMs": 0.9,
+        "meanMs": 0.513
+      }
+    },
+    {
+      "avgDrawCalls": 1547,
+      "avgMs": 8.371,
+      "avgTriangles": 1608292,
+      "fps": 119.5,
+      "frames": 1794,
+      "gpuMs": {
+        "pass": 3.303,
+        "post": 0.938,
+        "probe": 0.801,
+        "submit": 0.416
+      },
+      "key": "lv-night",
+      "lateCreates": 0,
+      "p95Ms": 9.2,
+      "residency": "cellIndex 30 \u00b7 cellVertex 154 \u00b7 target 345 \u00b7 texture 1261 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 58,
+        "maxMs": 4.1,
+        "meanMs": 0.489
+      }
+    },
+    {
+      "avgDrawCalls": 861,
+      "avgMs": 8.333,
+      "avgTriangles": 1185921,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 3.833,
+        "post": 0.847,
+        "probe": 1.071,
+        "submit": 0.519
+      },
+      "key": "country-dusk",
+      "lateCreates": 0,
+      "p95Ms": 9.2,
+      "residency": "cellIndex 23 \u00b7 cellVertex 129 \u00b7 target 345 \u00b7 texture 1207 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 13,
+        "maxMs": 0.4,
+        "meanMs": 0.171
+      }
+    },
+    {
+      "avgDrawCalls": 24,
+      "avgMs": 8.334,
+      "avgTriangles": 136358,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 2.004,
+        "post": 1.098,
+        "probe": 0.291,
+        "submit": 0.35
+      },
+      "key": "ocean-horizon",
+      "lateCreates": 0,
+      "p95Ms": 9.3,
+      "residency": "cellIndex 8 \u00b7 cellVertex 71 \u00b7 target 345 \u00b7 texture 1033 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 0,
+        "maxMs": 0.1,
+        "meanMs": 0.004
+      }
+    },
+    {
+      "avgDrawCalls": 960,
+      "avgMs": 8.352,
+      "avgTriangles": 1726216,
+      "fps": 119.7,
+      "frames": 1797,
+      "gpuMs": {
+        "pass": 2.271,
+        "post": 0.84,
+        "probe": 1.016,
+        "submit": 0.417
+      },
+      "key": "ls-rain-night",
+      "lateCreates": 0,
+      "p95Ms": 9.3,
+      "residency": "cellIndex 41 \u00b7 cellVertex 182 \u00b7 target 345 \u00b7 texture 1184 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 57,
+        "maxMs": 0.9,
+        "meanMs": 0.548
+      }
+    },
+    {
+      "avgDrawCalls": 1406,
+      "avgMs": 8.333,
+      "avgTriangles": 1495871,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 2.839,
+        "post": 0.869,
+        "probe": 1.136,
+        "submit": 0.389
+      },
+      "key": "ganton-noon",
+      "lateCreates": 0,
+      "p95Ms": 9.2,
+      "residency": "cellIndex 35 \u00b7 cellVertex 161 \u00b7 target 345 \u00b7 texture 1172 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 73,
+        "maxMs": 1,
+        "meanMs": 0.691
+      }
+    },
+    {
+      "avgDrawCalls": 1410,
+      "avgMs": 8.333,
+      "avgTriangles": 1498144,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 3.01,
+        "post": 0.894,
+        "probe": 1.141,
+        "submit": 0.482
+      },
+      "key": "ganton-night",
+      "lateCreates": 0,
+      "p95Ms": 9.2,
+      "residency": "cellIndex 35 \u00b7 cellVertex 161 \u00b7 target 345 \u00b7 texture 1172 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 73,
+        "maxMs": 1,
+        "meanMs": 0.692
+      }
+    }
+  ],
+  "slowFrames": {
+    "frames": [
+      {
+        "counts": {
+          "vehicle-model": 43,
+          "vehicle-osm": 43
+        },
+        "frame": 576.1,
+        "other": 482.8,
+        "spans": {
+          "cell-collision-bodies": 21.2,
+          "cell-collision-read": 78.3,
+          "vehicle-model": 97.9,
+          "vehicle-osm": 63.2
+        },
+        "unattributed": 222.2,
+        "where": "boot (first frame after the parked fleet + first cells)",
+        "worst": {
+          "vehicle-model": [
+            "sadler",
+            7.2
+          ],
+          "vehicle-osm": [
+            "vincent",
+            7.8
+          ]
+        }
+      },
+      {
+        "counts": {
+          "vehicle-model": 32,
+          "vehicle-osm": 32
+        },
+        "frame": 232.4,
+        "other": 190.5,
+        "spans": {
+          "cell-collision-bodies": 11.6,
+          "cell-collision-read": 28.0,
+          "vehicle-model": 37.8,
+          "vehicle-osm": 21.9
+        },
+        "unattributed": 91.2,
+        "where": "teleport into sf-fog-dawn",
+        "worst": {
+          "vehicle-model": [
+            "club",
+            6.6
+          ],
+          "vehicle-osm": [
+            "petro",
+            1.7
+          ]
+        }
+      },
+      {
+        "counts": {
+          "vehicle-model": 29,
+          "vehicle-osm": 29
+        },
+        "frame": 222.1,
+        "other": 194.8,
+        "spans": {
+          "cell-collision-bodies": 7.5,
+          "cell-collision-read": 19.0,
+          "vehicle-model": 30.2,
+          "vehicle-osm": 59.2
+        },
+        "unattributed": 78.9,
+        "where": "teleport into lv-night",
+        "worst": {
+          "vehicle-model": [
+            "comet",
+            6.6
+          ],
+          "vehicle-osm": [
+            "bus",
+            20.5
+          ]
+        }
+      },
+      {
+        "counts": {
+          "vehicle-model": 31,
+          "vehicle-osm": 31
+        },
+        "frame": 213.6,
+        "other": 206.8,
+        "spans": {
+          "cell-collision-bodies": 17.4,
+          "vehicle-model": 45.7,
+          "vehicle-osm": 27.1
+        },
+        "unattributed": 116.6,
+        "where": "teleport into ls-rain-night",
+        "worst": {
+          "vehicle-model": [
+            "picador",
+            7.1
+          ],
+          "vehicle-osm": [
+            "stretch",
+            5.9
+          ]
+        }
+      },
+      {
+        "counts": {
+          "vehicle-model": 27,
+          "vehicle-osm": 27
+        },
+        "frame": 206.3,
+        "other": 178.3,
+        "spans": {
+          "cell-collision-bodies": 28.1,
+          "cell-collision-read": 15.6,
+          "vehicle-model": 32.0,
+          "vehicle-osm": 19.9,
+          "vehicle-spawn": 1.1
+        },
+        "unattributed": 81.6,
+        "where": "teleport into ganton-noon",
+        "worst": {
+          "vehicle-model": [
+            "admiral",
+            7.5
+          ],
+          "vehicle-osm": [
+            "admiral",
+            2.1
+          ]
+        }
+      },
+      {
+        "counts": {
+          "vehicle-model": 6,
+          "vehicle-osm": 6
+        },
+        "frame": 86.2,
+        "other": 69.4,
+        "spans": {
+          "cell-collision-bodies": 5.6,
+          "cell-collision-read": 9.6,
+          "vehicle-model": 45.8,
+          "vehicle-osm": 2.7
+        },
+        "unattributed": 5.7,
+        "where": "teleport into country-dusk (only 6 new types)",
+        "worst": {
+          "vehicle-model": [
+            "tahoma",
+            18.2
+          ],
+          "vehicle-osm": [
+            "hotrina",
+            0.8
+          ]
+        }
+      },
+      {
+        "frame": 72.3,
+        "other": 68.2,
+        "spans": {},
+        "unattributed": 68.2,
+        "where": "the frame AFTER the ls-rain-night teleport"
+      },
+      {
+        "frame": 41.2,
+        "other": 38.9,
+        "spans": {},
+        "unattributed": 38.9,
+        "where": "two frames after the ls-rain-night teleport"
+      },
+      {
+        "counts": {
+          "vehicle-spawn": 49
+        },
+        "frame": 37.2,
+        "other": 12.2,
+        "spans": {
+          "vehicle-spawn": 8.2
+        },
+        "unattributed": 4.0,
+        "where": "boot settle \u2014 49 instances of ALREADY-BUILT types",
+        "worst": {
+          "vehicle-spawn": [
+            "buccanee",
+            0.8
+          ]
+        }
+      },
+      {
+        "frame": 701.1,
+        "other": 699.7,
+        "spans": {},
+        "unattributed": 699.7,
+        "where": "AFTER 'sweep complete' \u2014 the harness screenshot/teardown, not a game frame"
+      }
+    ],
+    "reading": "Two costs dominate a spike and both are PER NEW CAR TYPE: reading/parsing its .osm (vehicle-osm, worst single 20.5 ms \u2014 'bus') and uploading it to the GPU (vehicle-model, worst single 18.2 ms \u2014 'tahoma'); typical types cost 0.5-2 ms each. A teleport pays 27-43 of them at once, which is a bench-only shape \u2014 in play a type appears one at a time. Cell collision is the other named cost (COL parse 9.6-78.3 ms, Rapier bodies 5.6-28.1 ms). unattributed still holds 40-55 % of a teleport spike and 100 % of the two frames that FOLLOW one (68.2 and 38.9 ms with no span open at all) \u2014 GC-shaped, and the honest next question rather than a fifth span.",
+    "what": "Every [slow] line of the same run, which is what this run was taken for. `frame` is the REAL elapsed interval (the sim clamps dt at 250 ms; before 091 the line printed the clamp, so the boot frame read 250.0 when it was 576.1). `other` = the interval minus every timed block; the spans are what the between-frame work reported about itself; `unattributed` is the rest (GC + whatever nobody wrapped). ALL of these sit OUTSIDE the measured windows \u2014 they are settle/teleport frames, the known pattern."
+  }
+}

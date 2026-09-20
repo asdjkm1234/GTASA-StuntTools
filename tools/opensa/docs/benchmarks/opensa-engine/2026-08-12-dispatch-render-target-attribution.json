@@ -1,0 +1,83 @@
+{
+  "note": "WHERE THE `target` CATEGORY GOES, every byte of it. A desk computation, not a device run: the 2026-08-12 phone capture (2026-08-12-mobile-pinned-district-astc.json) reported `target` at 36.54 MB as the LARGEST resident category — larger than every texture in the pinned district — and left 'what the render-target chain allocates' as its second open question, naming it the first place 201/1-03 should look. This file answers it by enumerating every `resources.createTexture('target', ...)` in the engine at the capture's own surface size and summing the SAME byte estimates the ledger charges. The total lands on 36.54 MB, which is the check: the attribution is the ledger, not a model of it. No GPU was involved and nothing here is a measurement of time.",
+  "surface": {
+    "cssPx": "360x364",
+    "devicePx": "720x728",
+    "dpr": 2,
+    "note": "The capture's own surface. Every row below except the env-probe block scales with devicePx x renderScale, squared — this table is a reading of ONE resolution and may not be carried to another.",
+    "renderScale": 1
+  },
+  "source": {
+    "constants": {
+      "BLOOM_LEVELS": 8,
+      "DEPTH_FORMAT": "depth32float",
+      "MSAA_SAMPLES": 4,
+      "PROBE_MIPS": 8,
+      "PROBE_SIZE": 128,
+      "SCENE_FORMAT": "rgba16float"
+    },
+    "files": [
+      "packages/engine/src/engine.ts — ensureTargets (scene) and buildBloomChain",
+      "packages/engine/src/render/probe.ts — the env probe's four targets",
+      "packages/engine/src/render/pipelines.ts — MSAA_SAMPLES, SCENE_FORMAT"
+    ]
+  },
+  "readings": {
+    "byTargetMb": {
+      "bloom-down x8": 1.333,
+      "bloom-prefilter (full res)": 3.999,
+      "bloom-up x7": 1.333,
+      "env-probe-cube (128, 6 faces, 8 mips)": 1.005,
+      "env-probe-depth": 0.25,
+      "env-probe-msaa": 0.5,
+      "env-probe-scratch": 0.125,
+      "msaa-color (rgba16f, 4x)": 11.997,
+      "msaa-depth (depth32f, 4x)": 11.997,
+      "scene-color (rgba16f)": 3.999
+    },
+    "groupsMb": {
+      "bloom chain (16 textures)": 6.665,
+      "env probe (4 textures)": 1.88,
+      "scene targets (3 textures)": 27.993
+    },
+    "textures": 23,
+    "totalMb": 36.54,
+    "totalMbMeasured": 36.54
+  },
+  "levers": {
+    "note": "Priced here, pulled nowhere. Each one needs a phone run before it is taken, and two of the three are protected or refused by an existing decision.",
+    "rows": [
+      {
+        "lever": "MSAA 4x -> 1x",
+        "wouldSaveMb": 21.99,
+        "shareOfTarget": "65.7 % of the category, 29 % of the whole 74.9 MB residency",
+        "cost": "aliasing on exactly the content a city map is made of — thin railings, wires, distant edges, and a top-down view is nearly all silhouette. WebGPU has no transient/memoryless attachment, so a tiler's tile-memory MSAA still costs a full allocation here.",
+        "status": "not taken — needs a side-by-side on the phone at map zoom, and it is a look change, so the engine judges it (CLAUDE.md), not a screenshot pair"
+      },
+      {
+        "lever": "bloom prefilter at half res",
+        "wouldSaveMb": 3.0,
+        "shareOfTarget": "8.2 %",
+        "cost": "the prefilter is full-res on purpose (074/09) so sub-pixel emitters survive thresholding; at night that is every street lamp and every headlight, and dimmer emissives are a protected-list item (201/1-02, the lit world)",
+        "status": "not taken"
+      },
+      {
+        "lever": "?scale=0.75 / 0.5",
+        "wouldSaveMb": "34.66 -> 19.50 / 8.66 MB of scale-dependent target memory",
+        "shareOfTarget": "the whole category except the env probe",
+        "cost": "resolution, on a 360 CSS px surface where legibility is already 201/3-03's problem. The AUTOMATIC version of this was measured and refused (performance/deferred-optimizations/render-scale-tier.md) — the manual knob is all that is offered, and the console now has it (`?scale=`).",
+        "status": "available to the next field run"
+      }
+    ]
+  },
+  "findings": [
+    "THE CATEGORY IS FIXED COST, and that is the reading the open question did not have. `target` is a function of the surface and the sample count — 720x728 device pixels, MSAA 4x, one bloom chain, one env probe — and of NOTHING in the world. It is the largest category today because the district is four cells; it will be the same 36.54 MB on a full-map build while every other category grows. So it is correctly named as the largest item and incorrectly named as the first priority: the world is what scales, and 1/03's own subject (the pak) is where scale lives.",
+    "TWO THIRDS OF IT IS ONE DECISION. MSAA 4x costs 23.99 MB of 36.54 — more than every texture in the district costs after ASTC (25.81 MB, and that is the whole district's texels). No other single knob in this table is close.",
+    "The ledger's per-texture split for the MSAA pair is an ESTIMATE, deliberately: `ensureTargets` charges each of msaa-color and msaa-depth `w*h*(8+4)*samples/2`, so the PAIR is exact (rgba16f is 8 B/texel, depth32float 4) while the two rows individually are 12.00 MB each where the true footprints are 16.80 and 8.40. Nothing above depends on the split; a future per-texture claim must not.",
+    "The bloom chain is 16 textures for 6.67 MB, and 60 % of that is the ONE full-res prefilter. The 15 mip levels together cost 2.67 MB — the pyramid is cheap and the entry to it is not."
+  ],
+  "openQuestions": [
+    "Does a Mali tiler actually keep the 4x MSAA color attachment in main memory? It is RENDER_ATTACHMENT-only and could in principle be transient, but WebGPU cannot express that today and the ledger charges it either way. If the driver elides it, the real saving from MSAA 1x is smaller than 21.99 MB — which only a device-side memory reading could settle, and this container has none.",
+    "`residency.totalMb` 74.94 against a 300-500 MB ceiling means none of these levers is needed yet. They are priced so that the full-map build (201/1-03's actual subject) can be budgeted against a target cost that does not move."
+  ]
+}

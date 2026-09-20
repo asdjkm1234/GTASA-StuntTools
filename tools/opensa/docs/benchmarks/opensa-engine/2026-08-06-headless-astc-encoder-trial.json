@@ -1,0 +1,20 @@
+{
+  "note": "NOT an engine run — a trial of the CANDIDATE ASTC encoder (`astc-encoder.js` 1.0.0, wasm bindings of ARM astc-encoder), taken because plan 097 chain 2 turned from Basis/KTX2 to a direct ASTC encode (user decision 2026-08-06) and that turn is only honest with an encode measured rather than assumed. Ran by Claude in the session container (x64 Linux, node 22, ONE thread) on a synthetic 128x128 RGBA8 image: two colour ramps plus a hard-edged circle with binary alpha, chosen because a hard alpha edge is what SA's cutout foliage is made of and what a block codec is worst at. Comparable to nothing else in this folder: no GPU, no pak, no device. What it establishes is the format's PRICE (bytes/texel) and that quality and encode time are measurable at all — the encoder ships `computeErrorMetrics`, so chain 2's PSNR floor can be evaluated over the real texture set without writing a metric of our own.",
+  "runs": [
+    {
+      "astcBlock": "4x4",
+      "bytesPerTexel": 1.0,
+      "encodeMs": 115,
+      "engine": "opensa-engine",
+      "label": "astc-encoder.js 1.0.0, LDR, MEDIUM, 1 thread, 128x128 RGBA8 synthetic",
+      "psnr": 49.25,
+      "psnrAlpha": 58.66,
+      "psnrRgb": 48.0,
+      "quality": "MEDIUM",
+      "sizeBytesIn": 65536,
+      "sizeBytesOut": 16384,
+      "surface": "headless",
+      "when": "2026-08-06"
+    }
+  ]
+}

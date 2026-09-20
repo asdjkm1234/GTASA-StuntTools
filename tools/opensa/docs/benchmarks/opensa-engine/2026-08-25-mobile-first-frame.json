@@ -1,0 +1,235 @@
+{
+  "build": "17:45 12-08-2026",
+  "bytes": {
+    "byKind": [
+      {
+        "bytes": 16401085,
+        "kind": "texture-array",
+        "requests": 17
+      },
+      {
+        "bytes": 2658756,
+        "kind": "water.bin",
+        "requests": 1
+      },
+      {
+        "bytes": 2644736,
+        "kind": "cell-hd",
+        "requests": 4
+      }
+    ],
+    "requests": 22,
+    "totalBytes": 21704577
+  },
+  "camera": {
+    "at": [
+      1480,
+      -1720
+    ],
+    "height": 900,
+    "projection": "perspective"
+  },
+  "cpu": {
+    "bodyMaxMs": 1654.9000000059605,
+    "bodyMeanMs": 1654.9000000059605,
+    "outsideMeanMs": 45.400000005960464,
+    "segmentsMs": [
+      [
+        "overlay-2d",
+        1528.1000000238419
+      ],
+      [
+        "engine-frame",
+        113.09999999403954
+      ],
+      [
+        "other",
+        9.300000011920929
+      ],
+      [
+        "stream",
+        2.5999999940395355
+      ],
+      [
+        "board",
+        1.699999988079071
+      ],
+      [
+        "readout",
+        0.09999999403953552
+      ]
+    ],
+    "shareOfFrame": 0.9732988296149844,
+    "worstFrame": {
+      "bodyMs": 1654.9000000059605,
+      "segmentsMs": [
+        [
+          "overlay-2d",
+          1528.1000000238419
+        ],
+        [
+          "engine-frame",
+          113.09999999403954
+        ],
+        [
+          "stream",
+          2.5999999940395355
+        ],
+        [
+          "board",
+          1.699999988079071
+        ],
+        [
+          "readout",
+          0.09999999403953552
+        ]
+      ]
+    }
+  },
+  "device": {
+    "adapter": "arm bifrost",
+    "css": "403x334",
+    "dpr": 2,
+    "featureLevel": "core",
+    "features": [
+      "core-features-and-limits",
+      "float32-filterable",
+      "indirect-first-instance",
+      "primitive-index",
+      "rg11b10ufloat-renderable",
+      "shader-f16",
+      "texture-component-swizzle",
+      "texture-compression-astc",
+      "texture-compression-astc-sliced-3d",
+      "texture-compression-etc2",
+      "texture-formats-tier1",
+      "texture-formats-tier2"
+    ],
+    "missing": [
+      "texture-compression-bc",
+      "timestamp-query"
+    ]
+  },
+  "district": "los-santos-centre",
+  "errors": [],
+  "frame": {
+    "dtHistogramMs": [
+      [
+        100,
+        1
+      ]
+    ],
+    "dtMaxMs": 1700.300000011921,
+    "dtMeanMs": 1700.300000011921,
+    "dtP50Ms": 1700.300000011921,
+    "dtP95Ms": 1700.300000011921,
+    "fps": 1
+  },
+  "frames": 1,
+  "framesSkipped": 0,
+  "passes": [
+    {
+      "available": true,
+      "maxMs": 1.9000000059604645,
+      "meanMs": 1.9000000059604645,
+      "name": "submitMs"
+    },
+    {
+      "available": false,
+      "maxMs": 0,
+      "meanMs": 0,
+      "name": "gpuPassMs"
+    },
+    {
+      "available": false,
+      "maxMs": 0,
+      "meanMs": 0,
+      "name": "gpuPostMs"
+    },
+    {
+      "available": false,
+      "maxMs": 0,
+      "meanMs": 0,
+      "name": "gpuProbeMs"
+    }
+  ],
+  "spans": [],
+  "streaming": {
+    "blobMeanMs": 9.000000029802322,
+    "cellsCreated": 0,
+    "cellsEvicted": 0,
+    "lateCreates": 0,
+    "uploadMeanMs": 1.5999999940395355,
+    "worstBlobMs": 1.9000000059604645,
+    "worstCreateMs": 0
+  },
+  "surface": {
+    "cssHeight": 334,
+    "cssWidth": 403,
+    "deviceHeight": 668,
+    "deviceWidth": 806,
+    "dpr": 2,
+    "renderScale": 1
+  },
+  "symbology": {
+    "beaconCapacity": 150,
+    "beaconGrowths": 0,
+    "incidents": 2,
+    "units": 9,
+    "chips": 11,
+    "chipsDropped": 0,
+    "measures": 0,
+    "stale": 0,
+    "symbols": 11
+  },
+  "tracks": {
+    "bytes": 1101856,
+    "capacity": 7200,
+    "samples": 11,
+    "tracks": 9,
+    "window": [
+      261,
+      473
+    ],
+    "incidentEvents": 4
+  },
+  "unavailable": [
+    "gpuPassMs, gpuPostMs, gpuProbeMs — this adapter has no timestamp-query, so GPU time is not measurable at all"
+  ],
+  "warnings": [
+    "VOID: no cells streamed (cellsTotal 0) — these numbers describe an empty world. Wait for the world to arrive before taking a report.",
+    "only 1 frames sampled — let it settle to at least 300 before citing it"
+  ],
+  "windowMs": 1602.6000000238419,
+  "world": {
+    "byCategoryMb": [
+      [
+        "target",
+        37.483805656433105
+      ],
+      [
+        "texture",
+        25.81055450439453
+      ],
+      [
+        "cellVertex",
+        1.6220130920410156
+      ],
+      [
+        "cellIndex",
+        1.2988357543945312
+      ],
+      [
+        "uniform",
+        0.0042724609375
+      ]
+    ],
+    "cellsTotal": 0,
+    "cellsVisible": 0,
+    "draws": 12,
+    "pickingMb": 0,
+    "residencyMb": 66.21948146820068,
+    "triangles": 113494
+  },
+  "note": "ONE FRAME — the console's FIRST, and NOT by choice: the operator flew the map for minutes before copying, but the inventory panel's poll was starved by the host's own re-renders (a 500 ms interval rebuilt every 250 ms by a `[read]` dependency), so the report on screen was frozen at the first tick. Fixed 2026-08-25; until then every capture of a MOVING map was a capture of the boot. Kept because the frame it froze on is worth having: window 1.6 s, frames 1, zero cells resident, twelve draws, and a body of 1654.9 ms of which overlay-2d is 1528.1 and engine-frame 113.1. With nothing streamed and nothing to draw, that is the cost of the symbology layer TOUCHING THE CANVAS for the first time — the font stack resolving on the first ctx.font. It is the same shape as the 422 ms worst frame in the 08-23 row, isolated. Named and re-noted after the fact: it arrived as keyboard mash, which is why the panel now refuses a one-word name. NOT a performance row: it measures a boot, not a frame rate. Device MGA-LX3, ARM Bifrost, 403x334 CSS at DPR 2 · node v24.18.0 · pak original rect 5,-7,6,-6 textures astc built 17:45 12-08-2026 · captured through tools-debug/phone-console"
+}

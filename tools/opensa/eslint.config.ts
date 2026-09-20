@@ -1,0 +1,367 @@
+/// <reference types="node" />
+import './eslint-plugin.d';
+import type { Linter } from 'eslint';
+
+import reactPlugin from '@eslint-react/eslint-plugin';
+import js from '@eslint/js';
+import json from '@eslint/json';
+import nx from '@nx/eslint-plugin';
+import tseslintPlugin from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+import gitignore from 'eslint-config-flat-gitignore';
+import checkFile from 'eslint-plugin-check-file';
+import importLite from 'eslint-plugin-import-lite';
+import noOnlyTests from 'eslint-plugin-no-only-tests';
+import packageJson from 'eslint-plugin-package-json';
+import perfectionist from 'eslint-plugin-perfectionist';
+import prettierRecommended from 'eslint-plugin-prettier/recommended';
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import * as regexpPlugin from 'eslint-plugin-regexp';
+import sonar from 'eslint-plugin-sonarjs';
+import storybook from 'eslint-plugin-storybook';
+import unicorn from 'eslint-plugin-unicorn';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
+
+const jsFiles = ['**/*.{js,jsx,mjs,cjs}'];
+
+const tsFiles = ['**/*.{ts,tsx}'];
+
+const sourceFiles = ['**/*.{js,jsx,mjs,cjs,ts,tsx}'];
+
+const languageOptions = {
+  ecmaVersion: 2024,
+  globals: {
+    ...globals.browser,
+    ...globals.jest,
+  },
+  sourceType: 'module',
+};
+
+const customTypescriptConfig = {
+  files: tsFiles,
+  languageOptions: {
+    ...languageOptions,
+    parser: tsParser,
+    parserOptions: {
+      project: './tsconfig.eslint.json',
+      tsconfigRootDir: __dirname,
+    },
+  },
+  plugins: {
+    '@check-file': checkFile,
+    '@import-lite': importLite,
+    '@no-only-tests': noOnlyTests,
+    '@sonar': sonar,
+    '@typescript-eslint': tseslintPlugin,
+    '@unicorn': unicorn,
+    'import/parsers': tsParser,
+  },
+  rules: {
+    '@check-file/filename-naming-convention': [
+      'error',
+      {
+        '{apps,packages}/**/*.{ts,tsx}': 'KEBAB_CASE',
+      },
+      {
+        ignoreMiddleExtensions: true,
+      },
+    ],
+    '@check-file/folder-naming-convention': [
+      'error',
+      {
+        '{apps,packages}/**/': 'KEBAB_CASE',
+      },
+    ],
+
+    '@import-lite/no-default-export': 'error',
+
+    '@no-only-tests/no-only-tests': 'error',
+
+    '@sonar/cognitive-complexity': ['error', 20],
+    '@sonar/no-collapsible-if': 'error',
+    '@sonar/no-identical-expressions': 'error',
+    '@sonar/no-identical-functions': 'error',
+    '@sonar/no-inverted-boolean-check': 'error',
+    '@sonar/no-redundant-boolean': 'error',
+    '@sonar/no-small-switch': 'error',
+    '@sonar/no-unused-collection': 'error',
+    '@sonar/prefer-immediate-return': 'error',
+
+    '@typescript-eslint/ban-ts-comment': 'error',
+    '@typescript-eslint/ban-types': 'off',
+    '@typescript-eslint/consistent-type-imports': 'error',
+    '@typescript-eslint/explicit-function-return-type': 'warn',
+    '@typescript-eslint/naming-convention': [
+      'error',
+      // PascalCase (non-strict) is allowed so acronym-prefixed names used by/for
+      // the three.js ecosystem pass — RenderWare types (RWClump, RWGeometry) and
+      // three-style loader classes (DFFLoader, TXDLoader, cf. GLTFLoader).
+      {
+        format: ['UPPER_CASE', 'PascalCase'],
+        selector: 'interface',
+      },
+      {
+        format: ['PascalCase'],
+        selector: 'typeLike',
+      },
+      {
+        format: ['UPPER_CASE', 'PascalCase'],
+        selector: 'class',
+      },
+    ],
+    '@typescript-eslint/no-empty-interface': [
+      'error',
+      {
+        allowSingleExtends: true,
+      },
+    ],
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      {
+        args: 'after-used',
+        ignoreRestSiblings: false,
+        vars: 'all',
+      },
+    ],
+    '@typescript-eslint/return-await': 'off',
+
+    '@unicorn/no-useless-undefined': ['error', { checkArguments: false, checkArrowFunctionBody: false }],
+    '@unicorn/prefer-array-flat': 'error',
+    '@unicorn/prefer-modern-dom-apis': 'error',
+    '@unicorn/prefer-node-protocol': 'error',
+    '@unicorn/prefer-string-starts-ends-with': 'error',
+    '@unicorn/throw-new-error': 'error',
+
+    'array-callback-return': [
+      'error',
+      {
+        allowImplicit: true,
+      },
+    ],
+    // `allow` lets three.js GL enum constants (e.g. RGBA_S3TC_DXT1_Format,
+    // RGBA_S3TC_DXT3_Format) through the otherwise-strict camelCase check.
+    camelcase: ['error', { allow: ['_Format$', '_Type$'], ignoreDestructuring: true, properties: 'always' }],
+    'class-methods-use-this': 'off',
+    'getter-return': [
+      'error',
+      {
+        allowImplicit: true,
+      },
+    ],
+    'newline-before-return': 'error',
+    'no-alert': 'error',
+    'no-await-in-loop': 'off',
+    'no-console': 'error',
+    'no-debugger': 'error',
+    'no-param-reassign': 'off',
+    'no-plusplus': 'off',
+    'no-return-await': 'off',
+    'no-underscore-dangle': 'off',
+    'no-unused-vars': 'off',
+    'no-warning-comments': 'warn',
+  },
+};
+
+// Add the files for applying the recommended TypeScript configs
+// only for the Typescript files.
+// This is necessary when we have the multiple extensions files
+// (e.g. .ts, .tsx, .js, .cjs, .mjs, etc.).
+const recommendedTypeScriptConfigs = [
+  ...tseslint.configs.recommended.map((config) => ({
+    ...config,
+    files: tsFiles,
+  })),
+  ...tseslint.configs.stylistic.map((config) => ({
+    ...config,
+    files: tsFiles,
+  })),
+  ...tseslint.configs.recommendedTypeChecked.map((config) => ({
+    ...config,
+    files: tsFiles,
+  })),
+];
+
+const jsonCustomConfig: Linter.Config = {
+  ...json.configs.recommended,
+  files: ['**/*.json'],
+  ignores: ['**/*-lock.json', 'package.json', 'mods-src/**/*.json', 'fixtures/**/*.json', '**/dist/manifest.json'],
+  language: 'json/json',
+};
+
+const customPackageJsonConfig = {
+  files: ['package.json'],
+  ignores: ['**/*-lock.json'],
+  rules: {
+    'package-json/require-exports': 'off',
+    'package-json/require-files': 'off',
+    'package-json/require-repository': 'off',
+    'package-json/require-sideEffects': 'off',
+    'package-json/require-type': 'off',
+  },
+};
+
+const customJsConfig = {
+  files: jsFiles,
+  languageOptions: {
+    globals: {
+      ...globals.browser,
+      ...globals.jest,
+    },
+  },
+  ...js.configs.recommended,
+};
+
+// Node build/pack scripts + the map-optimizer / opensa-lod-generator tools: Node globals (Buffer, process, …), console.
+const scriptsConfig = {
+  files: [
+    'scripts/**/*.{js,mjs,cjs,ts}',
+    // The Electron app's Node halves — its build/dev scripts and the main process. Its `src/renderer/**` is
+    // browser code and stays under the strict rules.
+    'apps/cutscene-converter/scripts/**/*.{js,mjs,cjs,ts}',
+    'apps/cutscene-converter/src/main/**/*.{js,mjs,cjs,ts}',
+    'tools/map-optimizer/**/*.{js,mjs,cjs,ts}',
+    'tools/opensa-lod-generator/**/*.{js,mjs,cjs,ts}',
+    'tools/vehicle-optimizer/**/*.{js,mjs,cjs,ts}',
+    'tools/tool-kit/**/*.{js,mjs,cjs,ts}',
+    'tools/rw-codec/**/*.{js,mjs,cjs,ts}',
+    'tools/lod-trees-generator/**/*.{js,mjs,cjs,ts}',
+    'tools/map-placement/**/*.{js,mjs,cjs,ts}',
+    'tools/opensa-pack/**/*.{js,mjs,cjs,ts}',
+    'tools/lod-common/**/*.{js,mjs,cjs,ts}',
+    'tools/sa-lod-generator/**/*.{js,mjs,cjs,ts}',
+    'tools/perfect-map-builder/**/*.{js,mjs,cjs,ts}',
+    'tools/sa-procobj-placement/**/*.{js,mjs,cjs,ts}',
+    'tools/mod-installer/**/*.{js,mjs,cjs,ts}',
+    'tools/vehicle-installer/**/*.{js,mjs,cjs,ts}',
+    'tools/vehicle-cutscene/**/*.{js,mjs,cjs,ts}',
+    'tools/ped-installer/**/*.{js,mjs,cjs,ts}',
+    'tools/add-vehicles/**/*.{js,mjs,cjs,ts}',
+    'tools-debug/bench-harness/**/*.{js,mjs,cjs,ts}',
+    'tools-debug/phone-console/**/*.{js,mjs,cjs,ts}',
+    'tools-debug/sa-int16-repro/**/*.{js,mjs,cjs,ts}',
+    'asi/**/*.{js,mjs,cjs,ts}',
+    'cleo/**/*.{js,mjs,cjs,ts}',
+  ],
+  languageOptions: {
+    globals: {
+      ...globals.node,
+    },
+  },
+  rules: {
+    'no-console': 'off',
+  },
+};
+
+// Layer boundary: the generic `game` engine may touch `renderware` only via
+// `game/adapters/**` and `game/mods/**` (plan 040: mods are GTA-specific by nature — they patch
+// world materials and read object defs). Keeps the engine core free of GTA-SA implementation.
+const gameBoundaryConfig = {
+  files: ['packages/game/**/*.{ts,tsx}'],
+  ignores: ['packages/game/src/adapters/**', 'packages/game/src/mods/**'],
+  rules: {
+    'no-restricted-imports': [
+      'error',
+      {
+        patterns: [
+          {
+            group: ['**/renderware', '**/renderware/**'],
+            message: 'The game layer must access renderware only through game/adapters or game/mods.',
+          },
+        ],
+      },
+    ],
+  },
+};
+
+const perfectionistConfig = {
+  files: sourceFiles,
+  ...perfectionist.configs['recommended-natural'],
+};
+
+const regexpConfig = {
+  files: sourceFiles,
+  ...regexpPlugin.configs['flat/recommended'],
+};
+
+// Nx tag-based layer boundaries: apps → engine; engine → engine only (never tools/apps); tools → engine + tools.
+const moduleBoundariesConfig = {
+  files: ['**/*.{ts,tsx}'],
+  plugins: { '@nx': nx },
+  rules: {
+    '@nx/enforce-module-boundaries': [
+      'error',
+      {
+        allow: [],
+        depConstraints: [
+          { onlyDependOnLibsWithTags: ['type:app', 'type:engine'], sourceTag: 'type:app' },
+          { onlyDependOnLibsWithTags: ['type:engine'], sourceTag: 'type:engine' },
+          { onlyDependOnLibsWithTags: ['type:engine', 'type:tool'], sourceTag: 'type:tool' },
+        ],
+      },
+    ],
+  },
+};
+
+const dtsOverrides: Linter.Config = {
+  files: ['**/*.d.ts'],
+  rules: {
+    '@import-lite/no-default-export': 'off',
+    '@typescript-eslint/naming-convention': 'off',
+  },
+};
+
+const jsonPrettierOverrides: Linter.Config = {
+  files: ['**/manifest.json', '**/report.json'],
+  rules: {
+    'prettier/prettier': 'off',
+  },
+};
+
+const disableDefaultExportBlockingForStorybook = {
+  files: [
+    '**/*.stories.@(js|jsx|ts|tsx|mdx)',
+    '**/playwright*.config.ts',
+    '**/.storybook/**',
+    '**/vite.config.ts',
+    '**/vite.*.config.ts',
+    '**/vitest.config.ts',
+    '**/eslint.config.ts',
+  ],
+  rules: {
+    '@import-lite/no-default-export': 'off',
+  },
+};
+
+export default [
+  gitignore({
+    files: [`${import.meta.dirname}/.eslintflatignore`],
+  }),
+  ...recommendedTypeScriptConfigs,
+  prettierRecommended,
+  perfectionistConfig,
+  regexpConfig,
+  customTypescriptConfig,
+  jsonCustomConfig,
+  packageJson.configs.recommended,
+  customPackageJsonConfig,
+  packageJson.configs.stylistic,
+  customJsConfig,
+  scriptsConfig,
+  gameBoundaryConfig,
+  moduleBoundariesConfig,
+  {
+    settings: {
+      react: {
+        version: 'detect',
+      },
+    },
+    ...reactHooksPlugin.configs.flat.recommended,
+    ...reactPlugin.configs['recommended-typescript'],
+    files: sourceFiles,
+  },
+  ...storybook.configs['flat/recommended'],
+  disableDefaultExportBlockingForStorybook,
+  dtsOverrides,
+  jsonPrettierOverrides,
+];

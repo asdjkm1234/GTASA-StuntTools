@@ -1,0 +1,421 @@
+{
+ "build": "20:18 12-08-2026",
+ "bytes": {
+  "byKind": [
+   {
+    "bytes": 16503852,
+    "kind": "texture-array",
+    "requests": 27
+   },
+   {
+    "bytes": 5973634,
+    "kind": "cell-hd",
+    "requests": 9
+   },
+   {
+    "bytes": 2658756,
+    "kind": "water.bin",
+    "requests": 1
+   },
+   {
+    "bytes": 357036,
+    "kind": "cell-lod",
+    "requests": 5
+   }
+  ],
+  "requests": 42,
+  "totalBytes": 25493278
+ },
+ "camera": {
+  "at": [
+   1466.67399721741,
+   -1678.6403221799453
+  ],
+  "height": 47.30196178551217,
+  "projection": "perspective"
+ },
+ "cpu": {
+  "bodyMaxMs": 333.09999999403954,
+  "bodyMeanMs": 4.9869333333969115,
+  "outsideMeanMs": 55.49359999958674,
+  "segmentsMs": [
+   [
+    "overlay-2d",
+    1.5314666675726574
+   ],
+   [
+    "engine-frame",
+    1.380799999554952
+   ],
+   [
+    "other",
+    0.7757333329518632
+   ],
+   [
+    "overlay:clear",
+    0.5661333333651225
+   ],
+   [
+    "stream",
+    0.38266666666666665
+   ],
+   [
+    "board",
+    0.2501333333651225
+   ],
+   [
+    "overlay:symbols",
+    0.08853333330154418
+   ],
+   [
+    "readout",
+    0.009599999904632568
+   ],
+   [
+    "overlay:sketches",
+    0.0018666667143503826
+   ]
+  ],
+  "shareOfFrame": 0.08245518117276983,
+  "worstFrame": {
+   "atMs": 310.2000000178814,
+   "bodyMs": 333.09999999403954,
+   "canvasPixels": 639360,
+   "cellsCreated": 0,
+   "cellsEvicted": 0,
+   "cellsVisible": 0,
+   "draws": 12,
+   "dtMs": 390.5,
+   "pending": 4,
+   "segmentsMs": [
+    [
+     "overlay:clear",
+     212.09999999403954
+    ],
+    [
+     "engine-frame",
+     77.90000000596046
+    ],
+    [
+     "overlay:symbols",
+     22.599999994039536
+    ],
+    [
+     "stream",
+     3.4000000059604645
+    ],
+    [
+     "board",
+     2.800000011920929
+    ],
+    [
+     "overlay-2d",
+     2
+    ],
+    [
+     "overlay:sketches",
+     0.5999999940395355
+    ],
+    [
+     "readout",
+     0.20000001788139343
+    ]
+   ]
+  }
+ },
+ "device": {
+  "adapter": "arm bifrost",
+  "css": "360x377",
+  "dpr": 2,
+  "featureLevel": "core",
+  "features": [
+   "core-features-and-limits",
+   "float32-filterable",
+   "indirect-first-instance",
+   "primitive-index",
+   "rg11b10ufloat-renderable",
+   "shader-f16",
+   "texture-component-swizzle",
+   "texture-compression-astc",
+   "texture-compression-astc-sliced-3d",
+   "texture-compression-etc2",
+   "texture-formats-tier1",
+   "texture-formats-tier2"
+  ],
+  "missing": [
+   "texture-compression-bc",
+   "timestamp-query"
+  ]
+ },
+ "district": "los-santos-centre",
+ "errors": [],
+ "frame": {
+  "dtHistogramMs": [
+   [
+    6,
+    2
+   ],
+   [
+    8,
+    4
+   ],
+   [
+    10,
+    9
+   ],
+   [
+    12,
+    13
+   ],
+   [
+    14,
+    9
+   ],
+   [
+    16,
+    9
+   ],
+   [
+    18,
+    16
+   ],
+   [
+    20,
+    12
+   ],
+   [
+    22,
+    8
+   ],
+   [
+    24,
+    13
+   ],
+   [
+    26,
+    4
+   ],
+   [
+    28,
+    5
+   ],
+   [
+    30,
+    14
+   ],
+   [
+    32,
+    17
+   ],
+   [
+    34,
+    12
+   ],
+   [
+    36,
+    10
+   ],
+   [
+    38,
+    11
+   ],
+   [
+    40,
+    6
+   ],
+   [
+    42,
+    9
+   ],
+   [
+    44,
+    2
+   ],
+   [
+    46,
+    4
+   ],
+   [
+    48,
+    4
+   ],
+   [
+    50,
+    5
+   ],
+   [
+    52,
+    5
+   ],
+   [
+    54,
+    4
+   ],
+   [
+    56,
+    1
+   ],
+   [
+    58,
+    4
+   ],
+   [
+    62,
+    1
+   ],
+   [
+    64,
+    5
+   ],
+   [
+    66,
+    3
+   ],
+   [
+    68,
+    2
+   ],
+   [
+    72,
+    1
+   ],
+   [
+    76,
+    1
+   ],
+   [
+    84,
+    1
+   ],
+   [
+    86,
+    1
+   ],
+   [
+    88,
+    1
+   ],
+   [
+    90,
+    2
+   ],
+   [
+    98,
+    1
+   ],
+   [
+    100,
+    144
+   ]
+  ],
+  "dtMaxMs": 390.5,
+  "dtMeanMs": 60.480533332983654,
+  "dtP50Ms": 47.900000005960464,
+  "dtP95Ms": 102.5,
+  "fps": 21
+ },
+ "frames": 375,
+ "framesSkipped": 140,
+ "note": "The split first-draw capture, and it names the offender. Same device, same ASTC pak (`20:18 12-08-2026`, `build/phone`), app rebuilt with the three-step overlay split ([5757e2b](https://github.com/sexorcist00/opensa)).\n\n**The first `clearRect` is the cost, not the glyphs.** Worst frame 333.1 ms at 310 ms in, zero cells visible, and its segments read: **`overlay:clear` 212.1**, `engine-frame` 77.9, **`overlay:symbols` 22.6**, `stream` 3.4, `board` 2.8, `overlay-2d` 2.0 (the remainder — `projector.update`), `overlay:sketches` 0.6. So **64 % of the frame is the first touch of the 2D canvas's backing store**, and the symbol layer's first glyph raster is a tenth of it. `warmTextMetrics` was aimed at the smaller of the two, which is why the 08-25 row measured no improvement from it.\n\nThe window means confirm both are ONE-SHOT rather than per-frame: the split runs for three draws only, so `overlay:clear`'s 0.566 ms mean over 375 frames is 212 ms of total, all of it in the first draw, and `overlay:symbols`'s 0.0885 mean is ~33 ms total. Steady-state overlay is `overlay-2d` at 1.53 ms mean.\n\n**The absolute number is not stable and the SHAPE is.** The 08-25 row measured 1 850 ms in the same place under a taller viewport (609 CSS vs 377 here) and a colder start; this one measured 212. Treat 212 as a floor rather than the figure: it is the same one-shot allocation either way, and what it costs depends on how busy the GPU process is when the overlay first touches its canvas — which at boot is exactly when the WebGPU device for the map canvas beside it is being created.\n\nEverything else holds where the record has it. Resident **76.4 MB** with `target` 37.8 (a shorter viewport than the 08-25 row's 59.9), so content is **38.6 MB for 4 cells** — the third capture in a row to land on that number. Streaming quiet: 14 creates, 0 evictions, 0 late, worst blob 5.6 ms, worst create 23.3 ms. Idle-dominated as always — 140 of 515 frames skipped, the 144-frame spike at 100 ms IS the gate, and `fps 21` is the drawn rate against a CPU body of 4.99 ms (8.2 % of the interval). **5 of 10 symbols dropped** by the declutter at 360x377, against 4 of 13 at 360x609 — the shorter the viewport, the more the map drops, which is the behaviour 3/03 specifies.\n\nConditions: MGA-LX3 / ARM Bifrost, 360x377 CSS @ DPR 2, ASTC + ETC2, no BC, no `timestamp-query`. District `los-santos-centre`, camera 1467,-1679 h47. Pasted into chat rather than filed through the panel, so the pak line here was read from the `build` field and the device's own pak check rather than from the panel's stamp.",
+ "passes": [
+  {
+   "available": true,
+   "maxMs": 10.900000005960464,
+   "meanMs": 1.8429333333969116,
+   "name": "submitMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuPassMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuPostMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuProbeMs"
+  }
+ ],
+ "spans": [],
+ "streaming": {
+  "blobMeanMs": 0.05440000017484029,
+  "cellsCreated": 14,
+  "cellsEvicted": 0,
+  "lateCreates": 0,
+  "uploadMeanMs": 0.31599999992052713,
+  "worstBlobMs": 5.5999999940395355,
+  "worstCreateMs": 23.299999982118607
+ },
+ "surface": {
+  "cssHeight": 377,
+  "cssWidth": 360,
+  "deviceHeight": 754,
+  "deviceWidth": 720,
+  "dpr": 2,
+  "renderScale": 1
+ },
+ "symbology": {
+  "beaconCapacity": 150,
+  "beaconGrowths": 0,
+  "chips": 5,
+  "chipsDropped": 5,
+  "incidents": 3,
+  "measures": 0,
+  "stale": 0,
+  "symbols": 10,
+  "units": 9
+ },
+ "tracks": {
+  "bytes": 1102176,
+  "capacity": 7200,
+  "incidentEvents": 9,
+  "samples": 65,
+  "tracks": 9,
+  "window": [
+   919,
+   25085
+  ]
+ },
+ "unavailable": [
+  "gpuPassMs, gpuPostMs, gpuProbeMs — this adapter has no timestamp-query, so GPU time is not measurable at all"
+ ],
+ "warnings": [],
+ "windowMs": 24225.600000023842,
+ "world": {
+  "byCategoryMb": [
+   [
+    "target",
+    37.779452323913574
+   ],
+   [
+    "texture",
+    25.81055450439453
+   ],
+   [
+    "cellVertex",
+    10.318000793457031
+   ],
+   [
+    "cellIndex",
+    2.524280548095703
+   ],
+   [
+    "uniform",
+    0.00439453125
+   ]
+  ],
+  "cellsTotal": 4,
+  "cellsVisible": 4,
+  "draws": 112,
+  "pickingMb": 1.4248619079589844,
+  "residencyMb": 76.43668270111084,
+  "triangles": 277970
+ }
+}

@@ -1,0 +1,30 @@
+# Stochastic de-tiling texture list (plan 074/12) — texture NAMES (case-insensitive), one per line.
+# CURATION RULE (field-learned, 2026-07-12): the plain 3-tap blend is only honest on UNIFORM NOISE
+# (grass fields, dirt, gravel). STRUCTURED content scrambles visibly and must stay OFF this list:
+#   - directional designs (sidewalk grass strips: sidewgrass*, paths) — features jump to random sides;
+#   - distinct macro features (pavement oil stains, tarmac patches) — ghosted smears;
+#   - regular grids (beach sand dot patterns) + steep-face stretched UVs — stripes;
+#   - painted road markings — scrambled lane lines.
+# The skygfx texdb (data/skygfx-texdb.txt, 307 tagged names incl. metals/wood) is OPT-IN via
+# --stochastic for the same reason. Structured textures can return with the histogram-preserving
+# upgrade + per-texture review (plan 074/12 later tasks).
+grass
+yardgrass1
+grass_dry_64hv
+grasspatch_64hv
+grassdeadbrn256
+desgreengrass
+planta256
+sjmhoodlawn41
+sjmscorclawn
+crackedgroundb
+dirtkb_64hv
+waljundirt1
+dirtgaz64b
+dirt64b2
+snpedtest1
+greyground256
+greyground256128
+trainground1
+trainground2
+ws_traingravel

@@ -1,0 +1,812 @@
+import type { ChunkHeader } from './chunks';
+import type {
+  RWAtomic,
+  RWBreakable,
+  RWBreakableMaterial,
+  RWClump,
+  RWEscalator,
+  RWFrame,
+  RWGeometry,
+  RWLight2d,
+  RWMaterial,
+  RWMaterialEffects,
+  RWParticle2d,
+  RWRoadsign,
+  RWSkin,
+  RWTriangle,
+  RWUvAnimation,
+} from './types';
+
+import { BinaryStream } from './binary-stream';
+import {
+  findChild,
+  forEachChild,
+  forEachClumpChild,
+  readChunkHeader,
+  readStringChunk,
+  recoverLockedList,
+} from './chunks';
+import { GeometryFlag, MatFxEffect, RwSection } from './constants';
+
+/** RenderWare chunk header size (type + size + libraryVersion, 3 × u32). */
+const CHUNK_HEADER_BYTES = 12;
+/** 2d-effect entry type for a light/corona (vs particle, ped attractor, …). */
+const LIGHT_EFFECT = 0;
+const PARTICLE_EFFECT = 1;
+const ROADSIGN_EFFECT = 7;
+const ESCALATOR_EFFECT = 10;
+
+/**
+ * Parse a RenderWare Clump (.dff) into a renderer-agnostic RWClump.
+ *
+ * Handles the canonical GTA SA structure: FrameList, GeometryList (positions,
+ * prelit colors, UV layers, triangles, morph-target geometry, materials with
+ * texture names, and the Skin plugin for skinned character meshes) and Atomics.
+ * Triangles carry per-face material indices which the adapter groups by; when an
+ * exporter zeroes them, they are recovered from the BinMeshPLG split. (Multi-morph
+ * is still out of scope — see plan.)
+ */
+export function parseDff(buffer: ArrayBuffer): RWClump {
+  const stream = new BinaryStream(buffer);
+  // Some DFFs (UV-animated — waterfalls, scrolling signs) begin with a UVAnimDict
+  // (0x2B) chunk before the Clump; capture it, and skip any other leading chunks.
+  let uvAnimations: RWUvAnimation[] | undefined;
+  let clumpHeader = readChunkHeader(stream);
+  while (clumpHeader.type !== RwSection.CLUMP) {
+    if (clumpHeader.type === RwSection.UV_ANIM_DICT) {
+      uvAnimations = parseUvAnimDict(stream, clumpHeader);
+    }
+    stream.seek(clumpHeader.end);
+    if (stream.remaining < CHUNK_HEADER_BYTES) {
+      throw new Error('Not a DFF: no Clump (0x10) chunk found');
+    }
+    clumpHeader = readChunkHeader(stream);
+  }
+
+  let frames: RWFrame[] = [];
+  let geometries: RWGeometry[] = [];
+  const atomics: RWAtomic[] = [];
+
+  forEachClumpChild(stream, clumpHeader, (child) => {
+    switch (child.type) {
+      case RwSection.ATOMIC:
+        atomics.push(parseAtomic(stream, child));
+        break;
+      case RwSection.FRAME_LIST:
+        frames = parseFrameList(stream, child);
+        break;
+      case RwSection.GEOMETRY_LIST:
+        geometries = parseGeometryList(stream, child);
+        break;
+      default:
+        break;
+    }
+  });
+  recoverLockedAtomics(stream, clumpHeader, atomics);
+
+  return { atomics, frames, geometries, ...(uvAnimations ? { uvAnimations } : {}) };
+}
+
+/** Direct children an Atomic / Geometry list-item is made of — used to find its real end past a bloated
+ *  declared size (anti-rip lock). Anything else (a `0x0` pad or the next item) marks the boundary. */
+const ATOMIC_CHILDREN: ReadonlySet<number> = new Set([RwSection.EXTENSION, RwSection.STRUCT]);
+const GEOMETRY_CHILDREN: ReadonlySet<number> = new Set([
+  RwSection.EXTENSION,
+  RwSection.MATERIAL_LIST,
+  RwSection.STRUCT,
+]);
+
+/** Visit each triangle of one BinMesh split (trilist triples, or an unwound tristrip). */
+function forEachSplitTriangle(
+  indices: number[],
+  tristrip: boolean,
+  visit: (a: number, b: number, c: number) => void,
+): void {
+  if (!tristrip) {
+    for (let i = 0; i + 2 < indices.length; i += 3) {
+      visit(indices[i], indices[i + 1], indices[i + 2]);
+    }
+
+    return;
+  }
+  // A strip alternates winding every step, and the degenerate joins that stitch several strips into one
+  // index run exist to KEEP that parity — so parity is the absolute index, never a count of what we kept.
+  for (let i = 0; i + 2 < indices.length; i += 1) {
+    const [a, b, c] = [indices[i], indices[i + 1], indices[i + 2]];
+    if (a === b || b === c || a === c) {
+      continue;
+    }
+    if (i % 2 === 0) {
+      visit(a, b, c);
+    } else {
+      visit(b, a, c);
+    }
+  }
+}
+
+function parseAtomic(stream: BinaryStream, header: ChunkHeader): RWAtomic {
+  const struct = findChild(stream, header.dataStart, header.end, RwSection.STRUCT);
+  if (!struct) {
+    throw new Error('Atomic missing Struct');
+  }
+  stream.seek(struct.dataStart);
+  const frameIndex = stream.u32();
+  const geometryIndex = stream.u32();
+
+  return { frameIndex, geometryIndex };
+}
+
+function parseFrameList(stream: BinaryStream, header: ChunkHeader): RWFrame[] {
+  const struct = findChild(stream, header.dataStart, header.end, RwSection.STRUCT);
+  if (!struct) {
+    throw new Error('FrameList missing Struct');
+  }
+
+  stream.seek(struct.dataStart);
+  const numFrames = stream.u32();
+  const frames: RWFrame[] = [];
+  for (let i = 0; i < numFrames; i += 1) {
+    const rotation = [
+      stream.f32(),
+      stream.f32(),
+      stream.f32(),
+      stream.f32(),
+      stream.f32(),
+      stream.f32(),
+      stream.f32(),
+      stream.f32(),
+      stream.f32(),
+    ];
+    const position = stream.vec3();
+    const parentIndex = stream.i32();
+    stream.skip(4); // matrix creation flags
+    frames.push({ name: '', parentIndex, position, rotation });
+  }
+
+  // Frame names + HAnim (skeleton bone id / hierarchy) live in per-frame Extension chunks after the Struct.
+  let frameIndex = 0;
+  forEachChild(stream, header.dataStart, header.end, (child) => {
+    if (child.type !== RwSection.EXTENSION || frameIndex >= frames.length) {
+      if (child.type === RwSection.EXTENSION) {
+        frameIndex += 1;
+      }
+
+      return;
+    }
+    const nameChunk = findChild(stream, child.dataStart, child.end, RwSection.FRAME);
+    if (nameChunk) {
+      stream.seek(nameChunk.dataStart);
+      frames[frameIndex].name = stream.string(nameChunk.size);
+    }
+    parseHAnim(stream, child, frames[frameIndex]);
+    frameIndex += 1;
+  });
+
+  return frames;
+}
+
+function parseGeometry(stream: BinaryStream, header: ChunkHeader): RWGeometry {
+  const struct = findChild(stream, header.dataStart, header.end, RwSection.STRUCT);
+  if (!struct) {
+    throw new Error('Geometry missing Struct');
+  }
+
+  stream.seek(struct.dataStart);
+  const flags = stream.u16();
+  // The layer-count BYTE may legally be 0 with the texture flags carrying the truth — RenderWare derives
+  // the count from TEXTURED/TEXTURED2 then (2015-era exports ship this; casroyale01_lvs). Trusting the
+  // bare byte skipped the UV block and read the TRIANGLES out of UV data — garbage indices that looked
+  // like an anti-rip lock (shard-field field bug, 2026-07-15).
+  const layerByte = stream.u8();
+  const numUVLayers =
+    layerByte > 0 ? layerByte : flags & GeometryFlag.TEXTURED2 ? 2 : flags & GeometryFlag.TEXTURED ? 1 : 0;
+  stream.u8(); // native flag (unused: SA stores non-native data here)
+  const numTriangles = stream.u32();
+  const numVertices = stream.u32();
+  const numMorphTargets = stream.u32();
+
+  const prelitColors = flags & GeometryFlag.PRELIT ? stream.bytes(numVertices * 4) : null;
+  const uvLayers = readUVLayers(stream, numUVLayers, numVertices);
+  const faceArrayTriangles = readTriangles(stream, numTriangles);
+  const { normals, positions } = readMorphTargets(stream, numMorphTargets, numVertices);
+
+  const matList = findChild(stream, header.dataStart, header.end, RwSection.MATERIAL_LIST);
+  const materials = matList ? parseMaterialList(stream, matList) : [];
+  const skin = parseSkinExtension(stream, header, numVertices);
+
+  // The DRAWN index data wins over the authoring face array — same triangles, but the winding (and the
+  // material split) are the ones RenderWare submits. See {@link readBinMeshTriangles}.
+  const triangles = readBinMeshTriangles(stream, header, numVertices) ?? faceArrayTriangles;
+
+  const { escalators, lights, particles, roadsigns } = parse2dEffects(stream, header);
+  const nightColors = parseNightColors(stream, header, numVertices);
+  const breakable = parseBreakable(stream, header);
+
+  return {
+    flags,
+    lights,
+    materials,
+    nightColors,
+    normals,
+    numUVLayers,
+    positions,
+    prelitColors,
+    skin,
+    triangles,
+    uvLayers,
+    ...(breakable ? { breakable } : {}),
+    ...(escalators.length > 0 ? { escalators } : {}),
+    ...(particles.length > 0 ? { particles } : {}),
+    ...(roadsigns.length > 0 ? { roadsigns } : {}),
+  };
+}
+
+function parseGeometryList(stream: BinaryStream, header: ChunkHeader): RWGeometry[] {
+  const struct = findChild(stream, header.dataStart, header.end, RwSection.STRUCT);
+  const geometries: RWGeometry[] = [];
+  forEachChild(stream, header.dataStart, header.end, (child) => {
+    if (child.type === RwSection.GEOMETRY) {
+      geometries.push(parseGeometry(stream, child));
+    }
+  });
+
+  // Anti-rip "inflated size" recovery (e.g. yosemite): the list declares more geometries than the
+  // boundary walk found because each geometry's size is bloated to swallow siblings. Re-read RW-style.
+  if (struct) {
+    stream.seek(struct.dataStart);
+    const declared = stream.u32();
+    if (geometries.length < declared) {
+      return recoverGeometries(stream, header, struct.end, declared);
+    }
+  }
+
+  return geometries;
+}
+
+/**
+ * Read a frame's HAnim plugin (`0x11e`) from its Extension: the frame's bone id, and — on the frame that
+ * carries the hierarchy table (the skeleton root) — the ordered bone ids the skin's bone indices map into.
+ * Layout: `version u32, boneId u32, numNodes u32`; if `numNodes > 0`: `flags u32, keyFrameSize u32`, then
+ * `numNodes × { nodeId u32, nodeIndex u32, flags u32 }`. No-op when the frame has no HAnim.
+ */
+function parseHAnim(stream: BinaryStream, extension: ChunkHeader, frame: RWFrame): void {
+  const hanim = findChild(stream, extension.dataStart, extension.end, RwSection.HANIM_PLG);
+  if (!hanim) {
+    return;
+  }
+  stream.seek(hanim.dataStart);
+  stream.u32(); // version
+  frame.boneId = stream.u32();
+  const numNodes = stream.u32();
+  if (numNodes > 0) {
+    stream.skip(8); // flags + keyFrameSize
+    const hierarchy: number[] = [];
+    for (let i = 0; i < numNodes; i += 1) {
+      hierarchy.push(stream.u32()); // nodeId
+      stream.skip(8); // nodeIndex + flags
+    }
+    frame.boneHierarchy = hierarchy;
+  }
+}
+
+/**
+ * Parse the UVAnimDict (0x2B): Struct = count, then count × RtAnim (0x1B). Each RtAnim:
+ * `version (0x100), keyframeType (0x1C1 = linear UV), numFrames, flags, duration, u32 unused`,
+ * then custom data `name char[32] + nodeToUVChannelMap (32 bytes, skipped)`, then `numFrames`
+ * keyframes of `{ time f32, uv f32[6] (rot, sx, sy, skew, tx, ty), prevOffset i32 }` —
+ * layout verified byte-level on visagesign04 (3 anims, 2 keyframes, 3 s X-scroll).
+ */
+function parseUvAnimDict(stream: BinaryStream, header: ChunkHeader): RWUvAnimation[] {
+  const animations: RWUvAnimation[] = [];
+  forEachChild(stream, header.dataStart, header.end, (child) => {
+    if (child.type !== RwSection.ANIM_ANIMATION) {
+      return;
+    }
+    stream.seek(child.dataStart);
+    stream.u32(); // RtAnim version (0x100)
+    stream.u32(); // keyframe type (0x1C1 linear UV)
+    const numFrames = stream.u32();
+    stream.u32(); // flags
+    const duration = stream.f32();
+    stream.u32(); // unused
+    const name = stream.string(32);
+    stream.skip(32); // nodeToUVChannelMap
+    const keyframes: RWUvAnimation['keyframes'] = [];
+    for (let i = 0; i < numFrames; i += 1) {
+      const time = stream.f32();
+      const uv = [stream.f32(), stream.f32(), stream.f32(), stream.f32(), stream.f32(), stream.f32()];
+      stream.skip(4); // prev-keyframe offset (irrelevant for our flat list)
+      keyframes.push({ time, uv });
+    }
+    animations.push({ duration, keyframes, name });
+  });
+
+  return animations;
+}
+
+/**
+ * The geometry's triangles AS RENDERWARE DRAWS THEM — the BinMeshPLG index data. Null when the geometry
+ * carries no usable BinMesh (then the Struct face array is all there is).
+ *
+ * A DFF stores its topology twice: the Struct face array (authoring input) and this index data (what the
+ * renderer submits). Exporters can and do write the two with **opposite winding**, and then the array we
+ * pick decides which way the mesh faces: `0. Map Fixes Pack`'s `roads32_law2` has all 65 of its road
+ * triangles up-facing in the BinMesh order and down-facing in the face array, so building from the face
+ * array put the beach lane's slab face-down, where single-sided back-face culling deleted it — visible in
+ * the game as a light-blue hole with working collision (plan 095, `open-issues/mod-dff-winding-and-atomic-frame.md`).
+ *
+ * The material index comes free here (one per split), which also retires the old "recover material
+ * indices from BinMesh when the face array left them all zero" special case.
+ */
+function readBinMeshTriangles(stream: BinaryStream, header: ChunkHeader, numVertices: number): null | RWTriangle[] {
+  const extension = findChild(stream, header.dataStart, header.end, RwSection.EXTENSION);
+  if (!extension) {
+    return null;
+  }
+  const bin = findChild(stream, extension.dataStart, extension.end, RwSection.BIN_MESH_PLG);
+  if (!bin) {
+    return null;
+  }
+
+  // An ADC strip carries its parity/restart decisions in per-index bits we do not decode, so unwinding it
+  // with the plain PC rule INVENTS triangles (stock `bloodrb`: every geometry grew 10–40 %, e.g. 1050 →
+  // 1487). Two models in the whole game ship it; the face array is the honest read for them. Probed BEFORE
+  // the seek below — `findChild` scans with the shared cursor.
+  const adc = findChild(stream, extension.dataStart, extension.end, RwSection.ADC_PLG) !== null;
+
+  stream.seek(bin.dataStart);
+  const tristrip = (stream.u32() & 1) !== 0;
+  const numMeshes = stream.u32();
+  stream.u32(); // total index count (unused)
+  if (tristrip && adc) {
+    return null;
+  }
+
+  const triangles: RWTriangle[] = [];
+  let outOfRange = false;
+  for (let mesh = 0; mesh < numMeshes; mesh += 1) {
+    const numIndices = stream.u32();
+    const materialIndex = stream.u32();
+    const indices: number[] = [];
+    for (let i = 0; i < numIndices; i += 1) {
+      const index = stream.u32();
+      outOfRange ||= index >= numVertices;
+      indices.push(index);
+    }
+    forEachSplitTriangle(indices, tristrip, (a, b, c) => triangles.push({ a, b, c, materialIndex }));
+  }
+  // A locked/corrupt DFF can carry index data that does not belong to this vertex set; the face array is
+  // the safer read then (it is bounds-checked downstream the same way it always was).
+  if (outOfRange || triangles.length === 0) {
+    return null;
+  }
+
+  return triangles;
+}
+
+/** Re-read a geometry list by its declared count, RW-style ({@link recoverLockedList}), past the bloated
+ *  item sizes (see {@link recoverLockedAtomics} for the atomic-list counterpart). */
+function recoverGeometries(
+  stream: BinaryStream,
+  listHeader: ChunkHeader,
+  structEnd: number,
+  declared: number,
+): RWGeometry[] {
+  return recoverLockedList(stream, structEnd, listHeader.end, declared, RwSection.GEOMETRY, GEOMETRY_CHILDREN).map(
+    (header) => parseGeometry(stream, header),
+  );
+}
+
+/**
+ * Anti-rip "inflated size" recovery (e.g. yosemite): the clump declares more atomics than a
+ * boundary-respecting walk finds because each atomic's size is bloated to swallow the following ones
+ * (plus `0x0` padding). Re-read all atomics RW-style by the declared count. No-op when the counts match.
+ */
+function recoverLockedAtomics(stream: BinaryStream, clumpHeader: ChunkHeader, atomics: RWAtomic[]): void {
+  const struct = findChild(stream, clumpHeader.dataStart, clumpHeader.end, RwSection.STRUCT);
+  if (!struct) {
+    return;
+  }
+  stream.seek(struct.dataStart);
+  const declared = stream.u32();
+  if (atomics.length >= declared) {
+    return;
+  }
+  const recovered = recoverLockedList(
+    stream,
+    clumpHeader.dataStart,
+    clumpHeader.end,
+    declared,
+    RwSection.ATOMIC,
+    ATOMIC_CHILDREN,
+  );
+  atomics.length = 0;
+  for (const header of recovered) {
+    atomics.push(parseAtomic(stream, header));
+  }
+}
+
+/** Decoded `flags` lookup tables (2 bits each): lines count and chars per line. */
+const ROADSIGN_LINES = [4, 1, 2, 3] as const;
+const ROADSIGN_CHARS = [16, 2, 4, 8] as const;
+
+/**
+ * Parse the geometry's 2d Effect plugin (`0x253F2F8`) — the per-model light/corona definitions for
+ * street lamps, signs, traffic lights, etc. Each entry is `position(3×f32), type(u32), size(u32), data`;
+ * we read the **Light** entries (type 0), **Particle** entries (type 1), **Roadsign** entries (type 7 —
+ * street-name plates whose text is baked into the model; plan 042) and **Escalator** entries (type 10;
+ * plan 044), skipping the rest by `size`. The light data starts with the
+ * RGBA colour + four floats (corona far-clip, point-light range, corona size, shadow size), five
+ * flag/mode bytes, then the 24-char corona texture name. The roadsign data (88 bytes, layout verified
+ * empirically against the Vegas motorway boards) is `plate size vec2, rotation vec3 (degrees), flags
+ * u16 (bits 0–1 lines: 0→4/1→1/2→2/3→3; bits 2–3 chars per line: 0→16/1→2/2→4/3→8; bits 4–5 colour
+ * palette), text 4×16 chars ('_' = space, `<>^#%}` = arrow/symbol glyphs), pad u16`.
+ */
+function parse2dEffects(
+  stream: BinaryStream,
+  header: ChunkHeader,
+): { escalators: RWEscalator[]; lights: RWLight2d[]; particles: RWParticle2d[]; roadsigns: RWRoadsign[] } {
+  const escalators: RWEscalator[] = [];
+  const lights: RWLight2d[] = [];
+  const particles: RWParticle2d[] = [];
+  const roadsigns: RWRoadsign[] = [];
+  const extension = findChild(stream, header.dataStart, header.end, RwSection.EXTENSION);
+  if (!extension) {
+    return { escalators, lights, particles, roadsigns };
+  }
+  const fx = findChild(stream, extension.dataStart, extension.end, RwSection.TWO_D_EFFECT);
+  if (!fx) {
+    return { escalators, lights, particles, roadsigns };
+  }
+
+  stream.seek(fx.dataStart);
+  const count = stream.u32();
+  for (let i = 0; i < count; i += 1) {
+    const position: [number, number, number] = [stream.f32(), stream.f32(), stream.f32()];
+    const entryType = stream.u32();
+    const dataSize = stream.u32();
+    const entryEnd = stream.position + dataSize;
+    if (entryType === LIGHT_EFFECT) {
+      const color: [number, number, number, number] = [stream.u8(), stream.u8(), stream.u8(), stream.u8()];
+      const coronaFarClip = stream.f32();
+      stream.f32(); // point-light range (unused for now)
+      const coronaSize = stream.f32();
+      stream.f32(); // shadow size
+      stream.skip(4); // corona show-mode, reflection, flare type, shadow-colour multiplier
+      const flags = stream.u8(); // flags1 (corona checks / fog type)
+      const coronaTexture = stream.string(24);
+      lights.push({ color, coronaFarClip, coronaSize, coronaTexture, flags, position });
+    } else if (entryType === PARTICLE_EFFECT) {
+      // Data = char[24] FX-system name (effects.fxp); positions are geometry-local like lights.
+      particles.push({ effectName: stream.string(24).toLowerCase(), position });
+    } else if (entryType === ROADSIGN_EFFECT) {
+      const plateSize: [number, number] = [stream.f32(), stream.f32()];
+      const rotation: [number, number, number] = [stream.f32(), stream.f32(), stream.f32()];
+      const flags = stream.u16();
+      const lineCount = ROADSIGN_LINES[flags & 3];
+      const lines: string[] = [];
+      for (let line = 0; line < 4; line += 1) {
+        const text = stream.string(16); // raw 16-char field; '_' is the space glyph, kept as-is
+        if (line < lineCount) {
+          lines.push(text);
+        }
+      }
+      roadsigns.push({
+        charsPerLine: ROADSIGN_CHARS[(flags >> 2) & 3],
+        colour: (flags >> 4) & 3,
+        lines,
+        plateSize,
+        position,
+        rotation,
+      });
+    } else if (entryType === ESCALATOR_EFFECT) {
+      // Data = bottom/top/end vec3 + direction u32 (40 bytes); points are geometry-local. The
+      // step path runs position → bottom (lower landing) → top (incline) → end (upper landing).
+      const bottom: [number, number, number] = [stream.f32(), stream.f32(), stream.f32()];
+      const top: [number, number, number] = [stream.f32(), stream.f32(), stream.f32()];
+      const end: [number, number, number] = [stream.f32(), stream.f32(), stream.f32()];
+      const direction = stream.u32();
+      escalators.push({ bottom, direction, end, position, top });
+    }
+    stream.seek(entryEnd); // skip to the next entry regardless of type/size
+  }
+
+  return { escalators, lights, particles, roadsigns };
+}
+
+/**
+ * Parse the geometry's SA Breakable plugin (`0x253F2FD`) — the secondary "shatter" mesh debris is
+ * built from (plan 045). Layout (byte-verified — header + packed arrays sum to the chunk size
+ * exactly): `magic u32` (0 = 4-byte "not breakable" marker; non-zero = a runtime pointer fixup,
+ * data follows), `u32` (observed 1), `vertexCount u32`, 3 zeroed pointers, `triangleCount u32`,
+ * 2 zeroed pointers, `materialCount u32`, 4 zeroed pointers, then packed arrays: positions
+ * `f32×3×V`, UVs `f32×2×V`, colours `u8×4×V`, triangles `u16×3×T`, per-triangle material `u16×T`,
+ * texture names `char[32]×M`, mask names `char[32]×M`, ambient `f32×3×M`. Undefined when absent,
+ * marker-only, or the sizes don't add up (data-tolerant).
+ */
+function parseBreakable(stream: BinaryStream, header: ChunkHeader): RWBreakable | undefined {
+  const extension = findChild(stream, header.dataStart, header.end, RwSection.EXTENSION);
+  if (!extension) {
+    return undefined;
+  }
+  const chunk = findChild(stream, extension.dataStart, extension.end, RwSection.BREAKABLE);
+  if (!chunk || chunk.end - chunk.dataStart < 56) {
+    return undefined;
+  }
+  stream.seek(chunk.dataStart);
+  if (stream.u32() === 0) {
+    return undefined; // marker only — model is not breakable
+  }
+  stream.u32(); // unknown (observed 1)
+  const vertexCount = stream.u32();
+  stream.skip(12); // zeroed runtime pointers (positions/uvs/colours)
+  const triangleCount = stream.u32();
+  stream.skip(8); // zeroed pointers (triangles/material assignment)
+  const materialCount = stream.u32();
+  stream.skip(16); // zeroed pointers (textures/names/masks/ambient)
+  const expected = 56 + vertexCount * 24 + triangleCount * 8 + materialCount * 76;
+  if (chunk.end - chunk.dataStart !== expected) {
+    return undefined; // unknown layout variant — refuse rather than misread
+  }
+
+  const positions = readFloat32Array(stream, vertexCount * 3);
+  const uvs = readFloat32Array(stream, vertexCount * 2);
+  const colours = stream.bytes(vertexCount * 4);
+  const triangles = readUint16Array(stream, triangleCount * 3);
+  const triangleMaterials = readUint16Array(stream, triangleCount);
+  const textures: string[] = [];
+  for (let i = 0; i < materialCount; i += 1) {
+    textures.push(stream.string(32).toLowerCase());
+  }
+  const masks: string[] = [];
+  for (let i = 0; i < materialCount; i += 1) {
+    masks.push(stream.string(32).toLowerCase());
+  }
+  const materials: RWBreakableMaterial[] = [];
+  for (let i = 0; i < materialCount; i += 1) {
+    materials.push({ ambient: [stream.f32(), stream.f32(), stream.f32()], mask: masks[i], texture: textures[i] });
+  }
+
+  return { colours, materials, positions, triangleMaterials, triangles, uvs };
+}
+
+function parseMaterial(stream: BinaryStream, header: ChunkHeader): RWMaterial {
+  const struct = findChild(stream, header.dataStart, header.end, RwSection.STRUCT);
+  if (!struct) {
+    throw new Error('Material missing Struct');
+  }
+
+  stream.seek(struct.dataStart);
+  stream.u32(); // flags (unused)
+  const color: [number, number, number, number] = [stream.u8(), stream.u8(), stream.u8(), stream.u8()];
+  stream.u32(); // unused
+  const textured = stream.u32() !== 0;
+
+  let texture = null;
+  const texChunk = findChild(stream, header.dataStart, header.end, RwSection.TEXTURE);
+  if (texChunk) {
+    texture = parseTexture(stream, texChunk);
+  }
+
+  const extension = findChild(stream, header.dataStart, header.end, RwSection.EXTENSION);
+  const effects = extension ? parseMaterialEffects(stream, extension) : undefined;
+
+  return { color, effects, texture, textured };
+}
+
+/** Parse the SA reflection/specular material-effect plugins from a material's Extension chunk
+ *  (MatFX env-map `0x120`, reflection `0x253f2fc`, specular `0x253f2f6`). Undefined if none present. */
+function parseMaterialEffects(stream: BinaryStream, ext: ChunkHeader): RWMaterialEffects | undefined {
+  const effects: RWMaterialEffects = {};
+
+  const matfx = findChild(stream, ext.dataStart, ext.end, RwSection.MATFX);
+  if (matfx) {
+    const envMap = parseMatFxEnvMap(stream, matfx);
+    if (envMap) {
+      effects.envMap = envMap;
+    }
+  }
+
+  const refl = findChild(stream, ext.dataStart, ext.end, RwSection.REFLECTION_MAT);
+  if (refl) {
+    stream.seek(refl.dataStart);
+    const scaleX = stream.f32();
+    const scaleY = stream.f32();
+    const offsetX = stream.f32();
+    const offsetY = stream.f32();
+    const intensity = stream.f32();
+    effects.reflection = { intensity, offset: [offsetX, offsetY], scale: [scaleX, scaleY] };
+  }
+
+  const spec = findChild(stream, ext.dataStart, ext.end, RwSection.SPECULAR_MAT);
+  if (spec) {
+    stream.seek(spec.dataStart);
+    const level = stream.f32();
+    const texture = stream.string(spec.end - spec.dataStart - 4); // remaining = char[24] texture name
+    effects.specular = { level, texture };
+  }
+
+  // UV-animation plugin (0x135): Struct = channel mask (u32) + char[32] dict-entry name per set bit.
+  const uvAnim = findChild(stream, ext.dataStart, ext.end, RwSection.UV_ANIM_PLG);
+  if (uvAnim) {
+    const struct = findChild(stream, uvAnim.dataStart, uvAnim.end, RwSection.STRUCT);
+    if (struct) {
+      stream.seek(struct.dataStart);
+      const channelMask = stream.u32();
+      const names: string[] = [];
+      for (let mask = channelMask; mask !== 0 && stream.position + 32 <= struct.end; mask &= mask - 1) {
+        names.push(stream.string(32));
+      }
+      effects.uvAnim = { channelMask, names };
+    }
+  }
+
+  return (effects.envMap ?? effects.reflection ?? effects.specular ?? effects.uvAnim) ? effects : undefined;
+}
+
+function parseMaterialList(stream: BinaryStream, header: ChunkHeader): RWMaterial[] {
+  const materials: RWMaterial[] = [];
+  forEachChild(stream, header.dataStart, header.end, (child) => {
+    if (child.type === RwSection.MATERIAL) {
+      materials.push(parseMaterial(stream, child));
+    }
+  });
+
+  return materials;
+}
+
+/** Parse the env-map effect from a material's RpMatFX (`0x120`) plugin; undefined if it isn't an env map.
+ *  Layout: effectType, slotType, coefficient(f32), useFrameBufferAlpha(u32), hasTexture(u32), [Texture chunk]. */
+function parseMatFxEnvMap(stream: BinaryStream, header: ChunkHeader): RWMaterialEffects['envMap'] {
+  stream.seek(header.dataStart);
+  const effectType = stream.u32();
+  const slotType = stream.u32();
+  if (effectType !== MatFxEffect.ENVMAP || slotType !== MatFxEffect.ENVMAP) {
+    return undefined; // only env-map effects mark a reflective material (bump/uv-transform ignored)
+  }
+  const coefficient = stream.f32();
+  const useFrameBufferAlpha = stream.u32() !== 0;
+  const hasTexture = stream.u32() !== 0;
+
+  let texture: null | string = null;
+  if (hasTexture) {
+    const texChunk = findChild(stream, header.dataStart + 20, header.end, RwSection.TEXTURE);
+    if (texChunk) {
+      texture = parseTexture(stream, texChunk).name || null;
+    }
+  }
+
+  return { coefficient, texture, useFrameBufferAlpha };
+}
+
+/**
+ * Parse the geometry's "extra vertex colour" plugin (`0x253F2F9`) — SA's **night** prelit colour set. The
+ * chunk is a `u32` flag (1 = present) followed by `numVertices × RGBA`. Bright (warm) texels here are baked
+ * lit windows: the engine swaps to these at night so windows glow while the day prelit stays dark. Null when
+ * absent or the size doesn't match.
+ */
+function parseNightColors(stream: BinaryStream, header: ChunkHeader, numVertices: number): null | Uint8Array {
+  const extension = findChild(stream, header.dataStart, header.end, RwSection.EXTENSION);
+  if (!extension) {
+    return null;
+  }
+  const chunk = findChild(stream, extension.dataStart, extension.end, RwSection.NIGHT_VERTEX_COLORS);
+  if (!chunk || chunk.size !== numVertices * 4 + 4) {
+    return null;
+  }
+  stream.seek(chunk.dataStart);
+  if (stream.u32() === 0) {
+    return null; // leading flag says "no night colours"
+  }
+
+  return stream.bytes(numVertices * 4);
+}
+
+/** Parse the Skin plugin from a geometry's Extension, or undefined if not skinned. */
+function parseSkinExtension(stream: BinaryStream, header: ChunkHeader, numVertices: number): RWSkin | undefined {
+  const extension = findChild(stream, header.dataStart, header.end, RwSection.EXTENSION);
+  if (!extension) {
+    return undefined;
+  }
+  const skinChunk = findChild(stream, extension.dataStart, extension.end, RwSection.SKIN);
+  if (!skinChunk) {
+    return undefined;
+  }
+
+  stream.seek(skinChunk.dataStart);
+  const numBones = stream.u8();
+  const numUsedBones = stream.u8();
+  stream.u8(); // maxWeightsPerVertex (unused)
+  stream.u8(); // padding
+  const usedBones: number[] = [];
+  for (let i = 0; i < numUsedBones; i += 1) {
+    usedBones.push(stream.u8());
+  }
+  const boneIndices = stream.bytes(numVertices * 4);
+  const boneWeights = readFloat32Array(stream, numVertices * 4);
+  const inverseBindMatrices = readFloat32Array(stream, numBones * 16);
+  // A 12-byte split trailer (boneLimit, numMeshes, numRLE) follows; not needed here.
+
+  return { boneIndices, boneWeights, inverseBindMatrices, numBones, usedBones };
+}
+
+function parseTexture(stream: BinaryStream, header: ChunkHeader): { maskName: string; name: string } {
+  // Texture chunk: Struct (filter flags), then two String chunks (name, mask).
+  const names: string[] = [];
+  forEachChild(stream, header.dataStart, header.end, (child) => {
+    if (child.type === RwSection.STRING) {
+      names.push(readStringChunk(stream, child));
+    }
+  });
+
+  return { maskName: names[1] ?? '', name: names[0] ?? '' };
+}
+
+function readFloat32Array(stream: BinaryStream, count: number): Float32Array {
+  const out = new Float32Array(count);
+  for (let i = 0; i < count; i += 1) {
+    out[i] = stream.f32();
+  }
+
+  return out;
+}
+
+function readMorphTargets(
+  stream: BinaryStream,
+  numMorphTargets: number,
+  numVertices: number,
+): { normals: Float32Array | null; positions: Float32Array } {
+  let positions: Float32Array = new Float32Array(numVertices * 3);
+  let normals: Float32Array | null = null;
+  for (let target = 0; target < numMorphTargets; target += 1) {
+    stream.skip(16); // bounding sphere (x, y, z, radius)
+    const hasVertices = stream.u32();
+    const hasNormals = stream.u32();
+    if (hasVertices) {
+      const verts = readFloat32Array(stream, numVertices * 3);
+      if (target === 0) {
+        positions = verts;
+      }
+    }
+    if (hasNormals) {
+      const norms = readFloat32Array(stream, numVertices * 3);
+      if (target === 0) {
+        normals = norms;
+      }
+    }
+  }
+
+  return { normals, positions };
+}
+
+function readTriangles(stream: BinaryStream, numTriangles: number): RWTriangle[] {
+  const triangles: RWTriangle[] = [];
+  for (let i = 0; i < numTriangles; i += 1) {
+    // RW packs faces as [vertex2, vertex1, materialIndex, vertex3].
+    const b = stream.u16();
+    const a = stream.u16();
+    const materialIndex = stream.u16();
+    const c = stream.u16();
+    triangles.push({ a, b, c, materialIndex });
+  }
+
+  return triangles;
+}
+
+function readUint16Array(stream: BinaryStream, count: number): Uint16Array {
+  const out = new Uint16Array(count);
+  for (let i = 0; i < count; i += 1) {
+    out[i] = stream.u16();
+  }
+
+  return out;
+}
+
+function readUVLayers(stream: BinaryStream, numUVLayers: number, numVertices: number): Float32Array[] {
+  const uvLayers: Float32Array[] = [];
+  for (let layer = 0; layer < numUVLayers; layer += 1) {
+    uvLayers.push(readFloat32Array(stream, numVertices * 2));
+  }
+
+  return uvLayers;
+}

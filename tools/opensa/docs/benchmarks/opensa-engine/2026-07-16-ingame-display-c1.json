@@ -1,0 +1,14 @@
+{
+  "note": "The C1 side-by-side, ENGINE side, on the user's display. Its partner is three-engine/2026-07-17-prod-display-c1.json — same display, same 841-car population. Transcribed from 2026-07-18-series.md. Verdict recorded there: every scene vsync-locked 120 Hz with ~4.7 ms headroom while prod delivered 13.5-26.8 fps on land, so the true ratio is larger than the 4.5-8.9x the frame times show.",
+  "engine": "OpenSA own engine (WebGPU)",
+  "host": "M3 Pro @2x retina (user's display)",
+  "roadCars": 841,
+  "runs": [
+    { "key": "ls-noon", "avgMs": 8.32, "p95Ms": 9.1, "fps": 120, "avgDrawCalls": 1122, "gpuPassMs": 2.18 },
+    { "key": "sf-fog-dawn", "avgMs": 8.33, "p95Ms": 9.2, "fps": 120, "avgDrawCalls": 1243, "gpuPassMs": 2.47 },
+    { "key": "lv-night", "avgMs": 8.32, "p95Ms": 9.2, "fps": 120, "avgDrawCalls": 1026, "gpuPassMs": 2.97 },
+    { "key": "country-dusk", "avgMs": 8.33, "p95Ms": 9.2, "fps": 120, "avgDrawCalls": 480, "gpuPassMs": 3.48 },
+    { "key": "ocean-horizon", "avgMs": 8.32, "p95Ms": 9.1, "fps": 120, "avgDrawCalls": 11, "gpuPassMs": 1.86 },
+    { "key": "ls-rain-night", "avgMs": 8.33, "p95Ms": 9.2, "fps": 120, "avgDrawCalls": 1150, "gpuPassMs": 2.77 }
+  ]
+}

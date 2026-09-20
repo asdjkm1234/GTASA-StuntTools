@@ -1,0 +1,42 @@
+{
+  "note": "The texture price of the PINNED district — 201/1-01's `los-santos-centre` (rect 5,-7,6,-6, opening at 1480,-1720) — on the ASTC build, printed by `npm run phone`'s own pak check on the target phone (`scripts/debug/texture-budget.ts`: a manifest computation, not an engine run, no GPU touched). Pak `build/phone-ls/pak`, buildTime 02:50 10-08-2026 (the phone's clock is past midnight; the repo date is still 2026-08-09), `--textures astc --astc-threads 1 --max-texture 256 --no-ao --bake-collision --map-objects-in-rect --platforms mobile`, vehicles [admiral,infernus,comet] peds [bmycg,wmycr]. Recorded BEFORE it was analysed and before the frame capture it belongs to, per the standing rule. It is the CEILING — every array resident at once — and a drive holds the subset its cells draw. THE REASON THIS ROW IS NOT A DELTA AGAINST THE 08-09 rgba8 ROW: that pak was converted from a game copy the pipeline had already eaten (`--out` and `--game` were two symlinks into one folder, so the converter rewrote the archives it was reading — `gta3.img` carried 1073 `.osm` bundles where its `.dff` had been, `gta_int.img` 155). This one is the first pak built from a RESTORED source (both archives re-extracted from `Download/GTA CORP.rar`, verified `clean` by `scripts/debug/img-census.ts`), which is why its content differs at all: 619 layers against 597, 281 map objects converted against 0. Two variables therefore moved between the rows — the texture format AND the integrity of the source — so the pair is not an A/B of ASTC. The ASTC-vs-alternatives columns WITHIN this row are, because they are one manifest computed several ways.",
+  "runs": [
+    {
+      "arrays": 20,
+      "breakableRegions": 100,
+      "cellEntries": 8,
+      "collisionRegions": 565,
+      "collisionTriangles": 49870,
+      "diskMbDeflated": 15.7,
+      "district": "los-santos-centre",
+      "engine": "opensa-engine",
+      "gpuMbAsBuiltAstc4x4": 25.4,
+      "gpuMbBc1": 12.0,
+      "gpuMbEstimatedAstc4x4": 24.0,
+      "gpuMbEtc2Rgb8": 12.0,
+      "gpuMbRgba8": 95.9,
+      "label": "pinned-district pak (--textures astc --max-texture 256), texture budget, restored source",
+      "layers": 619,
+      "layersByLongestEdge": {
+        "4": 4,
+        "16": 2,
+        "32": 38,
+        "64": 132,
+        "128": 171,
+        "256": 272
+      },
+      "pakBuildTime": "02:50 10-08-2026",
+      "rect": "5,-7,6,-6",
+      "surface": "phone (Mali-G51, Termux)",
+      "texelsMipZeroMillions": 18.8,
+      "when": "2026-08-10"
+    }
+  ],
+  "readings": {
+    "whatItCosts": "25.4 MB resident, every array at once, against the 300-500 MB hard ceiling 201 is held to — so the world's textures are now 5-8 % of the whole budget rather than the fifth-to-a-third the rgba8 build made them. 15.7 MB on disk deflated.",
+    "whatTheFormatBought": "The tool prints the same content as 95.9 MB in RGBA8 — what a no-BC device would have to carry — against 25.4 MB as built. 3.8x, taken rather than priced this time, and on the format this class of GPU actually has. BC1 and ETC2 RGB8 would be 12.0 MB, and both are unreachable here (BC is desktop-only; ETC2 is not what the encoder writes).",
+    "theOneDiscrepancyWorthKeeping": "The estimator's ASTC-4x4 column reads 24.0 MB while the pak as built measures 25.4. Not analysed here — recorded so that whoever needs the estimator to be exact knows it is 6 % optimistic on this content.",
+    "whereMaxTextureStillBites": "272 layers are still at 256 px, the cap `--max-texture 256` set, and 171 at 128. Halving the cap would touch the whole plurality — the lever with the most room left in it, priced and not taken.",
+    "againstTheEarlierRows": "Do not read this as ASTC's win over the 08-09 rgba8 row: the source was damaged for that one and restored for this one, so the content is not the same content. The comparison this row IS good for is the next capture on the same pak."
+  }
+}

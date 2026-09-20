@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# One run per ref; a new push cancels the previous in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint # tsc --noEmit + eslint
+
+  # Tests are disabled in CI for now: the real-asset fixtures (fixtures/original/) are gitignored and
+  # regenerated locally from a GTA SA copy via `npm run test:fixtures`, which CI doesn't have. Run
+  # `npm test` / `npm run e2e` locally. Re-enable once fixtures are CI-available (synthetic or provisioned).

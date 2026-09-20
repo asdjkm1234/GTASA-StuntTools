@@ -1,0 +1,65 @@
+{
+  "note": "VOID — RECORDED, NOT USABLE. The first `?inventory=1` capture on real hardware against a real district pak (201/1-01). It is kept because the rule is that every number pasted in chat is recorded before it is analysed, and because the way it failed is the trap the next capture has to avoid — not because anything in it may be cited. THE WORLD NEVER STREAMED: `cellsTotal: 0` and `cellsVisible: 0`, while `triangles: 113494` is EXACTLY the water mesh this pak's convert reported (`water: 64841 verts / 113494 tris`), over 11 draws. So the capture is of water and nothing else — the report was taken 1.6 s after the collector started (`frames: 15`), before a single cell arrived. Second defect, in the instrument rather than the run: `dtMaxMs` is 41026.5 inside a `windowMs` of 1590.4, which is arithmetically impossible for a frame inside the window — the FIRST delta handed to `sample()` carries everything before sampling began (page load, pak fetch, device init), and it entered dtMax and the percentiles. Fixed the same day; any capture taken before that fix has the same poisoned dtMax. User-run, on their own phone, from `dispatch.html?...&inventory=1`. NOT comparable with any desktop row (200/1-02), and not comparable with the 08-04 synthetic row either — different world, and that one had no pak at all.",
+  "device": {
+    "adapter": "arm bifrost",
+    "gpu": "Mali-G51 (ARM, Bifrost) — same device as the 2026-08-04 row",
+    "featureLevel": "core",
+    "css": "360x364",
+    "dpr": 2,
+    "adapterFeatures": [
+      "core-features-and-limits",
+      "float32-filterable",
+      "indirect-first-instance",
+      "primitive-index",
+      "rg11b10ufloat-renderable",
+      "shader-f16",
+      "texture-component-swizzle",
+      "texture-compression-astc",
+      "texture-compression-astc-sliced-3d",
+      "texture-compression-etc2",
+      "texture-formats-tier1",
+      "texture-formats-tier2"
+    ],
+    "missing": ["texture-compression-bc", "timestamp-query"],
+    "noTimestamps": "gpuPassMs / gpuPostMs / gpuProbeMs are unavailable on this adapter — absent, never 0"
+  },
+  "world": {
+    "pak": "23:12 07-08-2026",
+    "rect": "9,-7,10,-6 (the phone.sh default district) — from the build recipe, not yet read back with scripts/debug/pak-recipe.ts",
+    "flags": "--rgba8 --max-texture 256 --no-ao --bake-collision --map-objects-in-rect --platforms mobile, vehicles [admiral,infernus,comet], peds [bmycg,wmycr]",
+    "platforms": ["desktop", "mobile"],
+    "streamed": false
+  },
+  "runs": [
+    {
+      "key": "dispatch-inventory-void",
+      "surface": "dispatch console, ?inventory=1, prebuilt app served from Termux over localhost",
+      "frames": 15,
+      "windowMs": 1590.4,
+      "fps": 24,
+      "dtP50Ms": 41.6,
+      "dtP95Ms": 273.1,
+      "dtMaxMs": 41026.5,
+      "submitMeanMs": 14.06,
+      "submitMaxMs": 155.4,
+      "gpuPassMs": null,
+      "draws": 11,
+      "triangles": 113494,
+      "cellsVisible": 0,
+      "cellsTotal": 0,
+      "residencyMb": 58.5,
+      "spans": [],
+      "note": "Every figure in this row describes a frame drawing water over an empty world. fps 24 is a 15-frame average that includes the load stall; residency 58.5 MB is what had been uploaded by then, not what the district costs; spans is empty because no cell work had started."
+    }
+  ],
+  "whatTheNextCaptureNeeds": [
+    "STREAM FIRST. Wait until the status bar shows cells visible, then let it settle — the report must be taken with cellsTotal > 0, and a capture whose cellsVisible is 0 is void by inspection.",
+    "A window worth reading. 15 frames over 1.6 s gives a p95 that is the 14th of 15 samples; the plan's before-table needs a settled window, not the first second after load.",
+    "?district=<name>. 1/01 pins a district and the capture must name it — this one says 'unnamed — pass ?district='.",
+    "Re-read the pak with scripts/debug/pak-recipe.ts and paste the recipe, so `world` above is read off the artifact instead of reconstructed from the convert log."
+  ],
+  "openQuestions": [
+    "Viewport was 360x364 CSS px — roughly half the height of the 08-04 row's 360x800. Whether that is the compact layout, the browser chrome or the on-screen keyboard is not established, and it changes the render target size a number is taken at.",
+    "submitMeanMs 14.06 with a max of 155.4 is the one figure here that is about the engine rather than the empty world, but over 15 frames including load it cannot carry a conclusion either."
+  ]
+}

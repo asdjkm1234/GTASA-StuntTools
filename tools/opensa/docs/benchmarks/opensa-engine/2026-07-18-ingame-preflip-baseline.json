@@ -1,0 +1,57 @@
+{
+  "note": "THE BASELINE. Extracted from the final `?bench=all` table in 2026-07-18-series.md (§ THE PRE-FLIP SWEEP) so it is machine-readable — the narrative, the prod-side columns and the caveats stay in that file. Run by the user on the M3 Pro @2x retina, both renderers back to back, same 841-car road population on both (`[bench] road cars registered: 841`), AFTER the 07-18 fix batch: black-night NaN root-fix, timecyc read from the live game VFS, cloud/fog dissolve band, regional weather remap. It supersedes the same-day 22-debug-tools rows and the 07-17 ls-rain-night / country-dusk rows, which were measured on builds carrying different fog DATA. Every scene is vsync-locked at 120 with p95 <= 9.4, i.e. the true frame cost was under the 8.33 ms budget with room to spare. This is what 2026-07-20-ingame-regression.json regressed from.",
+  "host": "Chrome / M3 Pro @2x retina",
+  "renderer": "own engine (WebGPU)",
+  "roadCars": 841,
+  "pak": "UNRECORDED at the time — the pak build is exactly what the 07-20 comparison needs and it is the gap in this baseline",
+  "runs": [
+    {
+      "key": "ls-noon",
+      "avgMs": 8.324,
+      "p95Ms": 9.2,
+      "fps": 120.1,
+      "avgDrawCalls": 1036,
+      "gpuMs": { "pass": 2.48, "post": 1.14, "probe": 0.37, "submit": 0.36 }
+    },
+    {
+      "key": "sf-fog-dawn",
+      "avgMs": 8.314,
+      "p95Ms": 9.3,
+      "fps": 120.3,
+      "avgDrawCalls": 842,
+      "gpuMs": { "pass": 2.85, "post": 1.08, "probe": 0.55, "submit": 0.38 }
+    },
+    {
+      "key": "lv-night",
+      "avgMs": 8.331,
+      "p95Ms": 9.2,
+      "fps": 120.0,
+      "avgDrawCalls": 1065,
+      "gpuMs": { "pass": 3.14, "post": 1.24, "probe": 0.35, "submit": 0.45 }
+    },
+    {
+      "key": "country-dusk",
+      "avgMs": 8.359,
+      "p95Ms": 9.3,
+      "fps": 119.6,
+      "avgDrawCalls": 526,
+      "gpuMs": { "pass": 4.09, "post": 1.09, "probe": 0.38, "submit": 0.33 }
+    },
+    {
+      "key": "ocean-horizon",
+      "avgMs": 8.333,
+      "p95Ms": 9.3,
+      "fps": 120.0,
+      "avgDrawCalls": 11,
+      "gpuMs": { "pass": 1.85, "post": 1.02, "probe": 0.23, "submit": 0.36 }
+    },
+    {
+      "key": "ls-rain-night",
+      "avgMs": 8.32,
+      "p95Ms": 9.3,
+      "fps": 120.2,
+      "avgDrawCalls": 1046,
+      "gpuMs": { "pass": 2.59, "post": 1.2, "probe": 0.38, "submit": 0.49 }
+    }
+  ]
+}

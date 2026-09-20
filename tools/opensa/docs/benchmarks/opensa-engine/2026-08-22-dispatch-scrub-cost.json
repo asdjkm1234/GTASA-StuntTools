@@ -1,0 +1,27 @@
+{
+  "note": "WHAT A SCRUB COSTS (201/8-03). The step owes 'the frame cost of a scrub — a drag re-solves every entity, and it must not stall'. A desk run in Node against the real `BoardHistory`: a whole 8 h shift recorded at the app's 20 Hz with 150 units and 40 calls, then 300 resolves spread across the full span, which is the worst a drag can be (every frame lands on a different part of the history, so nothing is warm). No GPU and no device — what is measured is the resolve, not the paint.",
+  "load": {
+    "callEvents": 1960,
+    "calls": 40,
+    "note": "49 status transitions per call over 8 h is a deliberate over-estimate — a real call changes state a handful of times. The event list is the pessimistic half of this measurement.",
+    "samples": 1080000,
+    "shiftHours": 8,
+    "units": 150
+  },
+  "readings": {
+    "maxMs": 0.636,
+    "p50Ms": 0.071,
+    "p95Ms": 0.193,
+    "what": "one `BoardHistory.at(t, live)` — every unit resolved from its track, every call from its event list"
+  },
+  "findings": [
+    "**p50 0.071 ms, p95 0.193 ms, worst 0.636 ms.** Against a 16.7 ms frame that is 0.4 % typical and 3.8 % worst — a drag re-solves the whole board every frame and does not come close to stalling it.",
+    "The resolve is a binary search per unit over its ring plus a linear walk of each call's event list. The units are the cheap half; the pessimistic 49-transitions-per-call event lists are what the tail comes from.",
+    "**Nothing downstream of the resolve changed to make a scrub work.** The map loop, the symbology, the panels and the detail card take the board they always took — replay hands them a reconstructed `Operations` of the same shape. That is what 8/01 bought by keeping time OUT of `Unit` and in a store beside it.",
+    "The call event list is the one structure here that is NOT bounded: the unit rings are fixed-size, the events grow with the shift. At the absurd rate measured above they are 1 960 events = ~125 kB, so nothing needs doing — but a feed that flapped a call's status would grow it without limit, and that is the condition to watch."
+  ],
+  "openQuestions": [
+    "What a drag costs on the PHONE. The arithmetic cannot differ, but a Mali-G51's single-thread speed is not this container's — 2/03's capture carries the `tracks` block, and a scrub during that run is the reading.",
+    "Whether React's re-render on each scrub frame is the real cost rather than the resolve. The panels re-render on every clock change and nothing here measures that; the loop itself is unaffected, since it reads through a getter."
+  ]
+}

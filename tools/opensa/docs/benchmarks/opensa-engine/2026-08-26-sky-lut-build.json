@@ -1,0 +1,14 @@
+{
+  "what": "buildSkyLut wall-clock per build, node — the 75.8 ms the phone's first frame spent in frame:sky-lut",
+  "surface": "node",
+  "harness": "scripts/debug/.tmp-skylut-bench.ts (throwaway, deleted): 40 builds at moving sun elevation, one warm-up discarded",
+  "note": "DESKTOP NODE, not the device. The phone number it explains is 75.8 ms (2026-08-26-mobile-boot-split.json, frame:sky-lut on the first frame). The ratio is what carries over; the absolute value does not.",
+  "lut": { "width": 96, "height": 48, "texels": 4608, "f32ToF16CallsPerBuild": 18432 },
+  "runs": [
+    { "build": "before", "msPerBuild": 13.29, "what": "as shipped — f32ToF16 allocated a new Float32Array(1) AND a Uint32Array view on every call" },
+    { "build": "scratch hoisted", "msPerBuild": 4.38, "what": "the two scratch arrays moved to module scope; the alpha channel's constant f32ToF16(1) precomputed" },
+    { "build": "cosines passed", "msPerBuild": 4.05, "what": "hosekWilkieRadianceFromCos — the builder stops deriving angles with acos for the radiance form to undo with cos, 3x per texel" }
+  ],
+  "result": "13.29 -> 4.05 ms/build, 3.3x. Output verified BIT-IDENTICAL across all three (55 296 f16 values over three inputs: hosek day, hosek near-horizon, preetham overcast).",
+  "openQuestion": "the remaining 4.05 ms is transcendental work in the inner loop (2 exp + 1 pow + 1 sqrt per channel per texel). A worker or a smaller LUT would be the next lever, and neither is worth taking before the device says what 3.3x bought there."
+}

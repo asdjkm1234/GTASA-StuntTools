@@ -1,0 +1,278 @@
+/* The same tokens apps/web's shell uses (`--sa-*`), so the two look like one project. */
+:root {
+  --sa-bg: #000;
+  --sa-fg: #fff;
+  --sa-muted: #989998;
+  --sa-line: #232323;
+  --sa-panel: #0d0d0d;
+  --sa-orange-1: #fd8709;
+  --sa-orange-2: #f55c07;
+  --sa-red: #ff5f56;
+  --sa-gradient: linear-gradient(180deg, var(--sa-orange-1), var(--sa-orange-2));
+  --sa-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --sa-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--sa-bg);
+  color: var(--sa-fg);
+  font-family: var(--sa-font);
+}
+
+.cc-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 28px 24px 56px;
+}
+
+.cc-title {
+  background: var(--sa-gradient);
+  background-clip: text;
+  color: transparent;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.cc-scope {
+  margin-top: 6px;
+  color: var(--sa-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* --- steps --- */
+
+.cc-step {
+  padding: 14px 16px;
+  border: 1px solid var(--sa-line);
+  border-radius: 10px;
+  background: var(--sa-panel);
+}
+
+.cc-step-disabled {
+  opacity: 0.45;
+}
+
+.cc-step-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.cc-step-number {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--sa-gradient);
+  color: #000;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cc-step-text {
+  flex: 1;
+}
+
+.cc-step-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cc-step-hint {
+  color: var(--sa-muted);
+  font-size: 12px;
+}
+
+.cc-step-path {
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+  color: var(--sa-fg);
+  font-family: var(--sa-mono);
+  font-size: 12px;
+}
+
+/* --- verdicts --- */
+
+.cc-verdicts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  list-style: none;
+}
+
+.cc-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 10px;
+  border-left: 2px solid var(--sa-line);
+  font-size: 12px;
+}
+
+.cc-verdict-error {
+  border-left-color: var(--sa-red);
+}
+
+.cc-verdict-warning {
+  border-left-color: var(--sa-orange-1);
+}
+
+.cc-verdict-fix {
+  color: var(--sa-muted);
+}
+
+.cc-verdict-detail {
+  overflow-x: auto;
+  max-height: 150px;
+  color: var(--sa-muted);
+  font-family: var(--sa-mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+
+/* --- actions + log --- */
+
+.cc-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.cc-button {
+  padding: 7px 14px;
+  border: 1px solid var(--sa-line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--sa-fg);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cc-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cc-button-go {
+  border-color: transparent;
+  background: var(--sa-gradient);
+  color: #000;
+  font-weight: 600;
+}
+
+.cc-log {
+  padding: 12px;
+  border: 1px solid var(--sa-line);
+  border-radius: 10px;
+  background: var(--sa-panel);
+}
+
+.cc-log-body {
+  overflow: auto;
+  max-height: 260px;
+  font-family: var(--sa-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.cc-log-err {
+  color: var(--sa-red);
+}
+
+/* --- status --- */
+
+.cc-status {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 11px 14px;
+  border: 1px solid var(--sa-line);
+  border-radius: 10px;
+  background: var(--sa-panel);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cc-status-busy {
+  border-color: var(--sa-orange-1);
+}
+
+.cc-status-done {
+  border-color: var(--sa-orange-1);
+}
+
+.cc-status-failed {
+  border-color: var(--sa-red);
+  color: var(--sa-red);
+}
+
+.cc-status-pulse {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--sa-orange-1);
+  animation: cc-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes cc-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/* A pulse is a nice-to-have; motion sensitivity is not. */
+@media (prefers-reduced-motion: reduce) {
+  .cc-status-pulse {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* --- about --- */
+
+.cc-about {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  color: var(--sa-muted);
+  font-size: 11px;
+}
+
+.cc-about-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sa-orange-1);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cc-about code {
+  font-family: var(--sa-mono);
+}
+
+.cc-about-missing {
+  color: var(--sa-orange-2);
+}

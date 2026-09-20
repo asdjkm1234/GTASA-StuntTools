@@ -1,0 +1,16 @@
+{
+  "name": "@opensa/cell-weld",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Welding core: RenderWare instances + TXDs → the engine's native `.oscell` / `.ostex` bytes (draw-group batching, texture-array planning, the offline alpha pipeline). Node-free, so it runs offline in opensa-pack and in the browser in sa-map-viewer.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:engine",
+      "scope:osengine"
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@opensa/perfect-map-asi",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Our own limit-adjuster .asi for real GTA:SA 1.0 US: lifts the int16 IplDef pool-index ceiling (+ the other unbounded placement structures) behind the ghost-barriers bug. Cross-compiled macOS→Win32 (MinGW-w64), tested under Wine.",
+  "scripts": {
+    "build:asi": "npm run gen && make clean && make APPLY=1",
+    "build:verify": "npm run gen && make clean && make",
+    "build:debug": "npm run gen && make clean && make APPLY=1 DEBUG=1",
+    "clean": "make clean",
+    "gen": "tsx gen/generate.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

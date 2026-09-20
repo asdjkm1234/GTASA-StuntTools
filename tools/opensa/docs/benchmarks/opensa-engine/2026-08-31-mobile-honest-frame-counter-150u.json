@@ -1,0 +1,494 @@
+{
+ "note": "201/3-05's own verification, taken 2026-08-31 through the phone console's MCP channel (no person relayed a number). It is the FIRST capture read off the honest frame counter, and it exists to price that counter against the two numbers the record already had.\n\nThe window is MIXED and must be read as one, exactly like the 2026-08-30 driven row: of 835 sampled frames, 706 sit in the >=100 ms tail bin and 129 are moving frames. The tail is NOT the collector sampling idle wakes \u2014 it never does, the sample call sits behind the render gate. It is the interval that SPANS one: a skipped pass schedules the next loop entry with setTimeout(IDLE_WAKE_MS) (100 ms), so the frame drawn after it carries a 100 ms dt that is 99 % sleep. On a live 150-unit board the console alternates draw/skip continuously, which is why 85 % of this window's samples are that interval rather than a frame time.\n\nThree readings of the same run, and the spread between them IS the finding:\n  - the report's own frame.fps 10 and dtP50 100.6 ms - the render gate's idle poll, not a frame cost;\n  - the console's new on-screen counter, at the moment of the snapshot and mid-flight: 17 fps, 60.9 ms frame, 10.3 ms cpu - a count of frames DRAWN in the last second beside the median interval between two CONSECUTIVE drawn ones (world/frame-clock.ts);\n  - derived here over the 129 moving frames, from the histogram: p50 48 ms (21 fps), p90 66, p95 68, p99 78, max 94.\nThe old on-screen readout used the collector's formula (1000 / mean dt over the last sixty loop passes, drawn or not) and would have shown 9-10 fps here; the heartbeat this page sent while the map stood still read 8-9. So the fix is worth about 7 fps of TRUTH on this device - the console was under-reporting itself by nearly half while it worked.\n\nWhat the shape says: a VSYNC LADDER again, but a rung lower than the 08-30 row - 24 moving frames (19 %) on one 16.7 ms interval, 32 (25 %) on two, 47 (36 %) on three, 23 (18 %) on four. That run's p50 was 30 ms (33 fps) across six poses at heights 260-1400; this one flew ONE pose down to 420 m at a shallow -0.85 tilt, which places all 153 labels (namesHidden 0, against 152 hidden at the opening 900 m) and brings more city into the frustum. So the two rows are not comparable as device numbers and neither supersedes the other.\n\nThe CPU block is diluted by the same tail and must not be quoted as a frame cost: bodyMeanMs 2.66 and shareOfFrame 2.3 % are means over 835 samples of which 706 were mostly sleep. The console's own cpuMs - the last DRAWN pass's body - read 10.3 ms at the same moment, and that is the number a frame actually paid. Same for the segments: overlay-2d 1.33 ms mean against engine-frame 0.33 keeps the 1/01 and 08-30 finding (the 2D overlay costs multiples of the engine frame at 150 units, which is 5/02's business) but the absolute values are ~6.5x low.\n\nStill owed, and this row is its BEFORE: the collector does not know which of its intervals span a rest, so every capture since render-on-demand landed (2026-08-22) has had its moving half derived by hand in prose - 08-23, 08-25 x3, 08-26 x4 and 08-30 all carry a large framesSkipped. frame-clock.ts does that derivation in code for the screen; pushing it down into the collector is 201/3-05's second owed item and it will change what frames / dtP50 / dtP95 / dtMean / outsideMeanMs / shareOfFrame MEAN, so it needs this row to compare against.\n\ndtMaxMs 16550.3 is not a frame either: it is the gap while Android froze the backgrounded tab between two agent calls. The attach lapsed twice during this run for the same reason (the panel calls a page detached after 15 s), which is the device fact the agent band exists for.\n\nApp 016c1e7+ - built from the working tree that became 2acb32c, so the '+' IS the proof this ran the new chrome rather than main's archive. Device MGA-LX3 / ARM Bifrost, 360x609 CSS at DPR 2, no timestamp-query so GPU time is not measurable at all. Not comparable with any desktop row. Pak: original, district los-santos-centre, textures astc, built 19:23 28-08-2026.",
+ "app": "016c1e7+",
+ "build": "19:23 28-08-2026",
+ "district": "los-santos-centre",
+ "windowMs": 108971.29999999702,
+ "frames": 835,
+ "framesSkipped": 700,
+ "derived": {
+  "movingFrames": 129,
+  "restSpanningFrames": 706,
+  "howDerived": "From frame.dtHistogramMs: every bin below the 100 ms tail is a frame whose interval did not span an idle wake. The tail bin is BIN_TAIL_MS and holds everything >= 100 ms.",
+  "movingP50Ms": 48,
+  "movingP90Ms": 66,
+  "movingP95Ms": 68,
+  "movingP99Ms": 78,
+  "movingMaxMs": 94,
+  "movingP50Fps": 21,
+  "movingP95Fps": 15,
+  "vsyncLadder": [
+   {
+    "intervals": 1,
+    "ms": 16.7,
+    "frames": 24,
+    "share": 0.19
+   },
+   {
+    "intervals": 2,
+    "ms": 33.4,
+    "frames": 32,
+    "share": 0.25
+   },
+   {
+    "intervals": 3,
+    "ms": 50.1,
+    "frames": 47,
+    "share": 0.36
+   },
+   {
+    "intervals": 4,
+    "ms": 66.8,
+    "frames": 23,
+    "share": 0.18
+   },
+   {
+    "intervals": 5,
+    "ms": 83.5,
+    "frames": 2,
+    "share": 0.02
+   }
+  ],
+  "onScreenCounter": {
+   "what": "The readout the status bar shows, at the moment of the snapshot, mid-flight. fps is a COUNT of frames drawn in the last second; frameMs the median interval between two consecutive drawn ones; cpuMs the last DRAWN pass's body (world/frame-clock.ts, 201/3-05).",
+   "fps": 17,
+   "frameMs": 60.9,
+   "cpuMs": 10.3
+  },
+  "stillMapReading": {
+   "what": "The same page 36.9 s earlier, snapshot taken with the map standing at the opening pose (1480,-1720 at 900 m). frameMs 0 because a still console's last second holds no two consecutive drawn frames, so the bar names the body instead.",
+   "fps": 9,
+   "frameMs": 0,
+   "cpuMs": 8.5,
+   "idleFrames": 296,
+   "namesHidden": 152
+  }
+ },
+ "frame": {
+  "dtHistogramMs": [
+   [
+    14,
+    2
+   ],
+   [
+    16,
+    3
+   ],
+   [
+    18,
+    5
+   ],
+   [
+    20,
+    5
+   ],
+   [
+    22,
+    5
+   ],
+   [
+    24,
+    4
+   ],
+   [
+    26,
+    8
+   ],
+   [
+    28,
+    7
+   ],
+   [
+    30,
+    4
+   ],
+   [
+    32,
+    5
+   ],
+   [
+    34,
+    4
+   ],
+   [
+    38,
+    2
+   ],
+   [
+    40,
+    2
+   ],
+   [
+    42,
+    2
+   ],
+   [
+    44,
+    3
+   ],
+   [
+    46,
+    1
+   ],
+   [
+    48,
+    17
+   ],
+   [
+    50,
+    6
+   ],
+   [
+    52,
+    5
+   ],
+   [
+    54,
+    8
+   ],
+   [
+    56,
+    2
+   ],
+   [
+    58,
+    3
+   ],
+   [
+    60,
+    2
+   ],
+   [
+    62,
+    3
+   ],
+   [
+    64,
+    3
+   ],
+   [
+    66,
+    10
+   ],
+   [
+    68,
+    2
+   ],
+   [
+    70,
+    2
+   ],
+   [
+    74,
+    1
+   ],
+   [
+    76,
+    1
+   ],
+   [
+    78,
+    1
+   ],
+   [
+    94,
+    1
+   ],
+   [
+    100,
+    706
+   ]
+  ],
+  "dtMaxMs": 16550.29999999702,
+  "dtMeanMs": 113.70682634730896,
+  "dtP50Ms": 100.6000000089407,
+  "dtP95Ms": 108.3999999910593,
+  "fps": 10
+ },
+ "cpu": {
+  "bodyMaxMs": 118.09999999403954,
+  "bodyMeanMs": 2.6580838322104094,
+  "outsideMeanMs": 111.04874251509855,
+  "segmentsMs": [
+   [
+    "overlay-2d",
+    1.3253892214533811
+   ],
+   [
+    "board",
+    0.41508982031645175
+   ],
+   [
+    "other",
+    0.3415568865523366
+   ],
+   [
+    "engine-frame",
+    0.333053892065665
+   ],
+   [
+    "stream",
+    0.1470658681885211
+   ],
+   [
+    "overlay:symbols",
+    0.09197604791846818
+   ],
+   [
+    "readout",
+    0.0022754490375518797
+   ],
+   [
+    "overlay:sketches",
+    0.0011976047725734597
+   ],
+   [
+    "overlay:clear",
+    0.00047904190546024344
+   ]
+  ],
+  "shareOfFrame": 0.02337664252532642,
+  "worstFrame": {
+   "atMs": 104.1000000089407,
+   "bodyMs": 118.09999999403954,
+   "canvasPixels": 460800,
+   "cellsCreated": 0,
+   "cellsEvicted": 0,
+   "cellsVisible": 0,
+   "draws": 12,
+   "dtMs": 167.09999999403954,
+   "pending": 4,
+   "segmentsMs": [
+    [
+     "engine-frame",
+     46.5
+    ],
+    [
+     "overlay:symbols",
+     45.1000000089407
+    ],
+    [
+     "board",
+     12.299999997019768
+    ],
+    [
+     "stream",
+     6.5
+    ],
+    [
+     "overlay-2d",
+     1.199999988079071
+    ],
+    [
+     "overlay:sketches",
+     0.7999999970197678
+    ],
+    [
+     "overlay:clear",
+     0.20000000298023224
+    ],
+    [
+     "readout",
+     0.20000000298023224
+    ]
+   ]
+  }
+ },
+ "world": {
+  "byCategoryMb": [
+   [
+    "target",
+    59.86979961395264
+   ],
+   [
+    "texture",
+    25.82593536376953
+   ],
+   [
+    "cellVertex",
+    8.436077117919922
+   ],
+   [
+    "cellIndex",
+    2.317676544189453
+   ],
+   [
+    "uniform",
+    0.00439453125
+   ]
+  ],
+  "cellsTotal": 4,
+  "cellsVisible": 4,
+  "draws": 96,
+  "pickingMb": 1.1755313873291016,
+  "residencyMb": 96.45388317108154,
+  "triangles": 241863
+ },
+ "streaming": {
+  "blobMeanMs": 0.017604790387039413,
+  "cellsCreated": 9,
+  "cellsEvicted": 0,
+  "lateCreates": 0,
+  "uploadMeanMs": 0.10802395208153182,
+  "worstBlobMs": 2.8999999910593033,
+  "worstCreateMs": 22.400000005960464
+ },
+ "bytes": {
+  "byKind": [
+   {
+    "bytes": 16415079,
+    "kind": "texture-array",
+    "requests": 21
+   },
+   {
+    "bytes": 4049830,
+    "kind": "cell-hd",
+    "requests": 6
+   },
+   {
+    "bytes": 2658756,
+    "kind": "water.bin",
+    "requests": 1
+   },
+   {
+    "bytes": 217277,
+    "kind": "cell-lod",
+    "requests": 3
+   },
+   {
+    "bytes": 29424,
+    "kind": "districts.json",
+    "requests": 1
+   }
+  ],
+  "cachedBytes": 20682186,
+  "cachedRequests": 30,
+  "requests": 32,
+  "totalBytes": 23370366
+ },
+ "symbology": {
+  "beaconCapacity": 150,
+  "beaconGrowths": 0,
+  "chips": 153,
+  "chipsDropped": 0,
+  "incidents": 3,
+  "measures": 0,
+  "modelTextureMb": 0,
+  "modelTypes": 0,
+  "stale": 0,
+  "symbols": 153,
+  "units": 150,
+  "unitsAsModels": 0,
+  "unitsAsSymbolOnly": 150,
+  "unitsUnresolvedModels": 3
+ },
+ "tracks": {
+  "bytes": 18370880,
+  "capacity": 7200,
+  "incidentEvents": 170,
+  "samples": 3859,
+  "tracks": 150,
+  "window": [
+   451,
+   110093
+  ]
+ },
+ "boot": {
+  "gpuMs": 815.9000000059605,
+  "openMs": 910.9000000059605,
+  "overlapMs": 815.3000000119209,
+  "phases": [
+   [
+    "init:pipelines",
+    506.40000000596046
+   ],
+   [
+    "init:device",
+    252.30000001192093
+   ],
+   [
+    "init:resources",
+    25.899999991059303
+   ],
+   [
+    "init:sky-lut",
+    20.299999997019768
+   ],
+   [
+    "init:targets",
+    5.799999997019768
+   ],
+   [
+    "init:canvas",
+    2.9000000059604645
+   ]
+  ]
+ },
+ "device": {
+  "adapter": "arm bifrost",
+  "css": "360x609",
+  "dpr": 2,
+  "featureLevel": "core",
+  "features": [
+   "core-features-and-limits",
+   "float32-filterable",
+   "indirect-first-instance",
+   "primitive-index",
+   "rg11b10ufloat-renderable",
+   "shader-f16",
+   "texture-component-swizzle",
+   "texture-compression-astc",
+   "texture-compression-astc-sliced-3d",
+   "texture-compression-etc2",
+   "texture-formats-tier1",
+   "texture-formats-tier2"
+  ],
+  "missing": [
+   "texture-compression-bc",
+   "timestamp-query"
+  ]
+ },
+ "surface": {
+  "cssHeight": 609,
+  "cssWidth": 360,
+  "deviceHeight": 1218,
+  "deviceWidth": 720,
+  "dpr": 2,
+  "renderScale": 1
+ },
+ "passes": [
+  {
+   "available": true,
+   "maxMs": 4.600000008940697,
+   "meanMs": 1.7514970056489556,
+   "name": "submitMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuPassMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuPostMs"
+  },
+  {
+   "available": false,
+   "maxMs": 0,
+   "meanMs": 0,
+   "name": "gpuProbeMs"
+  }
+ ],
+ "unavailable": [
+  "gpuPassMs, gpuPostMs, gpuProbeMs \u2014 this adapter has no timestamp-query, so GPU time is not measurable at all"
+ ],
+ "errors": [
+  "warn: [units] 'copcarls' is drawn as a symbol: this build carries no model of that name",
+  "warn: [units] 'ambulan' is drawn as a symbol: this build carries no model of that name",
+  "warn: [units] 'firetruk' is drawn as a symbol: this build carries no model of that name"
+ ],
+ "warnings": []
+}

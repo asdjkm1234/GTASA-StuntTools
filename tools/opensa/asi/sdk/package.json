@@ -1,0 +1,14 @@
+{
+  "name": "@opensa/asi-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ASI authoring SDK: the common base for .asi plugins targeting SA 1.0 US — the asi:: C++ framework (fingerprint gate, byte-verify, adjuster coexistence, hooks, logging), the catalogue codegen library, and the Makefile fragment. Build-time only; consumers are asi/perfect-map and future plugins.",
+  "exports": {
+    "./*": "./gen/*.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

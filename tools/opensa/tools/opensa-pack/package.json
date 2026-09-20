@@ -1,0 +1,16 @@
+{
+  "name": "@opensa/opensa-pack",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Converter: game-ready GTA SA set (gta3.img + IDE/IPL) → OpenSA native pak (.oscell/.ostex/.ospak) with build-time batching, texture arrays and the offline alpha pipeline (plan 074/03).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool",
+      "scope:osengine"
+    ]
+  }
+}

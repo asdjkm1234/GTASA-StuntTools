@@ -1,0 +1,61 @@
+{
+  "note": "The three-era MODERN default — the full 064-071 chain on, volumetric clouds off. Transcribed from docs/plans/072-quality-tiers-default-flip/readme.md, which carries the cost attribution and the tier ladder this data drives. BEFORE columns are the classic baseline (see 2026-06-classic-baseline.json); the point of the table is that the modern pipeline cost 62-162% MORE frame time for 24-51% more draws — that is what the quality tiers were built to claw back.",
+  "engine": "three.js / WebGL2 (prod, modern pipeline, clouds off)",
+  "host": "M3 Pro, same machine and same 6 scenes as the classic baseline",
+  "runs": [
+    {
+      "key": "ls-noon",
+      "avgMs": 90.4,
+      "avgMsBefore": 53.5,
+      "avgDrawCalls": 14454,
+      "avgDrawCallsBefore": 10394,
+      "gpuMs": 53.9,
+      "gpuMsBefore": 39.5
+    },
+    {
+      "key": "sf-fog-dawn",
+      "avgMs": 71.2,
+      "avgMsBefore": 33.2,
+      "avgDrawCalls": 10774,
+      "avgDrawCallsBefore": 7116,
+      "gpuMs": 48.8,
+      "gpuMsBefore": 21.6
+    },
+    {
+      "key": "lv-night",
+      "avgMs": 54.0,
+      "avgMsBefore": 33.3,
+      "avgDrawCalls": 9142,
+      "avgDrawCallsBefore": 7373,
+      "gpuMs": 21.6,
+      "gpuMsBefore": 12.7
+    },
+    {
+      "key": "country-dusk",
+      "avgMs": 37.8,
+      "avgMsBefore": 23.0,
+      "avgDrawCalls": 5696,
+      "avgDrawCallsBefore": 3978,
+      "gpuMs": 19.0,
+      "gpuMsBefore": 14.8
+    },
+    {
+      "key": "ocean-horizon",
+      "avgMs": 33.5,
+      "avgMsBefore": 12.8,
+      "avgDrawCalls": 86,
+      "avgDrawCallsBefore": 62,
+      "gpuMs": 43.7,
+      "gpuMsBefore": 18.4
+    },
+    {
+      "key": "ls-rain-night",
+      "avgMs": 97.3,
+      "avgMsBefore": 47.9,
+      "avgDrawCalls": 15165,
+      "avgDrawCallsBefore": 10445,
+      "gpuMs": 44.1,
+      "gpuMsBefore": 16.6
+    }
+  ]
+}

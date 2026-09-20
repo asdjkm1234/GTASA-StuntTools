@@ -1,0 +1,35 @@
+{
+  "note": "Plan 102 - the single-scene verification that the strip-noon anchor fix works. One ?bench=strip-noon run on build/original/opensa (minor 8, buildTime 13:19 08-08-2026), headless harness, M3 Pro, DPR=2, taken by Claude. The anchor moved from [1934,1177,14] (inside the Flamingo) to [1933,1127,18] (standable ground south of it, from teleport-spot.ts). legStart.ok true, dz -0.08 m, grounded, worstDrop 0, targetZ 18.09, 27 cars live - against dz -897 / grounded false / 1 car live on the old anchor hours earlier. NOT comparable to any earlier strip-noon row: the scene has measured a falling player since it was added on 2026-07-29, and this run is the first valid one. It is also a single leg, not a sweep.",
+  "runs": [
+    {
+      "avgDrawCalls": 1369,
+      "avgMs": 8.333,
+      "avgTriangles": 1893061,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 2.48,
+        "post": 0.864,
+        "probe": 0.682,
+        "submit": 0.303
+      },
+      "key": "strip-noon",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -0.08,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "targetZ": 18.09,
+        "worstDrop": 0
+      },
+      "p95Ms": 9.1,
+      "residency": "cellIndex 27 \u00b7 cellVertex 147 \u00b7 target 345 \u00b7 texture 1109 \u00b7 uniform 0",
+      "vehicles": {
+        "live": 27,
+        "maxMs": 0.6,
+        "meanMs": 0.274
+      }
+    }
+  ]
+}

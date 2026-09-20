@@ -1,0 +1,16 @@
+{
+  "name": "@opensa/math",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Dependency-free 3D math for OpenSA (plan 074/13): the three.js math surface we actually use, with three-compatible semantics so the teardown is an import swap. No renderer, no scene graph.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:engine",
+      "scope:osengine"
+    ]
+  }
+}

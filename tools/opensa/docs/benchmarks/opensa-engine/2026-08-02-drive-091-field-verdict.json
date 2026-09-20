@@ -1,0 +1,60 @@
+{
+  "note": "FIELD DRIVE, not a bench sweep — the input plan 091 waited for. The user drove one continuous session on 2026-08-02 (dev server, Vite on :5177, ?loader=http-dir&src=.../build/original/opensa&hour=12&weather=0) in a `comet`: Ganton -> Downtown LS -> city centre -> the freeway overpass -> the whole countryside -> the desert -> the whole of Las Venturas. Route chosen to cross LA/COUNTRYSIDE/DESERT/VEGAS, the only popcycle zone-types that differ for random map-car resolution (CITY_POPCYCLE_ZONE maps all three cities to RESIDENTIAL_AVERAGE). Schema differs from the `[bench]` family on purpose: this is a census of the `[slow]` lines the game prints itself for every frame over 20 ms (perfLogs = IS_DEV), not a scripted sweep, so there are no per-scene rows. Parsed from the browser console export `localhost-1785656678713.log`. THE GAPS: the console was opened after boot, so the log carries NO pak buildTime line — the pak is `build/original/opensa` as it stood on 2026-08-02 (data rebaked 2026-07-31) but that is inferred, not recorded; the export has no timestamps, so the drive's duration is unknown; and this is a DEV build, which the `[bench]` series is not. Machine: the user's dev host (the series' M3 Pro), DPR not recorded. RE-DRIVE OWED: the run predates the parked-car fixes of 2026-08-02 (lazy registration, spawn gated on the collision radius, respawn anchored to the placement), so its car population is not comparable with any later run.",
+  "slowFrameCensus": {
+    "threshold": "SLOW_FRAME_MS = 20",
+    "count": 223,
+    "frameMs": {
+      "min": 20.1,
+      "p50": 21.9,
+      "p90": 25.0,
+      "max": 151.2
+    },
+    "over30ms": [
+      151.2,
+      118.7,
+      32.3,
+      31.4
+    ],
+    "gpuPassMs": {
+      "meanOverSlowFrames": 13.73,
+      "max": 19.79,
+      "aboveEightMs": 204
+    },
+    "cpuRenderMs": "0.1-0.6 on every GPU-bound frame (submit 0.1-0.4)",
+    "draws": {
+      "p50": 1049,
+      "max": 1999
+    },
+    "cells": {
+      "p50": 100,
+      "max": 115
+    },
+    "dominantBlock": {
+      "other/unattributed": 217,
+      "collision": 3,
+      "stream": 3
+    }
+  },
+  "spans": {
+    "framesCarryingAnyNamedSpan": 7,
+    "names": {
+      "cell-collision-read": 7,
+      "cell-collision-bodies": 7
+    },
+    "vehicleOsm": 0,
+    "vehicleModel": 0,
+    "vehicleSpawn": 0,
+    "comment": "ZERO vehicle spans over 223 slow frames -- and this is NOT the verdict it looks like. The driver met parked cars exactly ONCE in the whole route: `parked.json` (212 placements, 24 models) is the only car population that exists and it is all spawned at boot, and plan 059's ~1043 map car generators are implemented but wired to nothing (`mapCarGenerators()` is called only by its own unit test). The drive could not meet a new car type, so this count measures the world's emptiness, not the cost of a spawn. 091's per-type branch stays OPEN."
+  },
+  "accountingDefect": {
+    "negativeUnattributedFrames": 3,
+    "worst": -65.9,
+    "evidence": "frame 118.7 · collision 76.0 · other 30.0 (cell-collision-read 75.7 · cell-collision-bodies 20.2 · unattributed -65.9)",
+    "comment": "`cell-collision-read` is subtracted twice: it runs synchronously inside `collision.update()`, which the loop already times as the `collision` block. Exactly the trap 091 avoided for `cell-create`/`texture-upload`. Only visible as a negative number."
+  },
+  "fieldReport": {
+    "hitches": "none felt; 'possibly something very small' at 1580.08,-2125.62,31.12 (LS) and 2322.18,2147.64,10.27 (LV)",
+    "fpsVsSpeed": "LV, no other cars, comet: ~50 fps at top speed, 70-80 fps under braking",
+    "bug": "parked cars spawn on a lot, then do not respawn after leaving and re-entering (empty lot) -- ROOT-CAUSED AND FIXED 2026-08-02, see docs/open-issues/fixed/parked-cars-do-not-respawn.md. A car spawned past the collision radius free-falls, and the LOD system measured its unload distance from wherever it fell, so the spot never repopulated. This run was taken BEFORE the fix; a re-drive is owed."
+  }
+}

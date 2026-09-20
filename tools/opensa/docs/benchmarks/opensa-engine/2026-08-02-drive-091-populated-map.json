@@ -1,0 +1,48 @@
+{
+  "note": "FIELD DRIVE #2 of 2026-08-02, taken AFTER the day's three fixes (parked cars registered lazily, spawn gated on the collision radius, respawn anchored to the placement, and plan 059's 1043 map car generators wired back in). Same host and same shape as `2026-08-02-drive-091-field-verdict.json`, and the pair is the before/after for a POPULATED map — but read them as different worlds, not as a regression pair: the earlier run had 212 cars and 24 models, this one has ~1255 cars and 100+ models. Route: LS -> countryside -> SF -> the countryside near Mount Chilliad -> back to LS -> Las Venturas at dusk. Driver in a `comet`. Census of the game's own `[slow]` lines, parsed from the browser console export `localhost-1785677913793.log` with `scripts/debug/slow-frame-census.ts`. THE GAPS, unchanged from run #1 and still worth fixing next time: the console was opened after boot, so the log carries neither the pak buildTime NOR the new `[vehicles] map car generators registered: N` line; no timestamps, so the drive's duration is unknown and the raw slow-frame COUNT is therefore not comparable between the two runs (the distribution is). Dev build. Machine: the user's dev host (the series' M3 Pro), DPR not recorded.",
+  "slowFrameCensus": {
+    "threshold": "SLOW_FRAME_MS = 20",
+    "count": 1004,
+    "frameMs": { "min": 20.1, "p50": 21.3, "p90": 24.1, "max": 237.2 },
+    "over30ms": [237.2, 43.2, 33.4, 32.9, 32.4, 31.4, 31.0],
+    "gpuPassMs": { "meanOverSlowFrames": 15.64, "max": 21.89, "aboveEightMs": 998, "aboveEighteenMs": 106 },
+    "cpuRenderMs": "mean 0.30 across all slow frames",
+    "draws": { "p50": 1113, "max": 2193 },
+    "cells": { "p50": 100, "max": 110 },
+    "dominantBlock": { "other/unattributed": 1002, "stream": 2, "collision": 0 }
+  },
+  "spans": {
+    "framesCarryingAnyNamedSpan": 18,
+    "vehicleSpawn": {
+      "frames": 14,
+      "models": [
+        "elegant",
+        "peren",
+        "bravura",
+        "solair",
+        "picador",
+        "sunrise",
+        "fortune",
+        "bf400",
+        "blade",
+        "vincent",
+        "clover",
+        "pcj600"
+      ],
+      "msRange": "0.2-0.3",
+      "comment": "The per-INSTANCE tail (physics body, rig, plate). It is free: these frames were slow for GPU reasons and the spawn merely happened during them."
+    },
+    "cellCollisionBodies": 4,
+    "vehicleOsm": 0,
+    "vehicleModel": 0,
+    "comment": "STILL ZERO per-TYPE spans, and this time the count is evidence: the map now holds 1043 generators over 83 specific model ids plus the random cargrp draw, the drive crossed four popcycle zones, and `vehicle-spawn` proves types were arriving throughout. The `.osm` parse and the GPU upload never coincided with a frame the game calls slow. 091's worst-type figures (bus 20.5 ms, tahoma 18.2 ms) came from a teleport bench where 27-43 types landed in ONE frame; one type at a time, spread over a drive, they do not cross 20 ms."
+  },
+  "negativeUnattributedFrames": 0,
+  "fieldReport": {
+    "spawning": "parked cars spawn, despawn and respawn correctly across repeated passes over the same ground - the 2026-08-02 fix confirmed in the field",
+    "spawnFailureWarnings": 0,
+    "hitches": "almost none felt. One small one near 1089.7,-1848.6 (LS, 17:51), which is the 237.2 ms frame in the census: gpu 11.53, no span open, unattributed 235.3 - the GC/browser signature, one event in the whole drive. It also tripped the `[cam] jump` tripwire (dt 237.2, dist 5.90), which is a consequence of the stall, not a camera defect.",
+    "manyCarsInFrame": "1806.3,-1893.1 (LS airport, 18:29): a lot full of taxis and three coaches on screen, 9.66 ms / 104 fps, draws 1502 - no problem at all",
+    "fpsVsSpeed": "a Las Venturas street at dusk with many cars was the worst of the drive at ~50 fps"
+  }
+}

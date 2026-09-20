@@ -1,0 +1,82 @@
+{
+  "commit": "b351cb6 (main, plan 092 phases 0-1 merged)",
+  "host": "headless Chromium / M3 Pro @DPR=2 (drive.js over ?loader=http-dir — same harness as the 07-28 rows)",
+  "pak": "build/original/opensa/pak, buildTime 10:53 29-07-2026 — the user's `build:game:original:opensa` rebuild carrying the alpha-mask classification",
+  "note": "The sweep after plan 092's mask rule reached a pak: 1 602 textures moved from the blend pass to the depth-writing cutout pass (shipped layer classes read out of the pak's 43 RGBA8 arrays: OPAQUE 380 / CUTOUT 1422 / SOFT_BLEND 661). VERDICT: no cost — all eight scenes at the 120 Hz cap (avg 8.33-8.36, p95 9.2-9.3, lateCreates 0), exactly as before. **NOT A CLEAN A/B FOR gpuMs.pass**: the 07-28 baseline read a DIFFERENT pak (buildTime 08:41 24-07-2026), so five days of unrelated data changes sit between the two rows, and the largest deltas land on scenes the alpha class cannot plausibly touch (ocean-horizon 1.961 -> 0.915 with 27 draws and no foliage). Read the pass column as 'moved in both directions, nothing regressed', not as an attribution. An attributable pass measurement needs two paks built from the same tree with only the rule flipped, which nobody has taken.",
+  "runs": [
+    {
+      "avgDrawCalls": 1217,
+      "avgMs": 8.335,
+      "avgTriangles": 2287899,
+      "gpuMs": { "pass": 2.484, "post": 0.395, "probe": 1.139, "submit": 0.446 },
+      "key": "ls-noon",
+      "p95Ms": 9.3,
+      "passBefore": 2.601
+    },
+    {
+      "avgDrawCalls": 1002,
+      "avgMs": 8.333,
+      "avgTriangles": 1383890,
+      "gpuMs": { "pass": 2.14, "post": 0.538, "probe": 1.708, "submit": 0.443 },
+      "key": "sf-fog-dawn",
+      "p95Ms": 9.3,
+      "passBefore": 2.026
+    },
+    {
+      "avgDrawCalls": 1670,
+      "avgMs": 8.361,
+      "avgTriangles": 1803470,
+      "gpuMs": { "pass": 2.612, "post": 0.426, "probe": 1.02, "submit": 0.485 },
+      "key": "lv-night",
+      "p95Ms": 9.2,
+      "passBefore": 3.499
+    },
+    {
+      "avgDrawCalls": 852,
+      "avgMs": 8.333,
+      "avgTriangles": 1185853,
+      "gpuMs": { "pass": 2.723, "post": 0.35, "probe": 1.252, "submit": 0.518 },
+      "key": "country-dusk",
+      "p95Ms": 9.3,
+      "passBefore": 3.946
+    },
+    {
+      "avgDrawCalls": 27,
+      "avgMs": 8.333,
+      "avgTriangles": 136358,
+      "gpuMs": { "pass": 0.915, "post": 0.545, "probe": 0.339, "submit": 0.278 },
+      "key": "ocean-horizon",
+      "p95Ms": 9.3,
+      "passBefore": 1.961
+    },
+    {
+      "avgDrawCalls": 980,
+      "avgMs": 8.334,
+      "avgTriangles": 1737870,
+      "gpuMs": { "pass": 2.351, "post": 0.421, "probe": 1.496, "submit": 0.46 },
+      "key": "ls-rain-night",
+      "p95Ms": 9.2,
+      "passBefore": 2.275
+    },
+    {
+      "avgDrawCalls": 1415,
+      "avgMs": 8.339,
+      "avgTriangles": 1494146,
+      "gpuMs": { "pass": 2.731, "post": 0.421, "probe": 1.728, "submit": 0.491 },
+      "key": "ganton-noon",
+      "p95Ms": 9.3,
+      "passBefore": 2.966
+    },
+    {
+      "avgDrawCalls": 1419,
+      "avgMs": 8.359,
+      "avgTriangles": 1495664,
+      "gpuMs": { "pass": 2.567, "post": 0.842, "probe": 1.84, "submit": 0.535 },
+      "key": "ganton-night",
+      "p95Ms": 9.3,
+      "passBefore": 3.261
+    }
+  ],
+  "roadCarsRegistered": 1126,
+  "shippedAlphaClasses": { "cutout": 1422, "opaque": 380, "softBlend": 661 }
+}

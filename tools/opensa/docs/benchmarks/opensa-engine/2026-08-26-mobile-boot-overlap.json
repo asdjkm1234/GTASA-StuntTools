@@ -1,0 +1,197 @@
+{
+  "app": "67432d1+",
+  "boot": {
+    "gpuMs": 688,
+    "openMs": 230.5,
+    "overlapMs": 227.69999998807907,
+    "phases": [
+      ["init:pipelines", 358],
+      ["init:device", 265],
+      ["init:resources", 33.799999952316284],
+      ["init:sky-lut", 23.69999998807907],
+      ["init:targets", 5.699999988079071],
+      ["init:canvas", 1.100000023841858]
+    ]
+  },
+  "build": "20:18 12-08-2026",
+  "bytes": {
+    "byKind": [
+      { "bytes": 16514809, "kind": "texture-array", "requests": 31 },
+      { "bytes": 10001555, "kind": "cell-hd", "requests": 15 },
+      { "bytes": 2658756, "kind": "water.bin", "requests": 1 },
+      { "bytes": 678856, "kind": "cell-lod", "requests": 9 }
+    ],
+    "cachedBytes": 27195220,
+    "cachedRequests": 55,
+    "requests": 56,
+    "totalBytes": 29853976
+  },
+  "camera": { "at": [1444.1723361617371, -1651.2716093983706], "height": 29.755339288034744, "projection": "perspective" },
+  "cpu": {
+    "bodyMaxMs": 122.80000001192093,
+    "bodyMeanMs": 3.9409356708647447,
+    "outsideMeanMs": 34.92612085925673,
+    "segmentsMs": [
+      ["engine-frame", 1.253996102549644],
+      ["overlay-2d", 1.2356725152705381],
+      ["other", 0.7922027267907792],
+      ["stream", 0.36296296235878334],
+      ["board", 0.20916179258223863],
+      ["overlay:symbols", 0.07797270955165692],
+      ["readout", 0.007212475726478978],
+      ["overlay:sketches", 0.0009746589855841029],
+      ["overlay:clear", 0.0007797270490412126]
+    ],
+    "shareOfFrame": 0.10139526948253902,
+    "worstFrame": {
+      "atMs": 71.80000001192093,
+      "bodyMs": 122.80000001192093,
+      "canvasPixels": 639360,
+      "cellsCreated": 0,
+      "cellsEvicted": 0,
+      "cellsVisible": 0,
+      "draws": 12,
+      "dtMs": 142.30000001192093,
+      "pending": 4,
+      "segmentsMs": [
+        ["engine-frame", 63.30000001192093],
+        ["overlay:symbols", 32.80000001192093],
+        ["stream", 7],
+        ["board", 3.399999976158142],
+        ["overlay-2d", 1.2999999523162842],
+        ["overlay:sketches", 0.40000003576278687],
+        ["overlay:clear", 0.19999998807907104],
+        ["readout", 0.10000002384185791]
+      ]
+    }
+  },
+  "device": {
+    "adapter": "arm bifrost",
+    "css": "360x377",
+    "dpr": 2,
+    "featureLevel": "core",
+    "features": [
+      "core-features-and-limits",
+      "float32-filterable",
+      "indirect-first-instance",
+      "primitive-index",
+      "rg11b10ufloat-renderable",
+      "shader-f16",
+      "texture-component-swizzle",
+      "texture-compression-astc",
+      "texture-compression-astc-sliced-3d",
+      "texture-compression-etc2",
+      "texture-formats-tier1",
+      "texture-formats-tier2"
+    ],
+    "missing": ["texture-compression-bc", "timestamp-query"]
+  },
+  "district": "los-santos-centre",
+  "errors": [],
+  "firstFrames": [
+    [
+      ["frame:sky-lut", 45.799999952316284],
+      ["frame:record", 9.900000035762787],
+      ["frame:submit", 0.7999999523162842],
+      ["frame:probe", 0.3999999761581421],
+      ["frame:targets", 0.30000001192092896],
+      ["frame:cull", 0.30000001192092896]
+    ],
+    [
+      ["frame:submit", 1.4000000357627869],
+      ["frame:record", 1.399999976158142],
+      ["frame:sky-lut", 0.09999996423721313],
+      ["frame:targets", 0],
+      ["frame:probe", 0],
+      ["frame:cull", 0]
+    ],
+    [
+      ["frame:record", 1],
+      ["frame:submit", 0.30000001192092896],
+      ["frame:targets", 0.10000002384185791],
+      ["frame:sky-lut", 0],
+      ["frame:probe", 0],
+      ["frame:cull", 0]
+    ]
+  ],
+  "frame": {
+    "dtHistogramMs": [
+      [0, 1], [2, 16], [4, 22], [6, 22], [8, 17], [10, 18], [12, 19], [14, 17], [16, 25], [18, 20],
+      [20, 17], [22, 23], [24, 11], [26, 12], [28, 17], [30, 17], [32, 18], [34, 12], [36, 8], [38, 17],
+      [40, 12], [42, 10], [44, 8], [46, 11], [48, 5], [50, 8], [52, 6], [54, 6], [56, 5], [58, 4],
+      [60, 4], [62, 2], [64, 3], [66, 3], [68, 3], [70, 4], [72, 3], [74, 2], [76, 3], [78, 3],
+      [80, 2], [82, 3], [84, 2], [86, 1], [88, 1], [90, 1], [92, 6], [94, 6], [96, 4], [98, 1],
+      [100, 52]
+    ],
+    "dtMaxMs": 142.30000001192093,
+    "dtMeanMs": 38.867056530121474,
+    "dtP50Ms": 29.900000035762787,
+    "dtP95Ms": 100.59999996423721,
+    "fps": 33
+  },
+  "frames": 513,
+  "framesSkipped": 223,
+  "passes": [
+    { "available": true, "maxMs": 13.300000011920929, "meanMs": 1.6955165709668434, "name": "submitMs" },
+    { "available": false, "maxMs": 0, "meanMs": 0, "name": "gpuPassMs" },
+    { "available": false, "maxMs": 0, "meanMs": 0, "name": "gpuPostMs" },
+    { "available": false, "maxMs": 0, "meanMs": 0, "name": "gpuProbeMs" }
+  ],
+  "spans": [],
+  "streaming": {
+    "blobMeanMs": 0.041325536503894054,
+    "cellsCreated": 22,
+    "cellsEvicted": 0,
+    "lateCreates": 0,
+    "uploadMeanMs": 0.17368421034041437,
+    "worstBlobMs": 3.200000047683716,
+    "worstCreateMs": 11.800000011920929
+  },
+  "surface": {
+    "cssHeight": 377,
+    "cssWidth": 360,
+    "deviceHeight": 754,
+    "deviceWidth": 720,
+    "dpr": 2,
+    "renderScale": 1
+  },
+  "symbology": {
+    "beaconCapacity": 150,
+    "beaconGrowths": 0,
+    "chips": 4,
+    "chipsDropped": 4,
+    "incidents": 3,
+    "measures": 0,
+    "stale": 0,
+    "symbols": 8,
+    "units": 9
+  },
+  "tracks": {
+    "bytes": 1102112,
+    "capacity": 7200,
+    "incidentEvents": 8,
+    "samples": 58,
+    "tracks": 9,
+    "window": [4805, 27547]
+  },
+  "unavailable": [
+    "gpuPassMs, gpuPostMs, gpuProbeMs — this adapter has no timestamp-query, so GPU time is not measurable at all"
+  ],
+  "warnings": [],
+  "windowMs": 22511.200000047684,
+  "world": {
+    "byCategoryMb": [
+      ["target", 37.779452323913574],
+      ["texture", 25.81055450439453],
+      ["cellVertex", 10.318000793457031],
+      ["cellIndex", 2.524280548095703],
+      ["uniform", 0.00439453125]
+    ],
+    "cellsTotal": 4,
+    "cellsVisible": 4,
+    "draws": 112,
+    "pickingMb": 1.4248619079589844,
+    "residencyMb": 76.43668270111084,
+    "triangles": 277970
+  }
+}

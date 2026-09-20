@@ -1,0 +1,352 @@
+{
+  "note": "Third arm of the 2026-08-17 in-game series, same pak, same surface, the user: ?bench=all&benchcar=caddy&procobj=0 — the runtime clutter layer OFF on top of the cheap fleet. Asked: is the runtime clutter (per-category ranges 08-10, species floor 08-11 — both AFTER the 08-09 baseline) the world-side cost?",
+  "analysis": "NO measurable change against the caddy arm: gpu.pass ls-noon 5.6->5.6, sf-fog-dawn 4.5->4.5, lv-night 10.8->10.7, country-dusk 12.0->12.0, ls-rain-night 4.9->4.9, ganton-noon 9.1->9.2, strip-noon 6.2->6.2, ganton-night 11.4->9.3 (that arm's caddy row was the noisy one; 9.3 is in line with ganton-noon). Draws and triangles are IDENTICAL to the caddy arm on every scene (country-dusk 788/787 draws, 1.31M/1.29M tris) — so either the clutter costs nothing on the GPU pass, or the knob did not apply on this path (the HUD's clutter line / the [procobj] boot line would tell; the draw and triangle counts not moving at all is what makes the second reading plausible). Either way the runtime clutter is NOT where the x3 lives. What is left: the world's own drawn cost per pixel — same-ish geometry (country-dusk 1.3M tris, 787 draws vs 1.23M / 874 at the 08-09 baseline) costs 3x more GPU pass, and ocean-horizon (sky only) is unchanged, so the render target is the same size. That points at overdraw / alpha classes / texture footprint of what the cells carry now (cellVertex +35 % on country-dusk, texture +9 %), or the far LOD ring's content (2dfx at LOD range, the lod_* cells). NEXT: (a) ?bench=all&benchcar=caddy&draw=400 (LOD ring floored — if pass collapses, the far ring is the cost); (b) probe=0; (c) then the UNCAPPED headless lane and a rect-repack A/B against the pack input of a mod layer (Urbanize / 64 / 65) — model-repack.ts is the instrument for one model, opensa-pack --rect for an area.",
+  "pair": [
+    "2026-08-17-ingame-full-hipoly-fleet-sweep.json",
+    "2026-08-17-ingame-benchcar-caddy-pin.json"
+  ],
+  "runs": [
+    {
+      "avgDrawCalls": 1267,
+      "avgMs": 10.094,
+      "avgTriangles": 3055127,
+      "fps": 99.1,
+      "frames": 1488,
+      "gpuMs": {
+        "pass": 5.588,
+        "post": 1.035,
+        "probe": 1.098,
+        "submit": 0.286
+      },
+      "hitch": {
+        "blobMaxMs": 0,
+        "maxMs": 13,
+        "p99Ms": 12.6,
+        "pendingMax": 0,
+        "slowFrames": 0,
+        "uploadMaxMs": 0
+      },
+      "key": "ls-noon",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -0.08,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "targetZ": 13.38,
+        "worstDrop": 0
+      },
+      "p95Ms": 11.8,
+      "residency": "cellIndex 54 · cellVertex 204 · target 422 · texture 1085 · uniform 0",
+      "vehicles": {
+        "live": 24,
+        "maxMs": 0.6,
+        "meanMs": 0.313
+      }
+    },
+    {
+      "avgDrawCalls": 722,
+      "avgMs": 9.039,
+      "avgTriangles": 1622488,
+      "fps": 110.6,
+      "frames": 1661,
+      "gpuMs": {
+        "pass": 4.473,
+        "post": 0.943,
+        "probe": 2.375,
+        "submit": 0.27
+      },
+      "hitch": {
+        "blobMaxMs": 0,
+        "maxMs": 17.2,
+        "p99Ms": 12.8,
+        "pendingMax": 0,
+        "slowFrames": 0,
+        "uploadMaxMs": 0
+      },
+      "key": "sf-fog-dawn",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -0.08,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "targetZ": 35.02,
+        "worstDrop": 0
+      },
+      "p95Ms": 11.8,
+      "residency": "cellIndex 41 · cellVertex 157 · target 422 · texture 1134 · uniform 0",
+      "vehicles": {
+        "live": 22,
+        "maxMs": 0.5,
+        "meanMs": 0.266
+      }
+    },
+    {
+      "avgDrawCalls": 2881,
+      "avgMs": 15.517,
+      "avgTriangles": 3467400,
+      "fps": 64.4,
+      "frames": 969,
+      "gpuMs": {
+        "pass": 10.679,
+        "post": 1.078,
+        "probe": 1.489,
+        "submit": 0.862
+      },
+      "hitch": {
+        "blobMaxMs": 0,
+        "maxMs": 19.6,
+        "p99Ms": 18.9,
+        "pendingMax": 0,
+        "slowFrames": 0,
+        "uploadMaxMs": 0
+      },
+      "key": "lv-night",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -0.08,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "targetZ": 10.82,
+        "worstDrop": 0
+      },
+      "p95Ms": 18.1,
+      "residency": "cellIndex 37 · cellVertex 277 · target 422 · texture 1290 · uniform 1",
+      "vehicles": {
+        "live": 43,
+        "maxMs": 0.7,
+        "meanMs": 0.372
+      }
+    },
+    {
+      "avgDrawCalls": 787,
+      "avgMs": 15.862,
+      "avgTriangles": 1292871,
+      "fps": 63,
+      "frames": 947,
+      "gpuMs": {
+        "pass": 12.034,
+        "post": 1.004,
+        "probe": 2.084,
+        "submit": 0.426
+      },
+      "hitch": {
+        "blobMaxMs": 0,
+        "maxMs": 22.2,
+        "p99Ms": 19.3,
+        "pendingMax": 0,
+        "slowFrames": 2,
+        "uploadMaxMs": 0
+      },
+      "key": "country-dusk",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -0.08,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "targetZ": 1.43,
+        "worstDrop": 0
+      },
+      "p95Ms": 18.2,
+      "residency": "cellIndex 25 · cellVertex 227 · target 422 · texture 1183 · uniform 1",
+      "vehicles": {
+        "live": 4,
+        "maxMs": 0.3,
+        "meanMs": 0.057
+      }
+    },
+    {
+      "avgDrawCalls": 41,
+      "avgMs": 8.333,
+      "avgTriangles": 409902,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 2.167,
+        "post": 0.952,
+        "probe": 0.464,
+        "submit": 0.39
+      },
+      "hitch": {
+        "blobMaxMs": 0,
+        "maxMs": 11.5,
+        "p99Ms": 9.6,
+        "pendingMax": 0,
+        "slowFrames": 0,
+        "uploadMaxMs": 0
+      },
+      "key": "ocean-horizon",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -0.08,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "targetZ": -37.75,
+        "worstDrop": 0
+      },
+      "p95Ms": 9.3,
+      "residency": "cellIndex 8 · cellVertex 169 · target 422 · texture 970 · uniform 1",
+      "vehicles": {
+        "live": 0,
+        "maxMs": 0.1,
+        "meanMs": 0.004
+      }
+    },
+    {
+      "avgDrawCalls": 953,
+      "avgMs": 8.804,
+      "avgTriangles": 2195765,
+      "fps": 113.6,
+      "frames": 1705,
+      "gpuMs": {
+        "pass": 4.91,
+        "post": 1.216,
+        "probe": 1.856,
+        "submit": 0.441
+      },
+      "hitch": {
+        "blobMaxMs": 0,
+        "maxMs": 15.2,
+        "p99Ms": 11.5,
+        "pendingMax": 0,
+        "slowFrames": 0,
+        "uploadMaxMs": 0
+      },
+      "key": "ls-rain-night",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -0.08,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "targetZ": 13.38,
+        "worstDrop": 0
+      },
+      "p95Ms": 10.6,
+      "residency": "cellIndex 54 · cellVertex 331 · target 422 · texture 1177 · uniform 1",
+      "vehicles": {
+        "live": 24,
+        "maxMs": 0.5,
+        "meanMs": 0.296
+      }
+    },
+    {
+      "avgDrawCalls": 1156,
+      "avgMs": 13.977,
+      "avgTriangles": 2109942,
+      "fps": 71.5,
+      "frames": 1075,
+      "gpuMs": {
+        "pass": 9.205,
+        "post": 1.049,
+        "probe": 2.222,
+        "submit": 0.353
+      },
+      "hitch": {
+        "blobMaxMs": 0,
+        "maxMs": 32.5,
+        "p99Ms": 18.8,
+        "pendingMax": 0,
+        "slowFrames": 1,
+        "uploadMaxMs": 0
+      },
+      "key": "ganton-noon",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -0.08,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "targetZ": 13.38,
+        "worstDrop": 0
+      },
+      "p95Ms": 16.6,
+      "residency": "cellIndex 47 · cellVertex 318 · target 422 · texture 1181 · uniform 1",
+      "vehicles": {
+        "live": 33,
+        "maxMs": 1,
+        "meanMs": 0.432
+      }
+    },
+    {
+      "avgDrawCalls": 1597,
+      "avgMs": 10.794,
+      "avgTriangles": 2387315,
+      "fps": 92.6,
+      "frames": 1391,
+      "gpuMs": {
+        "pass": 6.195,
+        "post": 1.048,
+        "probe": 1.239,
+        "submit": 0.379
+      },
+      "hitch": {
+        "blobMaxMs": 0,
+        "maxMs": 16.5,
+        "p99Ms": 15,
+        "pendingMax": 0,
+        "slowFrames": 0,
+        "uploadMaxMs": 0
+      },
+      "key": "strip-noon",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -0.08,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "targetZ": 18.09,
+        "worstDrop": 0
+      },
+      "p95Ms": 13.8,
+      "residency": "cellIndex 33 · cellVertex 323 · target 422 · texture 1338 · uniform 1",
+      "vehicles": {
+        "live": 27,
+        "maxMs": 0.6,
+        "meanMs": 0.304
+      }
+    },
+    {
+      "avgDrawCalls": 1160,
+      "avgMs": 14.106,
+      "avgTriangles": 2107046,
+      "fps": 70.9,
+      "frames": 1065,
+      "gpuMs": {
+        "pass": 9.346,
+        "post": 1.092,
+        "probe": 2.096,
+        "submit": 0.47
+      },
+      "hitch": {
+        "blobMaxMs": 0,
+        "maxMs": 19.1,
+        "p99Ms": 18.2,
+        "pendingMax": 0,
+        "slowFrames": 0,
+        "uploadMaxMs": 0
+      },
+      "key": "ganton-night",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -0.08,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "targetZ": 13.38,
+        "worstDrop": 0
+      },
+      "p95Ms": 16.5,
+      "residency": "cellIndex 45 · cellVertex 346 · target 422 · texture 1216 · uniform 1",
+      "vehicles": {
+        "live": 33,
+        "maxMs": 0.7,
+        "meanMs": 0.432
+      }
+    }
+  ]
+}

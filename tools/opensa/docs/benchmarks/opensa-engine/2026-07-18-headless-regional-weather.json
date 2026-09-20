@@ -1,0 +1,14 @@
+{
+  "note": "Re-measure after the REGIONAL WEATHER fix (plan 074/21): the engine host had never applied SA's regional weather remap, so it ran CLOUDY_LA (fog cut 700) in the countryside where prod runs CLOUDY_COUNTRYSIDE (1150). Cost of the fix: country-dusk draws 443 -> 514 as the countryside mood now reaches 1100 m instead of 700; world pass unchanged inside noise. Headless DPR 2 — NOT comparable to the user's-display rows.",
+  "engine": "OpenSA own engine (WebGPU)",
+  "host": "headless Chromium, ANGLE Metal, DPR 2",
+  "roadCars": 841,
+  "runs": [
+    { "key": "ls-noon", "avgMs": 8.338, "fps": 119.9, "worldPassMs": 1.92, "avgDrawCalls": 1021, "lateCreates": 0 },
+    { "key": "sf-fog-dawn", "avgMs": 8.333, "fps": 120.0, "worldPassMs": 1.93, "avgDrawCalls": 831, "lateCreates": 0 },
+    { "key": "lv-night", "avgMs": 8.334, "fps": 120.0, "worldPassMs": 1.94, "avgDrawCalls": 1044, "lateCreates": 0 },
+    { "key": "country-dusk", "avgMs": 8.333, "fps": 120.0, "worldPassMs": 2.12, "avgDrawCalls": 514, "lateCreates": 0 },
+    { "key": "ocean-horizon", "avgMs": 8.333, "fps": 120.0, "worldPassMs": 1.58, "avgDrawCalls": 9, "lateCreates": 0 },
+    { "key": "ls-rain-night", "avgMs": 8.347, "fps": 119.8, "worldPassMs": 1.83, "avgDrawCalls": 975, "lateCreates": 0 }
+  ]
+}

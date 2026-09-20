@@ -1,0 +1,79 @@
+{
+  "note": "THE THREE-ERA BASELINE — the classic (pre-overhaul) WebGL pipeline, six bench scenes. Transcribed from the table in docs/plans/063-render-foundations-instrumentation/readme.md (Measurements), which is where the narrative and caveats live. This is the row every later three-era comparison is expressed against.",
+  "engine": "three.js / WebGL2 (prod, classic pipeline)",
+  "host": "M3 Pro, ANGLE -> Metal",
+  "caveat": "GPU ms on this machine comes from EXT_disjoint_timer_query_webgl2 and is known to be coarse/unreliable on Apple Silicon — ocean-horizon reports GPU 18.39 against a 12.79 ms frame, which is physically impossible sustained. Treat the GPU column as indicative, not measured.",
+  "runs": [
+    {
+      "key": "ls-noon",
+      "run": 1,
+      "fps": 18.7,
+      "avgMs": 53.47,
+      "p95Ms": 66.0,
+      "avgDrawCalls": 10394,
+      "tris": 7070000,
+      "gpuFrameMs": 39.46,
+      "note": "GPU-bound"
+    },
+    {
+      "key": "ls-noon",
+      "run": 2,
+      "fps": 19.1,
+      "avgMs": 52.47,
+      "p95Ms": 59.2,
+      "avgDrawCalls": 10143,
+      "tris": 6620000,
+      "gpuFrameMs": 39.61,
+      "note": "avg variance vs run 1 about 2%, p95 noisier (~11%)"
+    },
+    {
+      "key": "sf-fog-dawn",
+      "fps": 30.1,
+      "avgMs": 33.24,
+      "p95Ms": 41.6,
+      "avgDrawCalls": 7116,
+      "tris": 6420000,
+      "gpuFrameMs": 21.65
+    },
+    {
+      "key": "lv-night",
+      "fps": 30.0,
+      "avgMs": 33.32,
+      "p95Ms": 49.1,
+      "avgDrawCalls": 7373,
+      "tris": 3420000,
+      "gpuFrameMs": 12.68,
+      "note": "CPU-bound (frame >> GPU)"
+    },
+    {
+      "key": "country-dusk",
+      "fps": 43.4,
+      "avgMs": 23.04,
+      "p95Ms": 26.0,
+      "avgDrawCalls": 3978,
+      "tris": 2670000,
+      "gpuFrameMs": 14.78,
+      "note": "lightest scene"
+    },
+    {
+      "key": "ocean-horizon",
+      "fps": 78.2,
+      "avgMs": 12.79,
+      "p95Ms": 17.5,
+      "avgDrawCalls": 62,
+      "tris": 8050,
+      "gpuFrameMs": 18.39,
+      "note": "near-empty frame — the fps ceiling of the machine+shell; GPU number unreliable"
+    },
+    {
+      "key": "ls-rain-night",
+      "fps": 20.9,
+      "avgMs": 47.85,
+      "p95Ms": 58.3,
+      "avgDrawCalls": 10445,
+      "tris": 7190000,
+      "gpuFrameMs": 16.64,
+      "note": "CPU-bound (47.9 ms frame vs 16.6 ms GPU)"
+    }
+  ]
+}

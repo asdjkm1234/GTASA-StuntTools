@@ -1,0 +1,74 @@
+{
+  "note": "The plan-074/13 phase-8 close-out ritual: after phases 6+7 deleted the last three-era modules and dropped the `three` dependency, the numbers MUST NOT MOVE. Same harness, same pak, same 841-car population as 2026-07-18-headless-regional-weather.json, which is the reference row carried in `refPassMs`/`refDrawCalls`. Verdict: PASS — draws within +/-5, world pass within noise, every scene still vsync-locked.",
+  "engine": "OpenSA own engine (WebGPU), post three-teardown",
+  "host": "headless Chromium, ANGLE Metal, DPR 2",
+  "roadCars": 841,
+  "runs": [
+    {
+      "key": "ls-noon",
+      "avgMs": 8.335,
+      "fps": 120.0,
+      "p95Ms": 10.1,
+      "worldPassMs": 2.19,
+      "refPassMs": 1.92,
+      "avgDrawCalls": 1020,
+      "refDrawCalls": 1021,
+      "lateCreates": 0
+    },
+    {
+      "key": "sf-fog-dawn",
+      "avgMs": 8.333,
+      "fps": 120.0,
+      "p95Ms": 9.9,
+      "worldPassMs": 2.24,
+      "refPassMs": 1.93,
+      "avgDrawCalls": 835,
+      "refDrawCalls": 831,
+      "lateCreates": 0
+    },
+    {
+      "key": "lv-night",
+      "avgMs": 8.338,
+      "fps": 119.9,
+      "p95Ms": 10.0,
+      "worldPassMs": 2.4,
+      "refPassMs": 1.94,
+      "avgDrawCalls": 1049,
+      "refDrawCalls": 1044,
+      "lateCreates": 0
+    },
+    {
+      "key": "country-dusk",
+      "avgMs": 8.333,
+      "fps": 120.0,
+      "p95Ms": 10.0,
+      "worldPassMs": 2.27,
+      "refPassMs": 2.12,
+      "avgDrawCalls": 515,
+      "refDrawCalls": 514,
+      "lateCreates": 0
+    },
+    {
+      "key": "ocean-horizon",
+      "avgMs": 8.334,
+      "fps": 120.0,
+      "p95Ms": 10.1,
+      "worldPassMs": 1.94,
+      "refPassMs": 1.58,
+      "avgDrawCalls": 9,
+      "refDrawCalls": 9,
+      "lateCreates": 0
+    },
+    {
+      "key": "ls-rain-night",
+      "avgMs": 8.333,
+      "fps": 120.0,
+      "p95Ms": 9.9,
+      "worldPassMs": 2.35,
+      "refPassMs": 1.83,
+      "avgDrawCalls": 978,
+      "refDrawCalls": 975,
+      "lateCreates": 0
+    }
+  ]
+}

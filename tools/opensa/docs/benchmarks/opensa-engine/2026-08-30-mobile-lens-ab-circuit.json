@@ -1,0 +1,54 @@
+{
+  "note": "201/7-01's owed device number: what the ORTHO lens costs against the perspective one, measured 2026-08-30 on the phone through the MCP channel. The two legs fly the IDENTICAL circuit — four poses (1300,-1700), (1700,-1700), (1700,-1300), (1300,-1300), two laps each, height 500, pitch -1, yaw 0 — one after the other in the same page, so only the projection differs. NOT A CLEAN A/B, and the confound is the size of the difference: the browser chrome collapsed between the legs and the surface grew 460 800 -> 622 080 device px (+35 %), which is fragment cost the ortho leg paid and the perspective leg did not. Raw: perspective mean 28.8 ms, p50 26 (38 fps), p95 52; ortho mean 36.3 ms, p50 32 (31 fps), p95 72. Normalised by surface area the order REVERSES - 62.5 vs 58.3 ms per megapixel - so the honest reading is that the lens is not what costs, within a band this run cannot tighten. Re-take it with a pinned surface before citing a number for either. Percentiles are bin lower edges over moving frames only (the >=100 ms bin is the render gate's idle poll). GPU time is not measurable on this adapter. Device MGA-LX3 / ARM Bifrost, DPR 2. App 311f2d1. Pak: original, rect 5,-7,6,-6, textures astc, built 19:23 28-08-2026.",
+  "app": "311f2d1",
+  "build": "19:23 28-08-2026",
+  "district": "los-santos-centre",
+  "runs": [
+    {
+      "key": "perspective-circuit",
+      "movingFrames": 102,
+      "meanMs": 28.8,
+      "p50Ms": 26,
+      "p95Ms": 52,
+      "vsyncLadder": { "1": 0.41, "2": 0.45, "3": 0.12, "4": 0.01, "5": 0.01 },
+      "dtHistogramMs": [[12,3],[14,5],[16,6],[18,10],[20,6],[22,9],[24,3],[26,11],[28,7],[30,7],[32,7],[34,6],[36,3],[38,3],[40,2],[42,1],[44,2],[46,1],[48,1],[50,1],[52,4],[54,1],[56,1],[74,1],[76,1]],
+      "surfaceDevicePx": 460800,
+      "msPerMegapixel": 62.5,
+      "drawsAtEnd": 96,
+      "trianglesAtEnd": 241863,
+      "residencyMb": 68.93305492401123,
+      "cellsCreated": 21,
+      "lateCreates": 0,
+      "cpuBodyMeanMs": 3.853101737039261,
+      "overlay2dMeanMs": 2.068982630524387,
+      "engineFrameMeanMs": 0.48684863535405387
+    },
+    {
+      "key": "ortho-circuit",
+      "movingFrames": 157,
+      "meanMs": 36.3,
+      "p50Ms": 32,
+      "p95Ms": 72,
+      "vsyncLadder": { "1": 0.29, "2": 0.33, "3": 0.30, "4": 0.04, "5": 0.03 },
+      "surfaceDevicePx": 622080,
+      "msPerMegapixel": 58.3,
+      "drawsAtEnd": 81,
+      "trianglesAtEnd": 199658,
+      "residencyMb": 77.00434017181396,
+      "cellsCreated": 40,
+      "lateCreates": 0,
+      "cpuBodyMeanMs": 3.180066445155496,
+      "overlay2dMeanMs": 1.7500830566219714,
+      "engineFrameMeanMs": 0.36636212620376746
+    }
+  ],
+  "renderTargetScaling": {
+    "note": "the render target is a fixed per-pixel cost and the phone's browser chrome moves it by tens of MB with no input from the operator — three surfaces measured in one session",
+    "samples": [
+      { "css": "360x320", "devicePx": 460800, "targetMb": 32.348971366882324, "mbPerMegapixel": 70.2 },
+      { "css": "360x432", "devicePx": 622080, "targetMb": 43.013224601745605, "mbPerMegapixel": 69.1 },
+      { "css": "360x570", "devicePx": 820800, "targetMb": 56.15422344207764, "mbPerMegapixel": 68.4 }
+    ]
+  },
+  "device": { "adapter": "arm bifrost", "dpr": 2, "featureLevel": "core", "missing": ["texture-compression-bc", "timestamp-query"] }
+}

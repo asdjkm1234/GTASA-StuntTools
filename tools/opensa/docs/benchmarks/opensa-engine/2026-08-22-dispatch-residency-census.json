@@ -1,0 +1,65 @@
+{
+  "findings": [
+    "**At block zoom the view policy asks for a tenth of the ring's set** — 26 cells of 276 tilted, 16 of 276 in the plan view. That is the time-to-first-picture number: what an operator opening the console over one block used to wait for was 250 cells they could not see.",
+    "**At city zoom the two policies converge** — 202 of 276 (73 %) tilted, 176 (64 %) plan. Correct rather than disappointing: at city zoom the view really does cover most of the ring, and the saving that remains is the wedge behind the camera.",
+    "**The HD column is the answer to the other half of the question.** The rings ask for 12 HD cells at EVERY zoom, because 450 u is 450 u whatever the operator is looking at. The screen-error rule asks for 14/16 at block zoom and **0 at district and city zoom** — nobody can resolve HD detail from 750 u up, so nothing fetches it.",
+    "**14 > 12 at block zoom is the rule working, not a regression.** The bake promised 2 px at 300 u on a 1080p view; a phone's 1600 px drawing buffer resolves more, so HD falls due further out (~660 u) than the ring's 450. The ring was tuned for one screen; this is every screen.",
+    "The eviction side is deliberately unchanged, so a full 360° turn at city zoom still ends with the ring's whole set resident. The gate bounds what a frame ASKS FOR, never what it keeps."
+  ],
+  "note": "WHAT THE RESIDENCY RULE ASKS FOR, PER ZOOM (201/1-05, the desk half). A Node run of the shipped `StreamingDriver` over a fake engine and a fake worker — the same harness shape its unit tests use — counting the keys it requests on its first update under each policy. Synthetic 41×41 grid of 250 u cells, HD 450 / LOD 2200, viewport 1600 px tall, LOD error 0.6415 u against a 2 px budget. Counts what the shipped StreamingDriver requests on its first update — not milliseconds, not bytes. No GPU, no device, no real district: this measures the RULE, and a policy that fetches a tenth of the cells fetches a tenth of the cells whatever is inside them. Instrument: `scripts/debug/residency-census.ts`.",
+  "openQuestions": [
+    "What the cut is worth in SECONDS and in MEGABYTES on the pinned district — cells are not equal in a real pak, and the answer is 2/03's to record.",
+    "Whether the one-cell frustum margin is enough on a real turn at speed. It is derived (the grid is the quantum a residency decision is taken in) and it has never been driven; a field run at city zoom is what would show a lagging edge.",
+    "Whether the per-cell geometric error is worth baking. Every LOD entry carries the same number today — the bake's own promise — so a cell that dropped something big is judged by the average. Only the generator knows what it culled per cell."
+  ],
+  "rows": [
+    {
+      "pose": "block · tilted",
+      "ringCells": 276,
+      "ringHd": 12,
+      "viewCells": 26,
+      "viewHd": 14,
+      "keptShare": 0.094
+    },
+    {
+      "pose": "district · tilted",
+      "ringCells": 276,
+      "ringHd": 12,
+      "viewCells": 84,
+      "viewHd": 0,
+      "keptShare": 0.304
+    },
+    {
+      "pose": "city · tilted",
+      "ringCells": 276,
+      "ringHd": 12,
+      "viewCells": 202,
+      "viewHd": 0,
+      "keptShare": 0.732
+    },
+    {
+      "pose": "block · plan",
+      "ringCells": 276,
+      "ringHd": 12,
+      "viewCells": 16,
+      "viewHd": 16,
+      "keptShare": 0.058
+    },
+    {
+      "pose": "district · plan",
+      "ringCells": 276,
+      "ringHd": 12,
+      "viewCells": 60,
+      "viewHd": 0,
+      "keptShare": 0.217
+    },
+    {
+      "pose": "city · plan",
+      "ringCells": 276,
+      "ringHd": 12,
+      "viewCells": 176,
+      "viewHd": 0,
+      "keptShare": 0.638
+    }
+  ]
+}

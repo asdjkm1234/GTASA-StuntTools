@@ -1,0 +1,24 @@
+# --- Game assets: NEVER commit (copyright + ~5 GB) ---
+/GTA San Andreas/
+
+# --- Build outputs, caches, local state ---
+**/node_modules/
+tools/opensa/dist/
+tools/opensa/dist-flight/
+web-replay/dist/
+recorder/build/
+**/captures/
+**/*.tsbuildinfo
+**/zig-cache*/
+**/install.log
+**/install.err.log
+web-replay/webgpu-report.json
+web-replay/backups/
+recorder/backups/
+
+# --- Large local toolchain (not source; re-downloadable) ---
+/tools/zig/
+
+# --- OS noise ---
+Thumbs.db
+.DS_Store

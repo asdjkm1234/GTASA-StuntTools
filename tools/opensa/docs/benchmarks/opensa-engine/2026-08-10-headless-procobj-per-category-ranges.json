@@ -1,0 +1,84 @@
+{
+  "note": "Headless, run by Claude on the bench harness (M3 Pro, DPR=2, vsync-capped lane, vite 5173 + serve:static 3001). Pak: build/original/opensa rebuilt 2026-08-10 17:47 (unbaked clutter, all 95 procobj rules). ONE scene, country-dusk, five single-scene sweeps, 42 road cars. WHY: P2 — the per-category clutter draw distances. They were DEAD CONFIG (written by the debug slider, read by nothing), so every category really drew at whatever its 256-unit cell reached, and the cell ring was `streaming.collisionDrawDistance` = 150. This capture is the A/B of the range now being real: applied per INSTANCE in the clutter vertex shader, with the streaming ring widened to the widest enabled category. `?procobjRange=<units>` overrides every category with one number, which is what makes a uniform arm reproducible at all. CAVEAT ON THE CONTENT COLUMN, and it matters: `frameTriangles` counts SUBMITTED instances. The whole-group CPU skip removes a group that is entirely out of range (so draws and triangles both fall), but a group the camera stands inside is submitted whole and culled per instance in the shader — so avgTriangles UNDER-reports the fill saving and is a directional signal, not the size of the win. It is accurate about VERTEX load, blind to fill.",
+  "protocol": "DPR=2 NODE_PATH=$PWD/node_modules node tools-debug/bench-harness/drive.js \"http://localhost:5173/?loader=http-dir&src=http://localhost:3001/build/original/opensa&bench=country-dusk&<arm>\" <out> 300000 1",
+  "runs": [
+    {
+      "key": "country-dusk",
+      "arm": "r100 — ?procobjRange=100 (SA's own flat PLANTS_MAX_DISTANCE)",
+      "avgDrawCalls": 818,
+      "avgMs": 8.333,
+      "avgTriangles": 1182287,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": { "pass": 3.636, "post": 0.845, "probe": 0.945, "submit": 0.354 },
+      "hitch": { "blobMaxMs": 0, "maxMs": 9.5, "p99Ms": 9.3, "pendingMax": 0, "slowFrames": 0, "uploadMaxMs": 0 },
+      "lateCreates": 0,
+      "legStartOk": true,
+      "p95Ms": 9.1
+    },
+    {
+      "key": "country-dusk",
+      "arm": "r150 — ?procobjRange=150 (the collision ring, i.e. the nearest reproducible BEFORE)",
+      "avgDrawCalls": 819,
+      "avgMs": 8.354,
+      "avgTriangles": 1186604,
+      "fps": 119.7,
+      "frames": 1797,
+      "gpuMs": { "pass": 3.668, "post": 0.88, "probe": 0.953, "submit": 0.357 },
+      "hitch": { "blobMaxMs": 0, "maxMs": 26.6, "p99Ms": 9.4, "pendingMax": 0, "slowFrames": 1, "uploadMaxMs": 0 },
+      "lateCreates": 0,
+      "legStartOk": true,
+      "p95Ms": 9.1
+    },
+    {
+      "key": "country-dusk",
+      "arm": "default — the shipped per-category ranges (grass/flowers/underwater 100 · bushes 150 · rocks 200 · cacti/trees 300)",
+      "avgDrawCalls": 821,
+      "avgMs": 8.327,
+      "avgTriangles": 1191188,
+      "fps": 120.1,
+      "frames": 1803,
+      "gpuMs": { "pass": 3.694, "post": 0.887, "probe": 0.948, "submit": 0.358 },
+      "hitch": { "blobMaxMs": 0, "maxMs": 10.9, "p99Ms": 9.4, "pendingMax": 0, "slowFrames": 0, "uploadMaxMs": 0 },
+      "lateCreates": 0,
+      "legStartOk": true,
+      "p95Ms": 9.3
+    },
+    {
+      "key": "country-dusk",
+      "arm": "r300 — ?procobjRange=300 (every category at the widest, the upper bound)",
+      "avgDrawCalls": 830,
+      "avgMs": 8.333,
+      "avgTriangles": 1209368,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": { "pass": 3.678, "post": 0.85, "probe": 0.939, "submit": 0.344 },
+      "hitch": { "blobMaxMs": 0, "maxMs": 9.5, "p99Ms": 9.3, "pendingMax": 0, "slowFrames": 0, "uploadMaxMs": 0 },
+      "lateCreates": 0,
+      "legStartOk": true,
+      "p95Ms": 9.2
+    },
+    {
+      "key": "country-dusk",
+      "arm": "r150b — ?procobjRange=150 again (RUN-ORDER CONTROL)",
+      "avgDrawCalls": 819,
+      "avgMs": 8.333,
+      "avgTriangles": 1186367,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": { "pass": 3.633, "post": 0.85, "probe": 0.942, "submit": 0.337 },
+      "hitch": { "blobMaxMs": 0, "maxMs": 9.5, "p99Ms": 9.3, "pendingMax": 0, "slowFrames": 0, "uploadMaxMs": 0 },
+      "lateCreates": 0,
+      "legStartOk": true,
+      "p95Ms": 9.1
+    }
+  ],
+  "findings": [
+    "THE RANGE IS REAL AND MONOTONE. Four points, one direction, no exceptions: draws 818 -> 819 -> 821 -> 830 and triangles 1 182 287 -> 1 186 367 -> 1 191 188 -> 1 209 368 for 100 / 150 / per-category / 300. The A/A control (r150 vs r150b) puts the floor at 0.020 % on triangles and ZERO on draws, so every step above is signal. Before this change the same knob moved nothing at all, because nothing read it.",
+    "IN LAYER TERMS THE RANGE IS A 4x LEVER, which the scene-scoped numbers hide. Against the clutter-off baseline of 1 173 177 triangles (from the same pak, `?procobj=0`), the layer on screen is 9 110 at range 100, 13 190 at 150, 18 011 at the shipped per-category set and 36 191 at 300. So 100 -> 300 QUADRUPLES the clutter, while reading as +2.3 % of the scene. Publish this one with its scope or it sounds like nothing.",
+    "IT IS FREE IN FRAME TERMS AT THIS SCALE. gpuMs.pass spans 3.633 - 3.694 across the whole ladder — 1.7 %, against the 6.5 % A/A drift this column showed in the same day's knob-ladder capture. avgMs is pinned at 8.33 (vsync) and every hitch column is flat: maxMs 9.5 on both the cheapest and the most expensive arm. Choosing a range is therefore a LOOK decision, not a perf one, and the r150's maxMs 26.6 / 1 slow frame is the lane's usual noise (the identical r150b read 9.5 / 0).",
+    "THE OLD BEHAVIOUR WAS NOT '150' — IT WAS 'WHATEVER CELL YOU ARE IN'. The pre-change code drew every instance of every loaded cell, and cells are 256 units, so the effective reach depended on where in the cell the camera stood — up to ~360 units at a corner. That is why the reproducible r150 arm draws LESS than the pre-change build did (819/1 186 604 vs 830/1 206 029 in the knob-ladder capture): a clean per-instance radius replaces a cell-shaped one. The gain here is determinism as much as reach.",
+    "WHAT THE NUMBERS CANNOT SAY: the look. Three headless screenshot attempts failed to find a clutter vista (a town street, a rooftop, and one spawn past the map edge that fell through the void), which is the documented hazard of judging ground-level sight lines headless. The per-category values are a judged choice awaiting the user's eyes, and the debug ProcObj sliders now actually move the world."
+  ],
+  "conclusion": "The per-category ranges work, they are monotone against a 0.020 % control, and across the full 100 -> 300 span they cost nothing measurable — so the values are a look decision with a free budget, exactly as P1 predicted for this layer. The shipped set (grass/flowers/underwater 100 · bushes 150 · rocks 200 · cacti/trees 300) puts twice SA's flat-100 clutter on screen and half of what a flat 300 would, with SA's own number as the FLOOR rather than the target. Still open: the look verdict, and whether `frameTriangles` should learn to count culled instances — today it over-reports every group the camera stands inside."
+}

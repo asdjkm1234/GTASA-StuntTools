@@ -1,0 +1,18 @@
+{
+  "name": "@opensa/engine-lab",
+  "version": "0.0.0",
+  "private": true,
+  "description": "OpenSA engine laboratory (plan 074/04): the renderer proving ground — synthetic + converted districts, scripted cameras, the P0 gate HUD. Not a game.",
+  "exports": {
+    "./synthetic": "./src/synthetic.ts"
+  },
+  "scripts": {
+    "dev": "vite --config vite.config.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:app",
+      "scope:osengine"
+    ]
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "note": "PARTIAL AND INTERRUPTED — not an arm, do not compare a density conclusion to it. 07/04 opensa perf budget, headless harness (DPR=2, ?loader=http-dir) on build/bench-d1/opensa: a fresh pak built today from the canonical build's kept .work/5-trees stage with --procobj-density 1 (vanilla), 1139 cells, pakBytes 1272020992, procobj layer 15286 objects / 6487 permanent text rows. Its counterpart arm (--procobj-density 3, build/bench-d3) was NEVER BENCHED: the harness and both servers were killed externally mid-sweep, after 5 of the 6 scenes. ls-rain-night is missing for the same reason. Machine: the assistant's session on the user's Mac, 1196 road cars registered. Headless DPR=2 rows are NOT comparable to the in-game user-machine rows in this folder (different harness and DPR) — compare only to other headless DPR=2 runs.",
+  "runs": [
+    {
+      "avgDrawCalls": 1160,
+      "avgMs": 8.334,
+      "avgTriangles": 2312281,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 2.797,
+        "post": 0.903,
+        "probe": 0.953,
+        "submit": 0.337
+      },
+      "key": "ls-noon",
+      "lateCreates": 0,
+      "p95Ms": 10,
+      "residency": "cellIndex 41 · cellVertex 165 · target 345 · texture 1010 · uniform 0",
+      "vehicles": {
+        "live": 24,
+        "maxMs": 0.6,
+        "meanMs": 0.301
+      }
+    },
+    {
+      "avgDrawCalls": 941,
+      "avgMs": 8.352,
+      "avgTriangles": 1482512,
+      "fps": 119.7,
+      "frames": 1798,
+      "gpuMs": {
+        "pass": 2.374,
+        "post": 0.878,
+        "probe": 1.231,
+        "submit": 0.446
+      },
+      "key": "sf-fog-dawn",
+      "lateCreates": 0,
+      "p95Ms": 10,
+      "residency": "cellIndex 32 · cellVertex 150 · target 345 · texture 1059 · uniform 1",
+      "vehicles": {
+        "live": 22,
+        "maxMs": 3.6,
+        "meanMs": 0.277
+      }
+    },
+    {
+      "avgDrawCalls": 2204,
+      "avgMs": 8.329,
+      "avgTriangles": 2058684,
+      "fps": 120.1,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 3.773,
+        "post": 1.118,
+        "probe": 1.039,
+        "submit": 0.726
+      },
+      "key": "lv-night",
+      "lateCreates": 0,
+      "p95Ms": 9.9,
+      "residency": "cellIndex 30 · cellVertex 193 · target 345 · texture 1184 · uniform 1",
+      "vehicles": {
+        "live": 43,
+        "maxMs": 0.6,
+        "meanMs": 0.369
+      }
+    },
+    {
+      "avgDrawCalls": 905,
+      "avgMs": 8.334,
+      "avgTriangles": 1228100,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 3.933,
+        "post": 0.894,
+        "probe": 1.007,
+        "submit": 0.417
+      },
+      "key": "country-dusk",
+      "lateCreates": 0,
+      "p95Ms": 10,
+      "residency": "cellIndex 23 · cellVertex 168 · target 345 · texture 1101 · uniform 1",
+      "vehicles": {
+        "live": 4,
+        "maxMs": 0.4,
+        "meanMs": 0.093
+      }
+    },
+    {
+      "avgDrawCalls": 85,
+      "avgMs": 8.333,
+      "avgTriangles": 846535,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 2.666,
+        "post": 0.844,
+        "probe": 0.212,
+        "submit": 0.344
+      },
+      "key": "ocean-horizon",
+      "lateCreates": 0,
+      "p95Ms": 10.1,
+      "residency": "cellIndex 8 · cellVertex 116 · target 345 · texture 897 · uniform 1",
+      "vehicles": {
+        "live": 0,
+        "maxMs": 0.1,
+        "meanMs": 0.005
+      }
+    }
+  ]
+}

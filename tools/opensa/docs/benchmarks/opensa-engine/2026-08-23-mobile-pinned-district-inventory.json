@@ -1,0 +1,433 @@
+{
+  "build": "17:45 12-08-2026",
+  "bytes": {
+    "byKind": [
+      {
+        "bytes": 16448563,
+        "kind": "texture-array",
+        "requests": 27
+      },
+      {
+        "bytes": 9255192,
+        "kind": "cell-hd",
+        "requests": 14
+      },
+      {
+        "bytes": 2658756,
+        "kind": "water.bin",
+        "requests": 1
+      },
+      {
+        "bytes": 916797,
+        "kind": "cell-lod",
+        "requests": 11
+      }
+    ],
+    "requests": 53,
+    "totalBytes": 29279308
+  },
+  "camera": {
+    "at": [
+      1455.3583839497264,
+      -1482.7422738711816
+    ],
+    "height": 358.4159550432139,
+    "projection": "perspective"
+  },
+  "cpu": {
+    "bodyMaxMs": 600.3000000119209,
+    "bodyMeanMs": 3.4335537188309284,
+    "outsideMeanMs": 56.03636363621585,
+    "segmentsMs": [
+      [
+        "overlay-2d",
+        1.3930578510623333
+      ],
+      [
+        "engine-frame",
+        1.0553719007771862
+      ],
+      [
+        "other",
+        0.5157024792895828
+      ],
+      [
+        "stream",
+        0.3228099172272958
+      ],
+      [
+        "board",
+        0.1391735541426446
+      ],
+      [
+        "readout",
+        0.007438016331885472
+      ]
+    ],
+    "shareOfFrame": 0.05773597596129075,
+    "worstFrame": {
+      "bodyMs": 600.3000000119209,
+      "segmentsMs": [
+        [
+          "overlay-2d",
+          422
+        ],
+        [
+          "engine-frame",
+          163.5
+        ],
+        [
+          "stream",
+          3.9000000059604645
+        ],
+        [
+          "board",
+          3
+        ],
+        [
+          "readout",
+          0.19999998807907104
+        ]
+      ]
+    }
+  },
+  "device": {
+    "adapter": "arm bifrost",
+    "css": "403x334",
+    "dpr": 2,
+    "featureLevel": "core",
+    "features": [
+      "core-features-and-limits",
+      "float32-filterable",
+      "indirect-first-instance",
+      "primitive-index",
+      "rg11b10ufloat-renderable",
+      "shader-f16",
+      "texture-component-swizzle",
+      "texture-compression-astc",
+      "texture-compression-astc-sliced-3d",
+      "texture-compression-etc2",
+      "texture-formats-tier1",
+      "texture-formats-tier2"
+    ],
+    "missing": [
+      "texture-compression-bc",
+      "timestamp-query"
+    ]
+  },
+  "district": "los-santos-centre",
+  "errors": [],
+  "frame": {
+    "dtHistogramMs": [
+      [
+        2,
+        3
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        6,
+        9
+      ],
+      [
+        8,
+        18
+      ],
+      [
+        10,
+        22
+      ],
+      [
+        12,
+        21
+      ],
+      [
+        14,
+        16
+      ],
+      [
+        16,
+        11
+      ],
+      [
+        18,
+        15
+      ],
+      [
+        20,
+        14
+      ],
+      [
+        22,
+        10
+      ],
+      [
+        24,
+        11
+      ],
+      [
+        26,
+        7
+      ],
+      [
+        28,
+        7
+      ],
+      [
+        30,
+        15
+      ],
+      [
+        32,
+        14
+      ],
+      [
+        34,
+        18
+      ],
+      [
+        36,
+        9
+      ],
+      [
+        38,
+        6
+      ],
+      [
+        40,
+        4
+      ],
+      [
+        42,
+        4
+      ],
+      [
+        44,
+        9
+      ],
+      [
+        46,
+        4
+      ],
+      [
+        48,
+        13
+      ],
+      [
+        50,
+        8
+      ],
+      [
+        52,
+        3
+      ],
+      [
+        54,
+        4
+      ],
+      [
+        56,
+        2
+      ],
+      [
+        58,
+        3
+      ],
+      [
+        60,
+        11
+      ],
+      [
+        62,
+        6
+      ],
+      [
+        64,
+        5
+      ],
+      [
+        66,
+        8
+      ],
+      [
+        68,
+        9
+      ],
+      [
+        70,
+        8
+      ],
+      [
+        72,
+        8
+      ],
+      [
+        74,
+        7
+      ],
+      [
+        76,
+        10
+      ],
+      [
+        78,
+        3
+      ],
+      [
+        80,
+        5
+      ],
+      [
+        82,
+        8
+      ],
+      [
+        84,
+        9
+      ],
+      [
+        86,
+        14
+      ],
+      [
+        88,
+        10
+      ],
+      [
+        90,
+        15
+      ],
+      [
+        92,
+        23
+      ],
+      [
+        94,
+        55
+      ],
+      [
+        96,
+        29
+      ],
+      [
+        98,
+        20
+      ],
+      [
+        100,
+        52
+      ]
+    ],
+    "dtMaxMs": 671.1000000238419,
+    "dtMeanMs": 59.46991735504678,
+    "dtP50Ms": 62.10000002384186,
+    "dtP95Ms": 100.5,
+    "fps": 16
+  },
+  "frames": 605,
+  "framesSkipped": 599,
+  "passes": [
+    {
+      "available": true,
+      "maxMs": 19.30000001192093,
+      "meanMs": 1.8947107442154372,
+      "name": "submitMs"
+    },
+    {
+      "available": false,
+      "maxMs": 0,
+      "meanMs": 0,
+      "name": "gpuPassMs"
+    },
+    {
+      "available": false,
+      "maxMs": 0,
+      "meanMs": 0,
+      "name": "gpuPostMs"
+    },
+    {
+      "available": false,
+      "maxMs": 0,
+      "meanMs": 0,
+      "name": "gpuProbeMs"
+    }
+  ],
+  "spans": [],
+  "streaming": {
+    "blobMeanMs": 0.05289256193421104,
+    "cellsCreated": 17,
+    "cellsEvicted": 1,
+    "lateCreates": 0,
+    "uploadMeanMs": 0.15090909092879493,
+    "worstBlobMs": 12.400000005960464,
+    "worstCreateMs": 15.699999988079071
+  },
+  "surface": {
+    "cssHeight": 334,
+    "cssWidth": 403,
+    "deviceHeight": 668,
+    "deviceWidth": 806,
+    "dpr": 2,
+    "renderScale": 1
+  },
+  "symbology": {
+    "beaconCapacity": 150,
+    "beaconGrowths": 0,
+    "incidents": 2,
+    "units": 9,
+    "chips": 8,
+    "chipsDropped": 4,
+    "measures": 0,
+    "stale": 0,
+    "symbols": 12
+  },
+  "tracks": {
+    "bytes": 1102240,
+    "capacity": 7200,
+    "samples": 111,
+    "tracks": 9,
+    "window": [
+      271,
+      54975
+    ],
+    "incidentEvents": 10
+  },
+  "unavailable": [
+    "gpuPassMs, gpuPostMs, gpuProbeMs — this adapter has no timestamp-query, so GPU time is not measurable at all"
+  ],
+  "warnings": [],
+  "windowMs": 64812.40000000596,
+  "world": {
+    "byCategoryMb": [
+      [
+        "target",
+        37.483805656433105
+      ],
+      [
+        "texture",
+        25.81055450439453
+      ],
+      [
+        "cellVertex",
+        10.318000793457031
+      ],
+      [
+        "cellIndex",
+        2.524280548095703
+      ],
+      [
+        "uniform",
+        0.00439453125
+      ]
+    ],
+    "cellsTotal": 4,
+    "cellsVisible": 4,
+    "draws": 112,
+    "pickingMb": 1.4248619079589844,
+    "residencyMb": 76.14103603363037,
+    "triangles": 277970
+  },
+  "note": "The first field run taken through the phone console (tools-debug/phone-console) — and the first inventory capture on the PINNED district from a real phone. IDLE-DOMINATED: render-on-demand (201/4-01) skipped 599 of the frames in the window, so the 100 ms idle poll is the histogram hump at 94-100 ms and fps 16 is the rate of DRAWN frames, not a frame cost. Read the CPU body and the worst frame instead. GPU time is not measurable on this adapter (no timestamp-query). Device MGA-LX3, ARM Bifrost, 403x334 CSS at DPR 2 · node v24.18.0 · pak original rect 5,-7,6,-6 textures astc built 17:45 12-08-2026 · captured through tools-debug/phone-console"
+}

@@ -1,0 +1,22 @@
+{
+  "commit": "089-03-skid-marks branch (uncommitted at capture time), on top of 707e7d6",
+  "host": "headless Chromium / M3 Pro, viewport 1440x900 DPR=1 (scratchpad playwright over the real http-dir loader)",
+  "note": "HUD-READ numbers from brake-strip lap screenshots with the skid-mark decal lane live — NOT a sweep. The lap lays ~280 segments (two full-length braking ribbons + launch wisps); GPU submit on the mark-visible frames sits in the same range the lane-less runs of the day showed (1.2-2.8 ms at this viewport), i.e. no measurable delta at gameplay-shaped mark counts. Steady cost by construction: one ~168 B writeBuffer per laid segment, at most two ranged draws over live segments only (expired segments leave the draw window). Residency: one 344 KB vertex buffer + one 32x32 texture, created once at install.",
+  "pak": "build/original/opensa/pak (087-ring rebuild, buildTime 08:41 24-07-2026 — same pak as the 07-24..07-28 rows)",
+  "runs": [
+    {
+      "avgDrawCalls": 268,
+      "avgMs": 8.33,
+      "fps": 120,
+      "gpuMs": { "submit": 1.52 },
+      "label": "late braking phase, both rubber ribbons on screen (~200 live segments)"
+    },
+    {
+      "avgDrawCalls": 268,
+      "avgMs": 8.33,
+      "fps": 120,
+      "gpuMs": { "submit": 2.7 },
+      "label": "mid braking with smoke + marks together (red-debug validation run, same geometry)"
+    }
+  ]
+}

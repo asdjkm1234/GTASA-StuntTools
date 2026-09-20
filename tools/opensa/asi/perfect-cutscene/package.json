@@ -1,0 +1,18 @@
+{
+  "name": "@opensa/perfect-cutscene-asi",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Our own .asi for real GTA:SA 1.0 US: gives CUTSCENE vehicle clumps the deferred, depth-sorted alpha pass the engine grants only gameplay CVehicle entities, so window glass composites over scene actors at any entity draw order. Cross-compiled macOS→Win32 (MinGW-w64), tested under Wine.",
+  "scripts": {
+    "build:asi": "npm run gen && make clean && make APPLY=1",
+    "build:verify": "npm run gen && make clean && make",
+    "build:debug": "npm run gen && make clean && make APPLY=1 DEBUG=1",
+    "clean": "make clean",
+    "gen": "tsx gen/generate.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

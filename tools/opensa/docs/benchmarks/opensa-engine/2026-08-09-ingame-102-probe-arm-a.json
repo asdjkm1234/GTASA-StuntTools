@@ -1,0 +1,266 @@
+{
+  "note": "Plan 102 step 3, arm A - the FIRST sweep carrying the leg-start probe (legStart) in the report row. Taken by Claude on the headless harness (tools-debug/bench-harness/drive.js), M3 Pro, DPR=2, pak build/original/opensa (minor 8, buildTime 13:19 08-08-2026), road cars registered 1196, code 5a2b21ef (settle gates: notice + ring + ground; derived warp reset in the character controller). This is NOT an A/A arm and NOT comparable to the 07/04 density rows - it is the run that showed the settle still warps the player onto the AUTHORED anchor z, which on 6 of 9 scenes sits 3-26 m above the real ground, so he free-falls through the 1.5 s warmup and the leg starts on a falling camera. Fallwatch: 1 [cam] jump line (baseline 2026-08-08: 89 255 - the camera wall is gone), 7 [fall] probe warnings (the new instrument), 0 console errors, 11 [slow] frames, lateCreates 0 on every scene. Clean rows (ok true): ganton-noon and ganton-night, whose anchors are authored ON the ground - they are the positive control that the probe can print ok true.",
+  "runs": [
+    {
+      "avgDrawCalls": 1091,
+      "avgMs": 8.338,
+      "avgTriangles": 2312326,
+      "fps": 119.9,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 2.669,
+        "post": 0.832,
+        "probe": 0.908,
+        "submit": 0.312
+      },
+      "key": "ls-noon",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -11.16,
+        "grounded": false,
+        "ok": false,
+        "pendingCells": 0,
+        "worstDrop": 0.3
+      },
+      "p95Ms": 9.1,
+      "residency": "cellIndex 41 \u00b7 cellVertex 165 \u00b7 target 345 \u00b7 texture 987 \u00b7 uniform 0",
+      "vehicles": {
+        "live": 24,
+        "maxMs": 0.8,
+        "meanMs": 0.288
+      }
+    },
+    {
+      "avgDrawCalls": 971,
+      "avgMs": 8.333,
+      "avgTriangles": 1558327,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 2.287,
+        "post": 0.809,
+        "probe": 1.193,
+        "submit": 0.401
+      },
+      "key": "sf-fog-dawn",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -5.06,
+        "grounded": true,
+        "ok": false,
+        "pendingCells": 0,
+        "worstDrop": 0
+      },
+      "p95Ms": 9.1,
+      "residency": "cellIndex 32 \u00b7 cellVertex 150 \u00b7 target 345 \u00b7 texture 1076 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 22,
+        "maxMs": 0.5,
+        "meanMs": 0.265
+      }
+    },
+    {
+      "avgDrawCalls": 2249,
+      "avgMs": 8.333,
+      "avgTriangles": 2055940,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 3.594,
+        "post": 0.929,
+        "probe": 0.868,
+        "submit": 0.647
+      },
+      "key": "lv-night",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -4.26,
+        "grounded": true,
+        "ok": false,
+        "pendingCells": 0,
+        "worstDrop": 0
+      },
+      "p95Ms": 9.1,
+      "residency": "cellIndex 30 \u00b7 cellVertex 193 \u00b7 target 345 \u00b7 texture 1166 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 43,
+        "maxMs": 0.7,
+        "meanMs": 0.383
+      }
+    },
+    {
+      "avgDrawCalls": 874,
+      "avgMs": 8.333,
+      "avgTriangles": 1225186,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 3.871,
+        "post": 0.845,
+        "probe": 0.988,
+        "submit": 0.402
+      },
+      "key": "country-dusk",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -3.65,
+        "grounded": true,
+        "ok": false,
+        "pendingCells": 0,
+        "worstDrop": 0
+      },
+      "p95Ms": 9,
+      "residency": "cellIndex 23 \u00b7 cellVertex 168 \u00b7 target 345 \u00b7 texture 1081 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 4,
+        "maxMs": 0.3,
+        "meanMs": 0.084
+      }
+    },
+    {
+      "avgDrawCalls": 47,
+      "avgMs": 8.333,
+      "avgTriangles": 407399,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 2.354,
+        "post": 1.016,
+        "probe": 0.277,
+        "submit": 0.319
+      },
+      "key": "ocean-horizon",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -26.29,
+        "grounded": false,
+        "ok": false,
+        "pendingCells": 0,
+        "worstDrop": 0.51
+      },
+      "p95Ms": 9.2,
+      "residency": "cellIndex 8 \u00b7 cellVertex 116 \u00b7 target 345 \u00b7 texture 881 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 0,
+        "maxMs": 0.2,
+        "meanMs": 0.006
+      }
+    },
+    {
+      "avgDrawCalls": 844,
+      "avgMs": 8.333,
+      "avgTriangles": 1749121,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 2.337,
+        "post": 0.871,
+        "probe": 0.988,
+        "submit": 0.438
+      },
+      "key": "ls-rain-night",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -11.41,
+        "grounded": false,
+        "ok": false,
+        "pendingCells": 0,
+        "worstDrop": 0.3
+      },
+      "p95Ms": 9.1,
+      "residency": "cellIndex 41 \u00b7 cellVertex 228 \u00b7 target 345 \u00b7 texture 1055 \u00b7 uniform 1",
+      "vehicles": {
+        "live": 24,
+        "maxMs": 0.6,
+        "meanMs": 0.295
+      }
+    },
+    {
+      "avgDrawCalls": 1265,
+      "avgMs": 8.333,
+      "avgTriangles": 1572500,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 3.067,
+        "post": 0.868,
+        "probe": 1.081,
+        "submit": 0.378
+      },
+      "key": "ganton-noon",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": 0.01,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "worstDrop": 0
+      },
+      "p95Ms": 9,
+      "residency": "cellIndex 35 \u00b7 cellVertex 218 \u00b7 target 345 \u00b7 texture 1069 \u00b7 uniform 2",
+      "vehicles": {
+        "live": 33,
+        "maxMs": 0.6,
+        "meanMs": 0.358
+      }
+    },
+    {
+      "avgDrawCalls": 1113,
+      "avgMs": 8.333,
+      "avgTriangles": 2010276,
+      "fps": 120,
+      "frames": 1802,
+      "gpuMs": {
+        "pass": 2.938,
+        "post": 0.972,
+        "probe": 0.464,
+        "submit": 0.229
+      },
+      "key": "strip-noon",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": -11.16,
+        "grounded": false,
+        "ok": false,
+        "pendingCells": 0,
+        "worstDrop": 2.7
+      },
+      "p95Ms": 9.1,
+      "residency": "cellIndex 29 \u00b7 cellVertex 219 \u00b7 target 345 \u00b7 texture 1198 \u00b7 uniform 2",
+      "vehicles": {
+        "live": 26,
+        "maxMs": 0.6,
+        "meanMs": 0.194
+      }
+    },
+    {
+      "avgDrawCalls": 1277,
+      "avgMs": 8.334,
+      "avgTriangles": 1576653,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": {
+        "pass": 3.243,
+        "post": 0.892,
+        "probe": 1.1,
+        "submit": 0.492
+      },
+      "key": "ganton-night",
+      "lateCreates": 0,
+      "legStart": {
+        "dz": 0.01,
+        "grounded": true,
+        "ok": true,
+        "pendingCells": 0,
+        "worstDrop": 0
+      },
+      "p95Ms": 9.2,
+      "residency": "cellIndex 34 \u00b7 cellVertex 221 \u00b7 target 345 \u00b7 texture 1080 \u00b7 uniform 2",
+      "vehicles": {
+        "live": 33,
+        "maxMs": 0.6,
+        "meanMs": 0.358
+      }
+    }
+  ]
+}

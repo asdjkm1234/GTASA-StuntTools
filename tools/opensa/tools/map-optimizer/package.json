@@ -1,0 +1,16 @@
+{
+  "name": "@opensa/map-optimizer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Lossless DFF/TXD map conditioning (normals, prelit, dedupe, mips) → drop-in build. CLI tool.",
+  "exports": {
+    "./codec": "./src/adapters/gta-sa/codec/dff.ts",
+    "./ir": "./src/core/ir.ts",
+    "./run": "./src/run.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

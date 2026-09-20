@@ -1,0 +1,40 @@
+{
+  "note": "The field verification of the frame-scheduler fix (201/4-01), taken 2026-08-30 minutes after the defect was found. A timer defect that no test can see needs a capture: `schedule(true)` stored the idle timeout's handle and nothing dropped it when the timer FIRED, so `wake()` read a dead handle as a pending idle wake and armed a second `requestAnimationFrame` on top of the one the drawn frame had already armed — two entries into the loop for one displayed frame, the second 0-2 ms behind the first. The signature is frames faster than a vsync interval, which nothing else in this loop produces. BEFORE (app e3c4831): 192 of 808 frames under 8 ms, 23.8 %. AFTER (app 6bdffcf, the same circuit and the same `?overlay=0`): 6 of 229, 2.6 % — a 9x drop, and the six that remain are the legitimate case (a real touch waking a genuinely idling loop). THE COMPARISON IS THE RATE, NOT THE DISTRIBUTION: the two windows read different paks (12-08 against 28-08, because the panel's out field changed between them) and are different lengths, so the moving-frame figures beside them are context rather than an A/B — mean 30.6 -> 27.5 ms, p50 24 both, p95 80 -> 56. What the fix is claimed for is the wasted loop entries and the wake-ups they cost, which on this device is battery; it is claimed for no frame-time improvement. Device MGA-LX3 / ARM Bifrost, 360x320 CSS at DPR 2, no timestamp-query.",
+  "district": "los-santos-centre",
+  "circuit": "4 poses x 2 laps, height 500, pitch -1, yaw 0, perspective, ?overlay=0",
+  "runs": [
+    {
+      "key": "before-the-fix",
+      "app": "e3c4831",
+      "build": "17:45 12-08-2026",
+      "frames": 808,
+      "framesUnder8Ms": 192,
+      "shareUnder8Ms": 0.238,
+      "movingFramesAtLeast8Ms": 584,
+      "movingMeanMs": 30.6,
+      "movingP50Ms": 24,
+      "movingP95Ms": 80
+    },
+    {
+      "key": "after-the-fix",
+      "app": "6bdffcf",
+      "build": "19:23 28-08-2026",
+      "frames": 229,
+      "framesUnder8Ms": 6,
+      "shareUnder8Ms": 0.026,
+      "movingFramesAtLeast8Ms": 207,
+      "movingMeanMs": 27.5,
+      "movingP50Ms": 24,
+      "movingP95Ms": 56,
+      "cpuBodyMeanMs": 3.796506549593663,
+      "segmentsMs": [["engine-frame",2.169432314722819],["stream",1.1668122271523205],["other",0.4397379902382603],["readout",0.012663755549614086],["overlay-2d",0.007860261930648937]],
+      "framesSkipped": 421,
+      "draws": 65,
+      "triangles": 163551,
+      "residencyMb": 64.19101238250732,
+      "cellsCreated": 21,
+      "lateCreates": 0
+    }
+  ],
+  "device": { "adapter": "arm bifrost", "css": "360x320", "dpr": 2, "missing": ["texture-compression-bc", "timestamp-query"] }
+}

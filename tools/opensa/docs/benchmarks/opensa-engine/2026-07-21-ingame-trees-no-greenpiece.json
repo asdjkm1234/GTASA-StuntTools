@@ -1,0 +1,101 @@
+{
+  "note": "A/B for removing mod '39. Green Piece 1.47' from the TREES layer. Same machine/display/sweep as 2026-07-21-ingame-layer-decomposition.json, road cars 1126, so the `trees` layer rows in that file are the BEFORE side. The mod ships no models — only 233 `inst` lines that place extra vegetation (installed into data/maps/interior/stadint.ipl). Removed with an index-safe strip: 233 HD instances + their 210 linked LOD partners dropped, every surviving `lod` field remapped, then the game dir re-packed through opensa-pack (--rect -12,-12,12,12, AO on, bakes off, NODE_OPTIONS=--max-old-space-size=12288). Pack verified against the reference: 1123 cell entries both sides, pak 1,047,646,208 vs 1,053,790,208 B, AO triangles 110,221,839 vs 111,610,637. Numbers pasted from the console [bench] lines. The six non-ganton scenes are the CONTROL — the mod does not reach them and they came back flat.",
+  "runs": [
+    {
+      "key": "ls-noon",
+      "avgDrawCalls": 1014,
+      "avgMs": 8.477,
+      "avgTriangles": 1480351,
+      "fps": 118,
+      "frames": 1771,
+      "gpuMs": { "pass": 4.206, "post": 1.236, "probe": 0.965, "submit": 0.376 },
+      "p95Ms": 9.5,
+      "lateCreates": 0,
+      "residency": "cellIndex 17 · cellVertex 74 · target 424 · texture 1148 · uniform 1"
+    },
+    {
+      "key": "sf-fog-dawn",
+      "avgDrawCalls": 952,
+      "avgMs": 8.62,
+      "avgTriangles": 1300294,
+      "fps": 116,
+      "frames": 1741,
+      "gpuMs": { "pass": 4.236, "post": 1.013, "probe": 1.636, "submit": 0.391 },
+      "p95Ms": 10.3,
+      "lateCreates": 0,
+      "residency": "cellIndex 21 · cellVertex 78 · target 424 · texture 1201 · uniform 1"
+    },
+    {
+      "key": "lv-night",
+      "avgDrawCalls": 1212,
+      "avgMs": 12.727,
+      "avgTriangles": 1017403,
+      "fps": 78.6,
+      "frames": 1180,
+      "gpuMs": { "pass": 7.868, "post": 1.121, "probe": 1.372, "submit": 0.492 },
+      "p95Ms": 14.6,
+      "lateCreates": 0,
+      "residency": "cellIndex 16 · cellVertex 68 · target 424 · texture 1215 · uniform 1"
+    },
+    {
+      "key": "country-dusk",
+      "avgDrawCalls": 627,
+      "avgMs": 15.584,
+      "avgTriangles": 927367,
+      "fps": 64.2,
+      "frames": 964,
+      "gpuMs": { "pass": 11.712, "post": 1.013, "probe": 1.696, "submit": 0.582 },
+      "p95Ms": 17.8,
+      "lateCreates": 0,
+      "residency": "cellIndex 10 · cellVertex 53 · target 424 · texture 1160 · uniform 1"
+    },
+    {
+      "key": "ocean-horizon",
+      "avgDrawCalls": 12,
+      "avgMs": 8.333,
+      "avgTriangles": 116031,
+      "fps": 120,
+      "frames": 1801,
+      "gpuMs": { "pass": 1.765, "post": 0.952, "probe": 0.463, "submit": 0.382 },
+      "p95Ms": 9.4,
+      "lateCreates": 0,
+      "residency": "cellIndex 2 · cellVertex 25 · target 424 · texture 979 · uniform 1"
+    },
+    {
+      "key": "ls-rain-night",
+      "avgDrawCalls": 890,
+      "avgMs": 8.41,
+      "avgTriangles": 1447793,
+      "fps": 118.9,
+      "frames": 1785,
+      "gpuMs": { "pass": 4.189, "post": 1.272, "probe": 1.013, "submit": 0.445 },
+      "p95Ms": 9.4,
+      "lateCreates": 0,
+      "residency": "cellIndex 17 · cellVertex 75 · target 424 · texture 1155 · uniform 1"
+    },
+    {
+      "key": "ganton-noon",
+      "avgDrawCalls": 1258,
+      "avgMs": 12.22,
+      "avgTriangles": 1193831,
+      "fps": 81.8,
+      "frames": 1229,
+      "gpuMs": { "pass": 7.626, "post": 1.082, "probe": 1.567, "submit": 0.419 },
+      "p95Ms": 14.8,
+      "lateCreates": 0,
+      "residency": "cellIndex 19 · cellVertex 87 · target 424 · texture 1148 · uniform 1"
+    },
+    {
+      "key": "ganton-night",
+      "avgDrawCalls": 1254,
+      "avgMs": 12.332,
+      "avgTriangles": 1194612,
+      "fps": 81.1,
+      "frames": 1218,
+      "gpuMs": { "pass": 7.705, "post": 1.096, "probe": 1.568, "submit": 0.486 },
+      "p95Ms": 14.9,
+      "lateCreates": 0,
+      "residency": "cellIndex 19 · cellVertex 87 · target 424 · texture 1148 · uniform 1"
+    }
+  ]
+}

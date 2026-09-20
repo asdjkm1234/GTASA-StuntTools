@@ -1,0 +1,55 @@
+{
+  "note": "FIRST RUN OF THE ENGINE ON A MOBILE GPU, and the first touch-device frame number this repo has (docs/features/mobile-controls.md recorded the gap: 'field-checked headless, not on real hardware — no touch-device frame-time row exists in docs/benchmarks/'). User-run, read off the dispatch console's own status bar on their phone; NOT a `?bench=all` sweep and NOT comparable with any row in index.md — different renderer host, different world, different harness, no p95, no GPU timers (the adapter has no `timestamp-query`). It exists to establish that the engine runs at all on this class of hardware, and to be the baseline a later real sweep replaces. THE WORLD IS SYNTHETIC: `?demo=1` builds a 12x12 grid of block cells with one RGBA8 texture array in-process — no pak, no streaming, no LODs, no water, no vehicles, no peds. A pak from SA assets could not be used because its textures are BC and this GPU has none; that is the whole reason the `--rgba8` converter flag exists, and a district built with it is the run this one is owed a successor to. WHAT MADE IT POSSIBLE: `#enable-unsafe-webgpu` in the browser (it lifts Chromium's adapter blocklist — the default request returned null before it, and the browser had to be restarted for it to take), plus the same day's engine change that stopped REQUIRING texture-compression-bc at device creation. Without either, this device never reaches a frame. The flag is a developer flag, so this measures capability, not a shipping configuration.",
+  "device": {
+    "browser": "Yandex Browser 26.6.2.117 (Chromium 148.0.7778.117)",
+    "os": "Android 10",
+    "model": "MGA-LX3",
+    "gpu": "Mali-G51 (ARM, Bifrost)",
+    "deviceMemory": "8 GB",
+    "screenCssPx": "360 x 800",
+    "devicePixelRatio": 2,
+    "adapterFeatures": [
+      "core-features-and-limits",
+      "float32-filterable",
+      "indirect-first-instance",
+      "primitive-index",
+      "rg11b10ufloat-renderable",
+      "shader-f16",
+      "texture-component-swizzle",
+      "texture-compression-astc",
+      "texture-compression-astc-sliced-3d",
+      "texture-compression-etc2",
+      "texture-formats-tier1",
+      "texture-formats-tier2"
+    ],
+    "noBc": "texture-compression-bc absent — ASTC and ETC2 present instead",
+    "noTimestamps": "timestamp-query absent, so gpuPassMs/gpuPostMs are unavailable on this device"
+  },
+  "runs": [
+    {
+      "key": "dispatch-demo-city",
+      "surface": "dispatch console, ?demo=1, opened from a downloaded single-file HTML",
+      "fps": 41,
+      "cellsVisible": 38,
+      "cellsTotal": 144,
+      "draws": 162,
+      "residencyMb": 37,
+      "hour": 10,
+      "cameraHeightM": 900,
+      "avgMs": null,
+      "p95Ms": null,
+      "gpuPassMs": null,
+      "note": "Map viewport is roughly 360 x 350 CSS px at DPR 2 (the compact layout gives the rest to the call sheet), so the render target is small — a full-screen 3D view would cost more and is not measured here."
+    }
+  ],
+  "comparisonAnchor": {
+    "sameBuildSameWorldOnSwiftShader": "38-46 fps at 412 x 915 CSS px (emulated Pixel 7, ANGLE/SwiftShader, 2026-08-04)",
+    "reading": "The software rasterizer in CI and a real Mali-G51 land in the same band, which says the frame is NOT GPU-bound here at this target size — it is bounded by something both share. Do not read that as a Mali-G51 result for a real world; 162 draws over 38 synthetic cells is a fraction of what a streamed district submits (the desktop `map` row submits 393 avg / 680 max)."
+  },
+  "openQuestions": [
+    "No p95, so nothing is known about hitching — the number that catches stutter is exactly the one a status bar cannot give.",
+    "No GPU timers on this adapter; a real cost breakdown needs a device with timestamp-query or a CPU-side proxy.",
+    "Untested at full-screen and at DPR 2 without the sheet taking half the height.",
+    "Untested against a real world: the `--rgba8` district pak is the run this one is owed a successor to, and it will also be the first residency figure that means anything (37 MB here is one 64x64 texture array plus 38 block cells)."
+  ]
+}

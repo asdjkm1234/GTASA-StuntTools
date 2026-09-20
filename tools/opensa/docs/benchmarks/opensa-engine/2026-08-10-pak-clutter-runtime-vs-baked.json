@@ -1,0 +1,53 @@
+{
+  "note": "BUILD-time measurement, not a frame measurement — the pak's own report.json, before and after plan 014 moved the procobj clutter off the bake and onto the runtime scatter for the opensa target. Taken by Claude (no field run involved). NOT COMPARABLE to the frame numbers in this folder: nothing here is fps or ms-per-frame; ao.ms is the AO bake's wall clock at build time. The pair is 30 h apart and the mods stage changed in between (mod 60's laxref.col restored, its 5 stub DFFs restored instead of deleted, the model-id ceiling raised to 19000), so the deltas are ATTRIBUTED to the clutter, not proven to be only the clutter — see confounds.",
+  "before": {
+    "pak": "build/original/opensa/pak (built 2026-08-09 13:53) — 91 092 clutter objects BAKED into the cells as ordinary instances, and procobj.dat stripped to 9 rules so the runtime scatter drew nothing",
+    "pakBytes": 1551101952,
+    "cells": 1138,
+    "ao": {
+      "ms": 1273654,
+      "rays": 1012669128,
+      "triangles": 136036187,
+      "uniqueVertices": 84389094,
+      "vertices": 105815501
+    },
+    "breakables": 26617,
+    "textures": { "dedup": 255176, "opaquePass": 16184, "processed": 2442 }
+  },
+  "after": {
+    "pak": "build/original/opensa/pak (built 2026-08-10 17:47, commit 5a1fbd5d) — NO clutter baked; procobj.dat reaches the engine with all 95 rules and GtaSaWorldAdapter.cellClutter scatters per streamed cell, drawn instanced",
+    "pakBytes": 1167695872,
+    "cells": 1124,
+    "ao": {
+      "ms": 864757,
+      "rays": 658687176,
+      "triangles": 111115374,
+      "uniqueVertices": 54890598,
+      "vertices": 60374440
+    },
+    "breakables": 25626,
+    "textures": { "dedup": 239357, "opaquePass": 16164, "processed": 2408 }
+  },
+  "deltas": {
+    "pakBytes": "-383 406 080 B (-24.7 %, 366 MiB)",
+    "ao.ms": "-408 897 ms (-32.1 %, 6 m 49 s of build time)",
+    "ao.rays": "-353 981 952 (-35.0 %)",
+    "ao.vertices": "-45 441 061 (-42.9 %) — the welded copies the pak no longer holds",
+    "ao.uniqueVertices": "-29 498 496 (-35.0 %)",
+    "ao.triangles": "-24 920 813 (-18.3 %)",
+    "cells": "-14 (-1.2 %) — cells that held nothing but clutter",
+    "breakables": "-991 (-3.7 %)",
+    "textures.processed": "-34",
+    "textures.dedup": "-15 819 (-6.2 %)"
+  },
+  "why": "opensa-pack WELDS, and welding duplicates vertices per instance (ao.ts' own note). 91 092 baked clutter objects were therefore ~45.4 M vertices of duplicated geometry — ~499 per object. The runtime path uploads one geometry per model TYPE (~48) and draws instanced, so the same content costs a rounding error of GPU memory instead.",
+  "confounds": [
+    "30 h and one mods-stage change apart: the BEFORE pak predates the mod-60 fixes (5 stub DFFs restored rather than deleted, laxref.col restored to 149 models) and the 19000 model-id ceiling. None of those plausibly moves 45 M vertices, but the pair is not single-variable.",
+    "breakables -991 is NOT explained by size: those are the baked instances of the 6 procobj species that carry a DFF Breakable mesh (sjmcacti2, p_rubble04/04b/05/0bcol, rockbrkq — plan 074/20). The capability did not move with them: 074/20 shipped breaking on the RUNTIME clutter path (breakClutterInstance + per-instance key hashes), which is where these instances live now — and the user CONFIRMED in the field the same day that the clutter still breaks. Nothing was lost with the bake.",
+    "textures.processed -34 and dedup -6.2 % are consistent with the clutter's own assets leaving (the shared lod_procobj.txd and its scoped names), which is a check that the delta is ours rather than drift."
+  ],
+  "notMeasuredHere": [
+    "Frame cost. Whether per-cell runtime scatter costs more at stream-in than a baked cell is a HITCH question and needs the hitch columns (maxMs, slowFrames, p99Ms, blobMaxMs, uploadMaxMs, pendingMax) — the user's own ?bench=all run.",
+    "Baked AO on clutter, which the runtime path cannot carry (instanced, no per-instance vertex data). Prelight is unaffected. Priced as a deferred lever in docs/performance/deferred-optimizations/procobj-baked-into-the-pak.md."
+  ]
+}

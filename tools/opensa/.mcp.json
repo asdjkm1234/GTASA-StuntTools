@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "opensa-phone": {
+      "args": ["tools-debug/phone-console/mcp-bridge.mjs"],
+      "command": "node",
+      "type": "stdio"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "commit": "bfc1140 (main, all five 089 steps merged)",
+  "host": "headless Chromium / M3 Pro @DPR=2 (drive.js over ?loader=http-dir — directly comparable to the same-day 091 reference)",
+  "note": "The plan-089 CLOSE-OUT sweep, taken by Claude on 2026-07-28 after the last step merged. VERDICT: the whole vehicle-effects chain (dynamic particle lane, tyre smoke, skid-mark decal lane, impact smoke, surface effects) costs nothing measurable at the sweep's gameplay shapes — every scene at the 120 Hz cap (avg 8.33-8.39, p95 9.1-9.3, lateCreates 0), gpu pass within +-0.05..0.25 ms of the 091 reference in both directions (bench road cars drive, so populations differ run to run), draws equal within units. road cars registered: 1126. The chain's real prices live in the per-step records: +2.3 ms GPU at the 089/01 probe's worst-case 1/3-viewport fill (overdraw-bound), ~10.8 KB/frame particle upload at full smoke, ~168 B per laid skid segment, one surface ray per contacting wheel per fixed step on the driven car.",
+  "pak": "build/original/opensa/pak (087-ring rebuild, buildTime 08:41 24-07-2026 — same pak as every 07-24..07-28 row)",
+  "runs": [
+    { "avgDrawCalls": 1183, "avgMs": 8.333, "gpuMs": { "pass": 2.601 }, "key": "ls-noon", "p95Ms": 9.1 },
+    { "avgDrawCalls": 980, "avgMs": 8.385, "gpuMs": { "pass": 2.026 }, "key": "sf-fog-dawn", "p95Ms": 9.1 },
+    { "avgDrawCalls": 1560, "avgMs": 8.355, "gpuMs": { "pass": 3.499 }, "key": "lv-night", "p95Ms": 9.2 },
+    { "avgDrawCalls": 883, "avgMs": 8.333, "gpuMs": { "pass": 3.946 }, "key": "country-dusk", "p95Ms": 9.3 },
+    { "avgDrawCalls": 24, "avgMs": 8.336, "gpuMs": { "pass": 1.961 }, "key": "ocean-horizon", "p95Ms": 9.3 },
+    { "avgDrawCalls": 965, "avgMs": 8.338, "gpuMs": { "pass": 2.275 }, "key": "ls-rain-night", "p95Ms": 9.3 },
+    { "avgDrawCalls": 1403, "avgMs": 8.333, "gpuMs": { "pass": 2.966 }, "key": "ganton-noon", "p95Ms": 9.3 },
+    { "avgDrawCalls": 1407, "avgMs": 8.333, "gpuMs": { "pass": 3.261 }, "key": "ganton-night", "p95Ms": 9.3 }
+  ]
+}

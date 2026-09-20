@@ -1,0 +1,105 @@
+{
+  "note": "USER-RUN in-game ?bench=all sweep, 2026-07-24, on the FRESH original rebuild after the 087 LOD-ring arc (per-game PACK_RECTS + per-cell aabb rings + bake grid 256->250 + water row-C fix). Code head 617556f (the feuillu img-strip + broken-prelight.json are uncommitted local mod-source edits, not code). Chat paste — fields are complete (the [bench] lines carried avgTriangles + residency). Host presumed the series M3 Pro @2x retina (NOT restated in this paste). road cars registered: 1126 (baseline 436d2f2 ran 841 — a 34% fuller car population). pak = build/original/opensa/pak/world.ospak, pakBytes 1272901632, 1137 cells. VERDICT vs the 07-20 436d2f2 head baseline: performance-neutral to slightly better despite +285 cars — ls-noon/lv-night/country-dusk/ocean-horizon/ls-rain-night all within noise, sf-fog-dawn +8 fps (draws 1019->995). ganton-noon/ganton-night are NEW scenes not in the 07-20 baseline. PAK-SIZE DELTA: 1272901632 B vs the 078 full-run 1453903872 B = -181 MB, -12.4%, same 1137 cells (the 250 bake + aabb rings shrank the pak with no coverage loss). This is the 078 merge-gate re-baseline: fps re-measured with admiral/comet now converted (road cars 1126, not 0), and the mapper pak-size delta.",
+  "commit": "617556f",
+  "pak": "build/original/opensa/pak (087-ring rebuild, pakBytes 1272901632, 1137 cells)",
+  "host": "Chrome / M3 Pro @2x retina (presumed — not restated in the paste)",
+  "roadCars": 1126,
+  "runs": [
+    {
+      "key": "ls-noon",
+      "avgMs": 8.915,
+      "p95Ms": 10.7,
+      "fps": 112.2,
+      "frames": 1684,
+      "avgDrawCalls": 1238,
+      "avgTriangles": 2426192,
+      "gpuMs": { "pass": 4.883, "post": 1.201, "probe": 1.286, "submit": 0.414 },
+      "residency": "cellIndex 41 · cellVertex 184 · target 424 · texture 1155 · uniform 1",
+      "lateCreates": 0
+    },
+    {
+      "key": "sf-fog-dawn",
+      "avgMs": 8.792,
+      "p95Ms": 10.5,
+      "fps": 113.7,
+      "frames": 1707,
+      "avgDrawCalls": 995,
+      "avgTriangles": 1371375,
+      "gpuMs": { "pass": 4.208, "post": 1.044, "probe": 1.887, "submit": 0.416 },
+      "residency": "cellIndex 33 · cellVertex 145 · target 424 · texture 1242 · uniform 2",
+      "lateCreates": 0
+    },
+    {
+      "key": "lv-night",
+      "avgMs": 13.121,
+      "p95Ms": 14.9,
+      "fps": 76.2,
+      "frames": 1145,
+      "avgDrawCalls": 1685,
+      "avgTriangles": 1818901,
+      "gpuMs": { "pass": 8.692, "post": 1.133, "probe": 1.461, "submit": 0.383 },
+      "residency": "cellIndex 30 · cellVertex 154 · target 424 · texture 1262 · uniform 1",
+      "lateCreates": 0
+    },
+    {
+      "key": "country-dusk",
+      "avgMs": 16.531,
+      "p95Ms": 19.1,
+      "fps": 60.5,
+      "frames": 909,
+      "avgDrawCalls": 915,
+      "avgTriangles": 1238123,
+      "gpuMs": { "pass": 12.448, "post": 1.011, "probe": 1.69, "submit": 0.521 },
+      "residency": "cellIndex 23 · cellVertex 129 · target 424 · texture 1207 · uniform 1",
+      "lateCreates": 0
+    },
+    {
+      "key": "ocean-horizon",
+      "avgMs": 8.333,
+      "p95Ms": 9.3,
+      "fps": 120,
+      "frames": 1801,
+      "avgDrawCalls": 26,
+      "avgTriangles": 138278,
+      "gpuMs": { "pass": 1.801, "post": 0.953, "probe": 0.474, "submit": 0.345 },
+      "residency": "cellIndex 8 · cellVertex 71 · target 424 · texture 1008 · uniform 1",
+      "lateCreates": 0
+    },
+    {
+      "key": "ls-rain-night",
+      "avgMs": 8.493,
+      "p95Ms": 9.7,
+      "fps": 117.7,
+      "frames": 1768,
+      "avgDrawCalls": 988,
+      "avgTriangles": 1777283,
+      "gpuMs": { "pass": 4.182, "post": 1.019, "probe": 1.216, "submit": 0.502 },
+      "residency": "cellIndex 41 · cellVertex 182 · target 424 · texture 1175 · uniform 1",
+      "lateCreates": 0
+    },
+    {
+      "key": "ganton-noon",
+      "avgMs": 12.789,
+      "p95Ms": 15.4,
+      "fps": 78.2,
+      "frames": 1175,
+      "avgDrawCalls": 1419,
+      "avgTriangles": 1522655,
+      "gpuMs": { "pass": 8.125, "post": 1.042, "probe": 1.636, "submit": 0.478 },
+      "residency": "cellIndex 35 · cellVertex 161 · target 424 · texture 1172 · uniform 1",
+      "lateCreates": 0
+    },
+    {
+      "key": "ganton-night",
+      "avgMs": 12.912,
+      "p95Ms": 15.5,
+      "fps": 77.4,
+      "frames": 1163,
+      "avgDrawCalls": 1415,
+      "avgTriangles": 1523938,
+      "gpuMs": { "pass": 8.204, "post": 1.056, "probe": 1.642, "submit": 0.602 },
+      "residency": "cellIndex 35 · cellVertex 161 · target 424 · texture 1172 · uniform 1",
+      "lateCreates": 0
+    }
+  ]
+}
