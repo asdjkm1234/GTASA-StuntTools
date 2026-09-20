@@ -19,6 +19,10 @@ recorder/backups/
 # --- Large local toolchain (not source; re-downloadable) ---
 /tools/zig/
 
+# --- Baked map pak (regenerable, hundreds of MB) ---
+/tools/opensa/map-pak*/
+/web-replay/map-pak*/
+
 # --- OS noise ---
 Thumbs.db
 .DS_Store
