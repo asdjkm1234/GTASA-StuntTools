@@ -69,6 +69,14 @@ cd tools\opensa  &&  npx tsc --noEmit -p tsconfig.json
 自测脚本（都在 `tools/opensa`，均**自结束自己启动的 Chrome**）：
 
 ```powershell
+# Route A：本地离线烘焙整张图（也可只烘一个矩形：minCx maxCx minCy maxCy）
+cd tools\opensa
+npx tsx scripts\bake-map.mts map-pak                 # 整图 → map-pak\（约 40s，~760MB）
+npx tsx scripts\bake-map.mts map-pak -4 2 1 7        # 只烘一个 cell 矩形
+```
+烘焙产物由本地服务以 `/map-pak/*` 提供（`MAP_PAK_ROOT` 可覆盖，默认 `../tools/opensa/map-pak`）；回放页启动时若探测到 `/map-pak/index.json` 就自动用 pak，否则回退原始安装实时焊接。**装了地图 mod 后需重新烘焙。**
+
+```powershell
 node scripts\smoke-map.mts            # tsx 跑；GPU 无关，验证 IMG/IDE/IPL/DFF/TXD→cell 焊接
 node scripts\capture-replay.mjs  "<url>" 30     # 连续截图 + 控制台
 node scripts\test-replay-sequence.mjs "<url>" <tag>  # 播放/机舱/跟随/拖动全流程截图
@@ -109,12 +117,10 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
    - 应对：`local-server.mjs` 的 `openBrowser` 与 `启动回放-Chrome.cmd` **每次用全新临时 profile**；测试脚本用 `tmpdir()` 唯一 profile。
    - **绝不要 `taskkill /F` 一个会被复用的 profile**（会把 GPU 缓存写坏）。强杀只对自己当次创建的临时 profile 用。
    - 日常 profile 想修：`修复Chrome-WebGPU缓存.cmd`（关掉 Chrome 后**重命名** GPU/Dawn 缓存目录，可回溯）。
-2. **黑屏/TDR 的根因（结构性，读引擎源码确认）**：世界贴图存在 `texture_2d_array`，`TextureArrays.load()` 是**幂等**的（已存在即返回），因此数组**只能靠 `unload()`+`load()` 增长** → **替换 GPUTexture** → 所有引用它的 render bundle 立即失效。引擎注释明确：数组一变，所有常驻 cell 必须重建。在 Intel Arc 上**反复做这件事会 `DXGI_ERROR_DEVICE_HUNG`**。所以：
-   - **稳妥模式（默认）**：选中录像时把该航迹的纹理**一次性解析并提交**（`preloadTargets(..., commit=true)`），播放期**零数组替换** → 不黑。代价是开场要等（进度覆盖层）。
-   - **动态模式（HUD「动态加载(实验)」）**：立即播放、后台按航迹顺序焊接，运行时增长数组 → 快但**已知会 TDR**，故默认关闭。
-   - **顺序修复（必须保留）**：`setTargets()`/`commitTextures()` 在替换数组**前先卸载全部常驻 cell**，任何一帧都不会提交引用“已销毁纹理”的 bundle（消除了 `Destroyed texture used in a submit`）。
-   - 证据脚本：`scripts/test-multitrack.mjs`（多文件切换）、`scripts/test-scrub.mjs`（大文件拖动）。稳妥模式下两者均无 DXGI/Destroyed。
-   - **彻底解法（待做，能同时满足“快启”和“不黑”）**：给引擎加**就地追加层**能力——纹理数组按容量预分配，新增层用 `writeTexture` 写进**同一个** GPUTexture（不再 unload/replace、不使 bundle 失效）；只有容量耗尽才替换（极少见）。需要改 `packages/cell-weld`（提供自 cursor 的增量层载荷，`journalSince` 已具备基础）与 `packages/engine`（`TextureArrays` 增加 `append`/容量）。
+2. **黑屏/TDR 的根因（结构性，读引擎源码确认）**：世界贴图存在 `texture_2d_array`，`TextureArrays.load()` 是**幂等**的（已存在即返回），因此数组**只能靠 `unload()`+`load()` 增长** → **替换 GPUTexture** → 所有引用它的 render bundle 立即失效。在 Intel Arc 上**反复替换、或一次性同步上传大数组都会 `DXGI_ERROR_DEVICE_HUNG`**（后者是 Route A 早期实现也黑的原因：一次同步上传 240MB 纹理）。
+   - **Route A（默认，推荐）**：本地离线烘焙 → `CellRenderer/PakWorld` 运行期只读字节、**分帧上传、零替换**。见下方“地图来源”。
+   - **原始安装回退**：找不到 `/map-pak/index.json` 时走实时焊接（`CellRenderer`），此时选中录像会一次性提交该航迹纹理（安全但慢）。
+   - **必须保留的修复**：任何替换数组前**先卸载全部常驻 cell**；**所有纹理上传走 `engine.textures.beginLoad()` + 每帧 `drainUploads(budget)`**，禁止一次性同步 `load()` 大数组。`PakWorld` 每帧地块创建并发 `MAX_PARALLEL_LOADS=2`（一次创建太多 render bundle 也会触发驱动重置）。
 3. **相机**：
    - `ReplayCamera` 有自己的 `mode`，切换视角时必须同步 `camera.mode`（只改模块变量会导致两视角相同）。
    - 追尾相机高度是 **`+ WORLD_UP×height`**（写成减号会跑到机腹下变仰视）。

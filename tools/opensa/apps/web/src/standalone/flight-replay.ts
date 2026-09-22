@@ -15,6 +15,7 @@ import type { FlightTrack } from '../flight/csv';
 import { loadAircraft } from '../flight/aircraft';
 import { ReplayCamera } from '../flight/camera';
 import { CellRenderer, mapCenterGta, type CellTarget } from '../flight/cell-renderer';
+import { PakWorld } from '../flight/pak-world';
 import { NODE_NAMES, parseFlightCsv, sampleTrack } from '../flight/csv';
 import { rotateVec, type Vec3 } from '../flight/math';
 import { loadMapSource } from '../flight/map-source';
@@ -134,6 +135,9 @@ let lastWeather = -1;
 let envDriver: ReturnType<typeof createEngineEnvironmentDriver> | null = null;
 let engine: Engine;
 let renderer: CellRenderer;
+/** Route A: when a baked pak is served, the world streams from it (no welding, no array growth). */
+let pakWorld: PakWorld | null = null;
+const MAP_PAK_BASE = params.get('pak') ?? '/map-pak';
 let camera: ReplayCamera;
 let timecycText = '';
 
@@ -265,6 +269,7 @@ function updateReadout(track: FlightTrack, pose: ReturnType<typeof sampleTrack>)
     ['游戏时间', `${row.gameHour ?? '—'}:${String(row.gameMinute ?? 0).padStart(2, '0')}（天气 ${row.weatherNew ?? '—'}）`],
     ['环境(显示)', `${Math.round(lastEnv.weather)} ${WEATHER_NAMES[Math.round(lastEnv.weather)] ?? ''} @ ${formatHour(lastEnv.hour)} · ${isFollowingEnv() ? '跟随录制' : '手动'}`],
     ['航迹准备', `${Math.round(preparedRatio(activeTrack()) * 100)}%${PREPARE_ENABLED ? '' : '（已关闭）'}`],
+    ['地图来源', pakWorld ? `预烘焙 pak${pakWorld.note()}` : '原始安装（实时焊接）'],
     ['坐标', `${row.pos[0].toFixed(2)}, ${row.pos[1].toFixed(2)}, ${row.pos[2].toFixed(2)}`],
     ['航向', `${row.heading.toFixed(2)}°`],
     ['速度', `${speed.toFixed(2)} 单位/秒`],
@@ -346,7 +351,16 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   scrub.value = String(elapsed);
   modeChip.textContent = playing ? (cameraMode === 'cockpit' ? '机舱（播放中）' : '延迟跟随（播放中）') : cameraMode === 'cockpit' ? '机舱（暂停）' : '延迟跟随（暂停）';
   el('follow').textContent = cameraMode === 'cockpit' ? '视角：机舱第一人称' : '视角：延迟跟随';
-  requestStream(pose.pos[0], pose.pos[1]);
+  if (pakWorld) {
+    if (pakWorld.isReady) {
+      pakWorld.update(pose.pos[0], pose.pos[1], HD_RADIUS, LOD_RADIUS);
+      const busy = pakWorld.loadedCells === 0 && pakWorld.isLoading;
+      mapLoading.hidden = !busy;
+      if (busy) mapLoadingText.textContent = '载入预烘焙地图…';
+    }
+  } else {
+    requestStream(pose.pos[0], pose.pos[1]);
+  }
 }
 
 /**
@@ -445,7 +459,7 @@ async function selectTrack(index: number): Promise<void> {
   void ensureAircraft();
   renderTrackList();
   const track = activeTrack();
-  if (track && !DYNAMIC_LOAD) {
+  if (track && !DYNAMIC_LOAD && !pakWorld) {
     // SAFE MODE: resolve + commit this route's textures once, before any cell is resident.
     const state = prepareState.get(track) ?? { cursor: 0, targets: buildRouteTargets(track) };
     prepareState.set(track, state);
@@ -618,7 +632,20 @@ async function boot(): Promise<void> {
   debug.cells = gtaGrid.length;
   renderer = new CellRenderer(engine, map);
   installWater(engine, map);
-  schedulePrepare();
+  if (await PakWorld.probe(MAP_PAK_BASE)) {
+    const pak = new PakWorld(engine, MAP_PAK_BASE);
+    mapLoading.hidden = false;
+    mapLoadingText.textContent = '读取预烘焙地图索引…';
+    try {
+      await pak.load((done, total) => {
+        mapLoadingText.textContent = `读取预烘焙纹理 ${done}/${total}…`;
+      });
+      pakWorld = pak;
+    } catch { /* fall back to the raw-install path below */ }
+  }
+  if (!pakWorld) {
+    schedulePrepare();
+  }
   setStatus(`世界索引就绪：${gtaGrid.length} 个单元`);
   void report({ cells: gtaGrid.length, phase: 'world-indexed' });
   // No URL parameters required: with nothing loaded, pull the newest local recording automatically.
@@ -639,6 +666,16 @@ function resize(): void {
 
 function loop(): void {
   requestAnimationFrame(loop);
+  // Pak texture arrays upload a slice per frame (a single synchronous burst is what TDRs).
+  if (pakWorld) {
+    if (!pakWorld.isReady) {
+      pakWorld.pump(6);
+      mapLoading.hidden = false;
+      mapLoadingText.textContent = '上传预烘焙纹理数组…';
+    } else {
+      mapLoading.hidden = true;
+    }
+  }
   const now = performance.now();
   const dt = Math.min(0.1, Math.max(0, (now - lastFrame) / 1000));
   const track = activeTrack();
