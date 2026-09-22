@@ -23,6 +23,12 @@ recorder/backups/
 /tools/opensa/map-pak*/
 /web-replay/map-pak*/
 
+# --- Local run logs ---
+**/server.out.log
+**/server.err.log
+**/bake.out.log
+**/bake.err.log
+
 # --- OS noise ---
 Thumbs.db
 .DS_Store
