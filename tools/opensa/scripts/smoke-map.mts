@@ -9,7 +9,6 @@ import { CELL_SIZE, TexturePlanner, weldCell } from '@opensa/cell-weld';
 import { cellModelNames } from '@opensa/renderware/map/cell-groups';
 import { cellKey } from '@opensa/renderware/map/world-grid';
 
-import { mapCenterGta } from '../apps/web/src/flight/cell-renderer';
 import { loadMapSource } from '../apps/web/src/flight/map-source';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:4199/game-src';
@@ -22,11 +21,16 @@ console.log(`  instances    ${map.defs.instances.length}`);
 console.log(`  catalog      ${map.defs.catalog.size} models`);
 console.log(`  archives     dff=${map.models.dff} osm=${map.models.osm}`);
 
-const center = mapCenterGta(map);
-const cx = Math.floor(center[0] / CELL_SIZE);
-const cy = Math.floor(center[1] / CELL_SIZE);
+// Pick the middle occupied cell (no dependency on the removed raw-streaming renderer).
+const gridCells = [...map.grid.values()];
+const pick = gridCells[Math.floor(gridCells.length / 2)];
+if (!pick) {
+  throw new Error('empty world grid');
+}
+const cx = pick.cx;
+const cy = pick.cy;
 const cell = map.grid.get(cellKey(cx, cy));
-console.log(`centre (GTA)   ${center[0].toFixed(0)}, ${center[1].toFixed(0)} → cell ${cx},${cy}`);
+console.log(`cell (GTA)     ${((cx + 0.5) * CELL_SIZE).toFixed(0)}, ${((cy + 0.5) * CELL_SIZE).toFixed(0)} → cell ${cx},${cy}`);
 if (!cell) {
   throw new Error('no cell under the map centre');
 }

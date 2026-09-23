@@ -161,8 +161,23 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
 - Rustler/其它机型的 `CPlane` 节点可能不足 7 个，`surface_source` 会退化为 `partial`（属正常，界面已标注）。
 - `stream.firstLoad`/旧加载覆盖层逻辑与预焊流程并存，后续可清理。
 
-## 8. 交接速查
+## 8. 架构变更：**仅 pak**（2026-09-21，取代第 2 条中的“原始安装回退”）
 
+用户决定彻底删除“原始安装实时焊接”这条路，回放**必须**使用预烘焙 pak。已删除：
+
+- app 侧：`apps/web/src/flight/cell-renderer.ts`（`CellRenderer` 实时焊接器）已删除；`flight-replay.ts` 移除
+  `requestStream/drainStream/buildCellTargets`、后台准备泵（`pumpPrepare/buildRouteTargets/prepareState`）、
+  `DYNAMIC_LOAD/PREPARE_*`，以及 HUD 的 `动态加载(实验)/后台准备/每批/间隔` 与 `航迹准备` 行。
+- 启动时若 `/map-pak/index.json` 不存在 → 直接提示并停止（显示烘焙命令），不再回退。
+- 仍需读安装的小文件：`data/timecyc.dat`、`data/water.dat`、`data/carcols.dat`、飞机 DFF/TXD（经 `loadMapSource`），
+  这不属于“地图流送”，保留。
+
+保留的关键修复：`PakWorld` 用 `engine.textures.beginLoad()` + 每帧 `drainUploads(budget)`（分帧上传、**零数组替换**）、
+每帧地块创建并发 `MAX_PARALLEL_LOADS=2`、`device.lost` 监听（自动重启渲染 + 每分钟一次上限）。
+
+第 2 条与第 13 条里“原始安装回退 / preloadTargets 顺序修复”的描述**已作废**，仅作历史记录。
+
+## 9. 交接速查
 - 目标：录制→CSV→浏览器 WebGPU 回放；**不分发游戏资源**；OpenSA 为 AGPL-3.0。
 - 改动后：`build-flight-replay.ps1` 发布，`tsc --noEmit` 必须 0 错误，跑对应 `scripts/*` 自测并看截图。
 - 原则：**先定位根因再改**（本项目多个 bug 都来自符号/状态未同步/架构性增长，而非表面参数）；不要靠加大半径或强杀进程掩盖。

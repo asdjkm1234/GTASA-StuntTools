@@ -3,7 +3,6 @@
  * recorder's CSV. Boot: `?src=/game-src` (default) points the raw-install loader at the local server, and
  * `?local=latest` loads the newest recording from `flight_recordings/`. Everything runs on this machine.
  */
-import { CELL_SIZE } from '@opensa/cell-weld/cell-size';
 import { Engine } from '@opensa/engine';
 import type { DebugLineSetId } from '@opensa/engine';
 import { createEngineEnvironmentDriver } from '@opensa/game/adapters/engine-environment-driver';
@@ -14,7 +13,6 @@ import type { FlightTrack } from '../flight/csv';
 
 import { loadAircraft } from '../flight/aircraft';
 import { ReplayCamera } from '../flight/camera';
-import { CellRenderer, mapCenterGta, type CellTarget } from '../flight/cell-renderer';
 import { PakWorld } from '../flight/pak-world';
 import { NODE_NAMES, parseFlightCsv, sampleTrack } from '../flight/csv';
 import { rotateVec, type Vec3 } from '../flight/math';
@@ -135,21 +133,11 @@ let snapCamera = true;
 let lastWeather = -1;
 let envDriver: ReturnType<typeof createEngineEnvironmentDriver> | null = null;
 let engine: Engine;
-let renderer: CellRenderer;
-/** Route A: when a baked pak is served, the world streams from it (no welding, no array growth). */
+/** Route A only: the world streams from a locally baked pak (no welding, no texture-array growth). */
 let pakWorld: PakWorld | null = null;
 const MAP_PAK_BASE = params.get('pak') ?? '/map-pak';
 let camera: ReplayCamera;
 let timecycText = '';
-
-interface StreamState {
-  busy: boolean;
-  pending: null | [number, number];
-  lastAt: number;
-  last: string;
-  firstLoad: boolean;
-}
-const stream: StreamState = { busy: false, firstLoad: true, last: '', lastAt: 0, pending: null };
 
 function fmt(s: number): string {
   const safe = Number.isFinite(s) ? Math.max(0, s) : 0;
@@ -164,77 +152,6 @@ function activeTrack(): FlightTrack | null {
 function setStatus(text: string): void {
   status.textContent = text;
   debug.status = text;
-}
-
-function buildCellTargets(x: number, y: number): { cx: number; cy: number; lod: boolean }[] {
-  const hd: { cx: number; cy: number; lod: boolean }[] = [];
-  const lod: { cx: number; cy: number; lod: boolean }[] = [];
-  for (const cell of gtaGrid) {
-    const dx = (cell.cx + 0.5) * CELL_SIZE - x;
-    const dy = (cell.cy + 0.5) * CELL_SIZE - y;
-    const distance = Math.hypot(dx, dy);
-    if (distance <= HD_RADIUS) {
-      hd.push({ cx: cell.cx, cy: cell.cy, lod: false });
-    } else if (distance <= LOD_RADIUS) {
-      lod.push({ cx: cell.cx, cy: cell.cy, lod: true });
-    }
-  }
-
-  return [...hd, ...lod];
-}
-
-let gtaGrid: { cx: number; cy: number }[] = [];
-
-async function drainStream(): Promise<void> {
-  if (stream.busy) {
-    return;
-  }
-  stream.busy = true;
-  try {
-    while (stream.pending) {
-      const [x, y] = stream.pending;
-      stream.pending = null;
-      const targets = buildCellTargets(x, y);
-      const signature = `${targets.length}:${Math.round(x / 300)}:${Math.round(y / 300)}`;
-      if (signature === stream.last) {
-        continue;
-      }
-      stream.last = signature;
-      const first = stream.firstLoad;
-      if (first) {
-        mapLoading.hidden = false;
-        mapLoadingText.textContent = `正在拼合原版地图（${targets.length} 个单元）…`;
-      }
-      await renderer.setTargets(targets, (done, total) => {
-        if (first) {
-          mapLoadingText.textContent = `正在拼合原版地图 ${Math.round((done / Math.max(1, total)) * 100)}%`;
-        }
-      });
-      if (first) {
-        mapLoading.hidden = true;
-        stream.firstLoad = false;
-      }
-    }
-  } catch (error) {
-    mapLoading.hidden = true;
-    setStatus(`地图单元加载失败：${error instanceof Error ? error.message : String(error)}`);
-  } finally {
-    stream.busy = false;
-  }
-}
-
-let lastStreamCell = '';
-
-function requestStream(x: number, y: number, force = false): void {
-  // Re-stream only when the aircraft enters a different cell. The old time-based trigger fired every 500 ms
-  // regardless of movement, and each tick re-encoded the whole texture atlas — a ~2 Hz hitch.
-  const cell = `${Math.floor(x / CELL_SIZE)},${Math.floor(y / CELL_SIZE)}`;
-  if (!force && cell === lastStreamCell) {
-    return;
-  }
-  lastStreamCell = cell;
-  stream.pending = [x, y];
-  void drainStream();
 }
 
 /** Apply the recorded (or curated) environment: real game hour + weather from the CSV, never the PC clock. */
@@ -269,8 +186,7 @@ function updateReadout(track: FlightTrack, pose: ReturnType<typeof sampleTrack>)
     ['本地时间', new Date(row.timeMs).toLocaleTimeString('zh-CN', { hour12: false })],
     ['游戏时间', `${row.gameHour ?? '—'}:${String(row.gameMinute ?? 0).padStart(2, '0')}（天气 ${row.weatherNew ?? '—'}）`],
     ['环境(显示)', `${Math.round(lastEnv.weather)} ${WEATHER_NAMES[Math.round(lastEnv.weather)] ?? ''} @ ${formatHour(lastEnv.hour)} · ${isFollowingEnv() ? '跟随录制' : '手动'}`],
-    ...(pakWorld ? [] : [['航迹准备', `${Math.round(preparedRatio(activeTrack()) * 100)}%${PREPARE_ENABLED ? '' : '（已关闭）'}`] as [string, string]]),
-    ['地图来源', pakWorld ? `预烘焙 pak${pakWorld.note()}` : '原始安装（实时焊接）'],
+    ['地图来源', pakWorld ? `预烘焙 pak${pakWorld.note()}` : '预烘焙 pak 未加载'],
     ['显卡', `${debug.gpu || '—'}${debug.phase === 'device-lost' ? ' · 设备已丢失!' : ''}`],
     ['坐标', `${row.pos[0].toFixed(2)}, ${row.pos[1].toFixed(2)}, ${row.pos[2].toFixed(2)}`],
     ['航向', `${row.heading.toFixed(2)}°`],
@@ -353,104 +269,11 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   scrub.value = String(elapsed);
   modeChip.textContent = playing ? (cameraMode === 'cockpit' ? '机舱（播放中）' : '延迟跟随（播放中）') : cameraMode === 'cockpit' ? '机舱（暂停）' : '延迟跟随（暂停）';
   el('follow').textContent = cameraMode === 'cockpit' ? '视角：机舱第一人称' : '视角：延迟跟随';
-  if (pakWorld) {
-    if (pakWorld.isReady) {
-      pakWorld.update(pose.pos[0], pose.pos[1], HD_RADIUS, LOD_RADIUS);
-      const busy = pakWorld.loadedCells === 0 && pakWorld.isLoading;
-      mapLoading.hidden = !busy;
-      if (busy) mapLoadingText.textContent = '载入预烘焙地图…';
-    }
-  } else {
-    requestStream(pose.pos[0], pose.pos[1]);
-  }
-}
-
-/**
- * Weld every cell the recording's ROUTE will need, once, before playback. The route is known, so this keeps
- * the engine's append-only texture array from growing mid-flight (the growth re-uploads all resident cells and
- * is what tripped GPU TDR / the late black screen).
- */
-/**
- * Background route preparation. The whole-route wait is gone: playback starts immediately and this pump
- * welds the route in small batches, IN ROUTE ORDER (start first, later parts lowest priority), a few cells
- * per tick so the frame thread is never held. The ACTIVE recording is prepared first; other open recordings
- * are queued behind it and processed in list order, one at a time.
- *
- * Growth of the engine's texture array is unavoidable when new textures appear; `preloadTargets` recreates
- * the resident cells when that happens (see HANDOFF #13), so a batch never blanks the screen.
- */
-interface PrepareState {
-  cursor: number;
-  targets: CellTarget[];
-}
-const prepareState = new Map<FlightTrack, PrepareState>();
-/**
- * Safe mode (default): the ACTIVE route's texture arrays are resolved and committed ONCE before playback, so
- * no texture array is ever replaced while cells are resident — the only configuration that does not risk
- * `DXGI_ERROR_DEVICE_HUNG` on this GPU. Dynamic mode (experimental, HUD toggle) starts instantly and grows
- * arrays at runtime; that growth is the known TDR source, so it is opt-in.
- */
-let DYNAMIC_LOAD = params.get('dynamic') === '1';
-let PREPARE_ENABLED = params.get('prepare') !== '0';
-let PREPARE_BUDGET = Math.max(4, Number(params.get('budget') ?? 60));
-let PREPARE_INTERVAL = Math.max(200, Number(params.get('prepareInterval') ?? 1000));
-let prepareBusy = false;
-
-/** Self-scheduling so the HUD's 间隔 slider takes effect immediately. */
-function schedulePrepare(): void {
-  window.setTimeout(() => {
-    pumpPrepare();
-    schedulePrepare();
-  }, PREPARE_INTERVAL);
-}
-
-/** Cells a recording's route needs, ordered by route time (start → end). */
-function buildRouteTargets(track: FlightTrack): CellTarget[] {
-  const wanted = new Map<string, CellTarget>();
-  for (let s = 0; s <= track.duration; s += 1) {
-    const p = sampleTrack(track, s).pos;
-    for (const cell of gtaGrid) {
-      const dx = (cell.cx + 0.5) * CELL_SIZE - p[0];
-      const dy = (cell.cy + 0.5) * CELL_SIZE - p[1];
-      const distance = Math.hypot(dx, dy);
-      if (distance <= HD_RADIUS) {
-        wanted.set(`${cell.cx},${cell.cy},hd`, { cx: cell.cx, cy: cell.cy, lod: false });
-      } else if (distance <= LOD_RADIUS) {
-        wanted.set(`${cell.cx},${cell.cy},lod`, { cx: cell.cx, cy: cell.cy, lod: true });
-      }
-    }
-  }
-
-  return [...wanted.values()];
-}
-
-function preparedRatio(track: FlightTrack | null): number {
-  if (!track) return 1;
-  const state = prepareState.get(track);
-  if (!state) return 0;
-  return state.targets.length ? state.cursor / state.targets.length : 1;
-}
-
-function pumpPrepare(): void {
-  if (!DYNAMIC_LOAD || !PREPARE_ENABLED || prepareBusy || !renderer) return;
-  const first = activeTrack();
-  const order = first ? [first, ...plays.filter((track) => track !== first)] : [...plays];
-  for (const track of order) {
-    const state = prepareState.get(track) ?? (() => {
-      const created: PrepareState = { cursor: 0, targets: buildRouteTargets(track) };
-      prepareState.set(track, created);
-
-      return created;
-    })();
-    if (state.cursor >= state.targets.length) continue;
-    const batch = state.targets.slice(state.cursor, state.cursor + PREPARE_BUDGET);
-    state.cursor += batch.length;
-    prepareBusy = true;
-    void renderer.preloadTargets(batch).catch(() => { /* a bad cell must not stop the pump */ }).finally(() => {
-      prepareBusy = false;
-    });
-
-    return;
+  if (pakWorld?.isReady) {
+    pakWorld.update(pose.pos[0], pose.pos[1], HD_RADIUS, LOD_RADIUS);
+    const busy = pakWorld.loadedCells === 0 && pakWorld.isLoading;
+    mapLoading.hidden = !busy;
+    if (busy) mapLoadingText.textContent = '载入预烘焙地图…';
   }
 }
 
@@ -460,21 +283,6 @@ async function selectTrack(index: number): Promise<void> {
   snapCamera = true;
   void ensureAircraft();
   renderTrackList();
-  const track = activeTrack();
-  if (track && !DYNAMIC_LOAD && !pakWorld) {
-    // SAFE MODE: resolve + commit this route's textures once, before any cell is resident.
-    const state = prepareState.get(track) ?? { cursor: 0, targets: buildRouteTargets(track) };
-    prepareState.set(track, state);
-    if (state.cursor < state.targets.length) {
-      mapLoading.hidden = false;
-      mapLoadingText.textContent = `准备航迹纹理（${state.targets.length} 个地块）…`;
-      await renderer.preloadTargets(state.targets.slice(state.cursor), (done, total) => {
-        mapLoadingText.textContent = `准备航迹纹理 ${Math.round((done / Math.max(1, total)) * 100)}%（${done}/${total}）`;
-      }, true);
-      state.cursor = state.targets.length;
-      mapLoading.hidden = true;
-    }
-  }
   frameOnce();
 }
 
@@ -655,31 +463,29 @@ async function boot(): Promise<void> {
   setStatus('正在读取本地 GTA 安装并建立世界索引…');
   map = await loadMapSource({ base: SRC, kind: 'http-dir' });
   timecycText = map.fs.getText('data/timecyc.dat') ?? '';
-  gtaGrid = [...map.grid.values()].map((cell) => ({ cx: cell.cx, cy: cell.cy }));
-  debug.cells = gtaGrid.length;
-  renderer = new CellRenderer(engine, map);
+  debug.cells = map.grid.size;
   installWater(engine, map);
-  if (await PakWorld.probe(MAP_PAK_BASE)) {
-    const pak = new PakWorld(engine, MAP_PAK_BASE);
+  // Route A only: a baked pak is required. If it is missing, say so instead of rendering an empty world.
+  if (!(await PakWorld.probe(MAP_PAK_BASE))) {
     mapLoading.hidden = false;
-    mapLoadingText.textContent = '读取预烘焙地图索引…';
-    try {
-      await pak.load((done, total) => {
-        mapLoadingText.textContent = `读取预烘焙纹理 ${done}/${total}…`;
-      });
-      pakWorld = pak;
-    } catch { /* fall back to the raw-install path below */ }
+    mapLoadingText.textContent = '未找到预烘焙地图（/map-pak/index.json）。请先运行：cd tools\\opensa && npx tsx scripts\\bake-map.mts map-pak';
+    setStatus('缺少预烘焙地图 pak，无法回放。请先烘焙（见 HANDOFF）。');
+    void report({ phase: 'no-pak' });
+
+    return;
   }
-  if (!pakWorld) {
-    schedulePrepare();
-  } else {
-    // Route A hides the raw-install-only controls (background prepare pump): they do nothing with a pak.
-    for (const node of document.querySelectorAll<HTMLElement>('.raw-only')) {
-      node.style.display = 'none';
-    }
+  const pak = new PakWorld(engine, MAP_PAK_BASE);
+  mapLoading.hidden = false;
+  mapLoadingText.textContent = '读取预烘焙地图索引…';
+  await pak.load((done, total) => {
+    mapLoadingText.textContent = `读取预烘焙纹理 ${done}/${total}…`;
+  });
+  pakWorld = pak;
+  for (const node of document.querySelectorAll<HTMLElement>('.raw-only')) {
+    node.style.display = 'none';
   }
-  setStatus(`世界索引就绪：${gtaGrid.length} 个单元`);
-  void report({ cells: gtaGrid.length, phase: 'world-indexed' });
+  setStatus(`预烘焙地图就绪：${map.grid.size} 个单元`);
+  void report({ cells: map.grid.size, phase: 'world-indexed' });
   // No URL parameters required: with nothing loaded, pull the newest local recording automatically.
   if (plays.length === 0) {
     await loadLatest();
@@ -714,8 +520,7 @@ function loop(): void {
   if (!track) {
     // Idle: keep the world drawing so the loading overlay can clear.
     if (engine && camera) {
-      const center = mapCenterGta(map);
-      engine.frame(camera.state(0.016, [center[0], 0, -center[1]], [0, 0, -1], [0, 1, 0], canvas.width / Math.max(1, canvas.height), 0, false));
+      engine.frame(camera.state(0.016, [0, 40, 0], [0, 0, -1], [0, 1, 0], canvas.width / Math.max(1, canvas.height), 0, false));
       engine.updateVehicles();
     }
     lastFrame = now;
@@ -858,30 +663,23 @@ function bindUi(): void {
 
   // --- Settings (HUD-driven; the URL is no longer the place to configure anything) ---
   el('loadLatestBtn').onclick = () => void loadLatest();
-  el('reloadBtn').onclick = () => location.reload();  const hd = el<HTMLInputElement>('hdSlider');
+  el('reloadBtn').onclick = () => location.reload();
+  const hd = el<HTMLInputElement>('hdSlider');
   const lod = el<HTMLInputElement>('lodSlider');
   const scale = el<HTMLInputElement>('scaleSlider');
-  const budget = el<HTMLInputElement>('budgetSlider');
-  const interval = el<HTMLInputElement>('intervalSlider');
   hd.value = String(HD_RADIUS);
   lod.value = String(LOD_RADIUS);
   el('hdLabel').textContent = String(HD_RADIUS);
   el('lodLabel').textContent = String(LOD_RADIUS);
   el('scaleLabel').textContent = '0.75';
-  el('budgetLabel').textContent = String(PREPARE_BUDGET);
-  el('intervalLabel').textContent = `${PREPARE_INTERVAL}ms`;
   hd.oninput = () => {
     HD_RADIUS = Number(hd.value);
     el('hdLabel').textContent = hd.value;
-    prepareState.clear(); // routes are re-derived with the new radius
-    lastStreamCell = '';
     frameOnce();
   };
   lod.oninput = () => {
     LOD_RADIUS = Number(lod.value);
     el('lodLabel').textContent = lod.value;
-    prepareState.clear();
-    lastStreamCell = '';
     frameOnce();
   };
   scale.oninput = () => {
@@ -896,26 +694,7 @@ function bindUi(): void {
     el('hdLabel').textContent = '250'; el('lodLabel').textContent = '600'; el('scaleLabel').textContent = '0.50';
     HD_RADIUS = 250; LOD_RADIUS = 600;
     if (engine) engine.renderScale = 0.5;
-    prepareState.clear();
-    lastStreamCell = '';
     frameOnce();
-  };
-  el<HTMLInputElement>('dynamicLoadToggle').onchange = (event) => {
-    DYNAMIC_LOAD = (event.target as HTMLInputElement).checked;
-    if (DYNAMIC_LOAD) {
-      schedulePrepare();
-    }
-  };
-  el<HTMLInputElement>('prepareToggle').onchange = (event) => {
-    PREPARE_ENABLED = (event.target as HTMLInputElement).checked;
-  };
-  budget.oninput = () => {
-    PREPARE_BUDGET = Number(budget.value);
-    el('budgetLabel').textContent = budget.value;
-  };
-  interval.oninput = () => {
-    PREPARE_INTERVAL = Number(interval.value);
-    el('intervalLabel').textContent = `${interval.value}ms`;
   };
   el<HTMLInputElement>('axesToggle').onchange = (event) => {
     SHOW_AXES = (event.target as HTMLInputElement).checked;
