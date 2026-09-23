@@ -28,6 +28,7 @@ interface FlightDebug {
   aircraft: string;
   cells: number;
   error: null | string;
+  gpu: string;
   maxFrameMs: number;
   maxUpStepDeg: number;
   parts: string;
@@ -38,7 +39,7 @@ interface FlightDebug {
   slowFrames: number;
   status: string;
 }
-const debug: FlightDebug = { aircraft: 'none', cells: 0, envHud: '', error: null, maxFrameMs: 0, maxUpStepDeg: 0, parts: '', phase: 'boot', renders: 0, seeks: 0, slowFrames: 0, status: '' };
+const debug: FlightDebug = { aircraft: 'none', cells: 0, envHud: '', error: null, gpu: '', maxFrameMs: 0, maxUpStepDeg: 0, parts: '', phase: 'boot', renders: 0, seeks: 0, slowFrames: 0, status: '' };
 /** Camera-up from the previous frame, for the jitter metric (`maxUpStepDeg`). */
 let lastCameraUp: Vec3 | null = null;
 (window as unknown as { __flight: FlightDebug }).__flight = debug;
@@ -270,6 +271,7 @@ function updateReadout(track: FlightTrack, pose: ReturnType<typeof sampleTrack>)
     ['环境(显示)', `${Math.round(lastEnv.weather)} ${WEATHER_NAMES[Math.round(lastEnv.weather)] ?? ''} @ ${formatHour(lastEnv.hour)} · ${isFollowingEnv() ? '跟随录制' : '手动'}`],
     ['航迹准备', `${Math.round(preparedRatio(activeTrack()) * 100)}%${PREPARE_ENABLED ? '' : '（已关闭）'}`],
     ['地图来源', pakWorld ? `预烘焙 pak${pakWorld.note()}` : '原始安装（实时焊接）'],
+    ['显卡', `${debug.gpu || '—'}${debug.phase === 'device-lost' ? ' · 设备已丢失!' : ''}`],
     ['坐标', `${row.pos[0].toFixed(2)}, ${row.pos[1].toFixed(2)}, ${row.pos[2].toFixed(2)}`],
     ['航向', `${row.heading.toFixed(2)}°`],
     ['速度', `${speed.toFixed(2)} 单位/秒`],
@@ -616,11 +618,36 @@ async function boot(): Promise<void> {
     return;
   }
   void report({ phase: 'engine-ready' });
+  // Diagnostics: which GPU, and a loud message if the device is reset (that is the "everything turns black"
+  // failure that is NOT a data bug — the page keeps its DOM but the canvas stops presenting).
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    debug.gpu = adapter ? `${adapter.info?.vendor ?? '?'} ${adapter.info?.architecture ?? ''}`.trim() : 'none';
+  } catch {
+    debug.gpu = 'error';
+  }
+  engine.device.lost
+    .then((info) => {
+      debug.phase = 'device-lost';
+      debug.error = `device-lost:${info.reason}`;
+      void report({ gpu: debug.gpu, phase: 'device-lost', reason: info.reason });
+      // The Intel Arc driver occasionally resets under load; that shows as a black canvas with the DOM
+      // still alive. Recover automatically (once per minute) instead of leaving the user on a dead canvas.
+      const key = 'gtasaGpuReloadAt';
+      const last = Number(sessionStorage.getItem(key) ?? 0);
+      if (Date.now() - last > 60000) {
+        sessionStorage.setItem(key, String(Date.now()));
+        setStatus(`GPU 设备丢失（${info.reason}），1 秒后自动重启渲染…`);
+        window.setTimeout(() => location.reload(), 1000);
+      } else {
+        setStatus(`GPU 设备丢失（${info.reason}）且刚刚已重启过：请用「启动回放-强制GPU.cmd」/换 Edge，或把分辨率/半径调低。`);
+      }
+    })
+    .catch(() => { /* lost promise rejection is not actionable */ });
   ensureAxes();
   const scale = Number(params.get('scale') ?? Number.NaN);
-  if (Number.isFinite(scale) && scale > 0.2 && scale <= 1) {
-    engine.renderScale = scale;
-  }
+  // Default to 0.75: full resolution on this Arc driver resets the device more often under load.
+  engine.renderScale = Number.isFinite(scale) && scale > 0.2 && scale <= 1 ? scale : 0.75;
   engine.environment.windStrength = 0;
   engine.waterEnabled = true;
   camera = new ReplayCamera();
@@ -826,6 +853,7 @@ function bindUi(): void {
 
   // --- Settings (HUD-driven; the URL is no longer the place to configure anything) ---
   el('loadLatestBtn').onclick = () => void loadLatest();
+  el('reloadBtn').onclick = () => location.reload();
   const hd = el<HTMLInputElement>('hdSlider');
   const lod = el<HTMLInputElement>('lodSlider');
   const scale = el<HTMLInputElement>('scaleSlider');
@@ -835,7 +863,7 @@ function bindUi(): void {
   lod.value = String(LOD_RADIUS);
   el('hdLabel').textContent = String(HD_RADIUS);
   el('lodLabel').textContent = String(LOD_RADIUS);
-  el('scaleLabel').textContent = '1.00';
+  el('scaleLabel').textContent = '0.75';
   el('budgetLabel').textContent = String(PREPARE_BUDGET);
   el('intervalLabel').textContent = `${PREPARE_INTERVAL}ms`;
   hd.oninput = () => {

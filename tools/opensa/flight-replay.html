@@ -100,6 +100,7 @@
       </div>
       <div class="hud-row">
         <button id="loadLatestBtn">载入最新记录</button>
+        <button id="reloadBtn">重启渲染</button>
         <label>高清半径
           <input id="hdSlider" type="range" min="100" max="1200" step="50" value="400" />
           <span class="val" id="hdLabel">400</span>
@@ -109,8 +110,8 @@
           <span class="val" id="lodLabel">1000</span>
         </label>
         <label>分辨率
-          <input id="scaleSlider" type="range" min="0.5" max="1" step="0.05" value="1" />
-          <span class="val" id="scaleLabel">1.00</span>
+          <input id="scaleSlider" type="range" min="0.5" max="1" step="0.05" value="0.75" />
+          <span class="val" id="scaleLabel">0.75</span>
         </label>
         <span class="sep">|</span>
         <label><input id="dynamicLoadToggle" type="checkbox" /> 动态加载(实验)</label>
