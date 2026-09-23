@@ -853,8 +853,7 @@ function bindUi(): void {
 
   // --- Settings (HUD-driven; the URL is no longer the place to configure anything) ---
   el('loadLatestBtn').onclick = () => void loadLatest();
-  el('reloadBtn').onclick = () => location.reload();
-  const hd = el<HTMLInputElement>('hdSlider');
+  el('reloadBtn').onclick = () => location.reload();  const hd = el<HTMLInputElement>('hdSlider');
   const lod = el<HTMLInputElement>('lodSlider');
   const scale = el<HTMLInputElement>('scaleSlider');
   const budget = el<HTMLInputElement>('budgetSlider');
@@ -884,6 +883,17 @@ function bindUi(): void {
     const value = Number(scale.value);
     el('scaleLabel').textContent = value.toFixed(2);
     if (engine) engine.renderScale = value;
+  };
+  el('ecoBtn').onclick = () => {
+    // One-click reduced load: the Intel Arc driver resets under sustained load, and fill/radius are the
+    // cheapest levers we own.
+    hd.value = '250'; lod.value = '600'; scale.value = '0.5';
+    el('hdLabel').textContent = '250'; el('lodLabel').textContent = '600'; el('scaleLabel').textContent = '0.50';
+    HD_RADIUS = 250; LOD_RADIUS = 600;
+    if (engine) engine.renderScale = 0.5;
+    prepareState.clear();
+    lastStreamCell = '';
+    frameOnce();
   };
   el<HTMLInputElement>('dynamicLoadToggle').onchange = (event) => {
     DYNAMIC_LOAD = (event.target as HTMLInputElement).checked;
