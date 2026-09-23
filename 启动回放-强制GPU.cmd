@@ -1,15 +1,15 @@
 @echo off
-rem Launches the replay in Chrome with the GPU blocklist ignored and WebGPU allowed.
-rem Use this only when the normal page reports "WebGPU adapter request failed" because Chrome
-rem blocklisted the GPU or rejected the high-performance adapter.
+rem Open the replay in Chrome with the GPU blocklist ignored (fallback if WebGPU still complains).
 setlocal
-set URL=http://127.0.0.1:4173/?local=latest
+set URL=%1
+if "%URL%"=="" set URL=http://127.0.0.1:4173/
+set PROFILE=%TEMP%\GTASA-StuntTools-gpu-%RANDOM%%RANDOM%
 set CHROME="C:\Program Files\Google\Chrome\Application\chrome.exe"
 if not exist %CHROME% set CHROME="%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"
 if not exist %CHROME% (
-  echo Chrome not found in the usual locations. Open this URL manually in a current Chrome/Edge:
+  echo Chrome not found. Open this URL manually:
   echo %URL%
   pause
   exit /b 1
 )
-start "" %CHROME% --ignore-gpu-blocklist --enable-unsafe-webgpu --enable-features=Vulkan --disable-gpu-driver-bug-workarounds "%URL%"
+start "" %CHROME% --user-data-dir="%PROFILE%" --ignore-gpu-blocklist --enable-unsafe-webgpu --no-first-run --no-default-browser-check "%URL%"

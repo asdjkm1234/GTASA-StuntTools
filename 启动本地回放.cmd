@@ -1,4 +1,3 @@
 @echo off
-rem Convenience launcher: starts the local replay service from the project root.
-cd /d "%~dp0web-replay"
-call ".\启动本地回放.cmd"
+rem Chinese-named wrapper kept for convenience; body is ASCII-only and calls the ASCII launcher.
+call "%~dp0start-replay.cmd"

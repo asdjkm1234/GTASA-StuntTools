@@ -1,10 +1,8 @@
 @echo off
-rem Opens the replay in Chrome/Edge with a FRESH throwaway profile (NOT the everyday one).
-rem A profile's GPU caches can go bad and break WebGPU ("requestAdapter -> null"), and a reused profile can be
-rem poisoned by a force-close; a new profile per launch avoids both. Measured: fresh profile -> Arc adapter OK.
+rem Open the replay in Chrome/Edge with a FRESH throwaway profile (NOT the everyday one).
 setlocal
 set URL=%1
-if "%URL%"=="" set URL=http://127.0.0.1:4173/?local=latest
+if "%URL%"=="" set URL=http://127.0.0.1:4173/
 set PROFILE=%TEMP%\GTASA-StuntTools-chrome-%RANDOM%%RANDOM%
 set CHROME="C:\Program Files\Google\Chrome\Application\chrome.exe"
 if not exist %CHROME% set CHROME="%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"
