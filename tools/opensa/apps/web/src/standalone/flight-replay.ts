@@ -269,7 +269,7 @@ function updateReadout(track: FlightTrack, pose: ReturnType<typeof sampleTrack>)
     ['本地时间', new Date(row.timeMs).toLocaleTimeString('zh-CN', { hour12: false })],
     ['游戏时间', `${row.gameHour ?? '—'}:${String(row.gameMinute ?? 0).padStart(2, '0')}（天气 ${row.weatherNew ?? '—'}）`],
     ['环境(显示)', `${Math.round(lastEnv.weather)} ${WEATHER_NAMES[Math.round(lastEnv.weather)] ?? ''} @ ${formatHour(lastEnv.hour)} · ${isFollowingEnv() ? '跟随录制' : '手动'}`],
-    ['航迹准备', `${Math.round(preparedRatio(activeTrack()) * 100)}%${PREPARE_ENABLED ? '' : '（已关闭）'}`],
+    ...(pakWorld ? [] : [['航迹准备', `${Math.round(preparedRatio(activeTrack()) * 100)}%${PREPARE_ENABLED ? '' : '（已关闭）'}`] as [string, string]]),
     ['地图来源', pakWorld ? `预烘焙 pak${pakWorld.note()}` : '原始安装（实时焊接）'],
     ['显卡', `${debug.gpu || '—'}${debug.phase === 'device-lost' ? ' · 设备已丢失!' : ''}`],
     ['坐标', `${row.pos[0].toFixed(2)}, ${row.pos[1].toFixed(2)}, ${row.pos[2].toFixed(2)}`],
@@ -672,6 +672,11 @@ async function boot(): Promise<void> {
   }
   if (!pakWorld) {
     schedulePrepare();
+  } else {
+    // Route A hides the raw-install-only controls (background prepare pump): they do nothing with a pak.
+    for (const node of document.querySelectorAll<HTMLElement>('.raw-only')) {
+      node.style.display = 'none';
+    }
   }
   setStatus(`世界索引就绪：${gtaGrid.length} 个单元`);
   void report({ cells: gtaGrid.length, phase: 'world-indexed' });
