@@ -29,6 +29,8 @@ export interface CameraFrame {
   snap: boolean;
   up: Vec3;
   velocity: Vec3;
+  /** Current aircraft height minus its height a short time ago, in engine units. */
+  heightTrail?: number;
 }
 
 const WORLD_UP: Vec3 = [0, 1, 0];
@@ -40,6 +42,7 @@ const PLANE_ZOOM: Record<'chase-near' | 'chase-mid' | 'chase-far', { alpha: numb
 };
 const COCKPIT_AHEAD = 0.6;
 const COCKPIT_UP = 0.3;
+const MAX_CHASE_PITCH = (55 * Math.PI) / 180;
 
 function spring(position: Vec3, velocity: Vec3, goal: Vec3, smoothTime: number, dt: number): void {
   const omega = 2 / Math.max(0.001, smoothTime);
@@ -145,9 +148,14 @@ export class ReplayCamera {
       ? desiredDistance
       : this.distance + (desiredDistance - this.distance) * (1 - Math.exp(-dt / 0.25));
     const target: Vec3 = [position[0], position[1] + targetUp, position[2]];
+    // SA's plane alpha is an offset to a moving camera angle, not a fixed pitch. A short target-height
+    // history leaves the eye below a climbing plane (or above a diving one) even after a timeline seek.
+    const heightTrail = Math.max(-this.distance * 2, Math.min(this.distance * 2, frame.heightTrail ?? 0));
+    const pitch = Math.max(-MAX_CHASE_PITCH, Math.min(MAX_CHASE_PITCH,
+      Math.atan2(heightTrail - Math.tan(zoom.alpha) * this.distance, this.distance)));
     const eye: Vec3 = [
       target[0] - Math.sin(this.yaw) * this.distance,
-      target[1] + Math.tan(zoom.alpha) * this.distance,
+      target[1] - Math.tan(pitch) * this.distance,
       target[2] - Math.cos(this.yaw) * this.distance,
     ];
     return { aspect, eye, far: 12000, fovYRad: (70 * Math.PI) / 180, near: 0.5, target, up: WORLD_UP };

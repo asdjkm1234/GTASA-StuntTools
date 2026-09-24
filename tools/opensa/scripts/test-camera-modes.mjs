@@ -1,5 +1,5 @@
 /**
- * Capture the five flight views on the v5 Hydra recording's backwards-flight segment.
+ * Capture the climbing and backwards-flight views on the v5 Hydra recording.
  * Uses its own fresh Chrome profile and closes only the Chrome process started here.
  *
  *   node scripts/test-camera-modes.mjs
@@ -68,11 +68,16 @@ try {
   console.log('Uploading target recording');
   await page.setInputFiles('#picker', file);
   await page.waitForFunction(() => document.getElementById('segment')?.textContent?.includes('flight_20260918_021607_017_m520_003.csv'), null, { timeout: 60_000, polling: 500 });
-  await page.evaluate(() => {
+  const seek = async (seconds) => page.evaluate((time) => {
     const scrub = document.getElementById('scrub');
-    scrub.value = '123';
+    scrub.value = String(time);
     scrub.dispatchEvent(new Event('input', { bubbles: true }));
-  });
+  }, seconds);
+  await seek(115.977);
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: join(outDir, 'camera-climb.png') });
+  console.log('climb frame', await page.locator('#clock').textContent());
+  await seek(123);
   await page.waitForTimeout(4000);
 
   const capture = async (expected) => {
