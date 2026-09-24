@@ -101,7 +101,7 @@
       <div class="hud-row">
         <button id="loadLatestBtn">载入最新记录</button>
         <button id="reloadBtn">重启渲染</button>
-        <button id="ecoBtn" title="降低分辨率与流送半径，减少 GPU 重置">省电模式</button>
+        <button id="ecoBtn" title="缩小地图流送范围，减少 GPU 负载">省电模式</button>
         <label>高清半径
           <input id="hdSlider" type="range" min="100" max="1200" step="50" value="400" />
           <span class="val" id="hdLabel">400</span>
@@ -109,10 +109,6 @@
         <label>远景半径
           <input id="lodSlider" type="range" min="300" max="3000" step="100" value="1000" />
           <span class="val" id="lodLabel">1000</span>
-        </label>
-        <label>分辨率
-          <input id="scaleSlider" type="range" min="0.5" max="1" step="0.05" value="0.75" />
-          <span class="val" id="scaleLabel">0.75</span>
         </label>
         <span class="sep">|</span>
         <label><input id="axesToggle" type="checkbox" /> 调试轴</label>

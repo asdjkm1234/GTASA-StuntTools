@@ -497,14 +497,12 @@ async function boot(): Promise<void> {
         setStatus(`GPU 设备丢失（${info.reason}），1 秒后自动重启渲染…`);
         window.setTimeout(() => location.reload(), 1000);
       } else {
-        setStatus(`GPU 设备丢失（${info.reason}）且刚刚已重启过：请用「启动回放-强制GPU.cmd」/换 Edge，或把分辨率/半径调低。`);
+        setStatus(`GPU 设备丢失（${info.reason}）且刚刚已重启过：请用「启动回放-强制GPU.cmd」/换 Edge，或用「省电模式」缩小地图范围。`);
       }
     })
     .catch(() => { /* lost promise rejection is not actionable */ });
   ensureAxes();
-  const scale = Number(params.get('scale') ?? Number.NaN);
-  // Default to 0.75: full resolution on this Arc driver resets the device more often under load.
-  engine.renderScale = Number.isFinite(scale) && scale > 0.2 && scale <= 1 ? scale : 0.75;
+  engine.renderScale = 1;
   engine.environment.windStrength = 0;
   engine.waterEnabled = true;
   camera = new ReplayCamera();
@@ -719,12 +717,10 @@ function bindUi(): void {
   el('reloadBtn').onclick = () => location.reload();
   const hd = el<HTMLInputElement>('hdSlider');
   const lod = el<HTMLInputElement>('lodSlider');
-  const scale = el<HTMLInputElement>('scaleSlider');
   hd.value = String(HD_RADIUS);
   lod.value = String(LOD_RADIUS);
   el('hdLabel').textContent = String(HD_RADIUS);
   el('lodLabel').textContent = String(LOD_RADIUS);
-  el('scaleLabel').textContent = '0.75';
   hd.oninput = () => {
     HD_RADIUS = Number(hd.value);
     el('hdLabel').textContent = hd.value;
@@ -735,18 +731,11 @@ function bindUi(): void {
     el('lodLabel').textContent = lod.value;
     frameOnce();
   };
-  scale.oninput = () => {
-    const value = Number(scale.value);
-    el('scaleLabel').textContent = value.toFixed(2);
-    if (engine) engine.renderScale = value;
-  };
   el('ecoBtn').onclick = () => {
-    // One-click reduced load: the Intel Arc driver resets under sustained load, and fill/radius are the
-    // cheapest levers we own.
-    hd.value = '250'; lod.value = '600'; scale.value = '0.5';
-    el('hdLabel').textContent = '250'; el('lodLabel').textContent = '600'; el('scaleLabel').textContent = '0.50';
+    // Reduce streamed map detail when the Intel Arc driver resets under sustained load.
+    hd.value = '250'; lod.value = '600';
+    el('hdLabel').textContent = '250'; el('lodLabel').textContent = '600';
     HD_RADIUS = 250; LOD_RADIUS = 600;
-    if (engine) engine.renderScale = 0.5;
     frameOnce();
   };
   el<HTMLInputElement>('axesToggle').onchange = (event) => {

@@ -91,12 +91,11 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
 
 - 天气/时间滑块 + `跟随录制`：即时切换环境（见下）。
 - `载入最新记录`：重新拉取 `flight-recordings` 最新 CSV。
-- `高清半径`(100–1200, 默认 450) / `远景半径`(300–3000, 默认 1200)：流送半径，改动会清空准备队列并按新半径重算。
-- `分辨率`(0.5–1.0)：`engine.renderScale`。
-- `后台准备`(开关) / `每批`(10–200, 默认 60) / `间隔`(250–3000ms, 默认 1000)：后台航迹准备的批量与节奏。
+- `高清半径`(100–1200, 默认 400) / `远景半径`(300–3000, 默认 1000)：地图流送半径。
+- 回放固定使用原生渲染比例 `engine.renderScale=1`；`省电模式` 只缩小地图流送半径，不降低画面分辨率。
 - `调试轴`：显示飞机 forward/up/right 三色世界线（绿/蓝/红），用于判定模型朝向。
 
-脚本测试仍可用可选 URL 覆盖：`?src=/game-src`、`?hd=`/`?lod=`、`?scale=`、`?axes=1`、`?weather=`/`?hour=`、`?prepare=0`、`?budget=`/`?prepareInterval=`。
+脚本测试仍可用可选 URL 覆盖：`?src=/game-src`、`?hd=`/`?lod=`、`?axes=1`、`?weather=`/`?hour=`。
 
 **天气/时间 HUD**：播放条下方有两根滑块（天气 0–22、时间 0–24，步进 0.25）与 `跟随录制` 勾选框。滑块即时生效（天气变化会重建环境驱动）；取消“跟随录制”会**冻结在当前值**再交给滑块。实时数据里的 `环境(显示)` 行显示生效值及来源。状态探针：`debug.envHud`（`hud/force/rec/eff`）。实现见 `applyEnvironment()` 与 `syncEnvControls()`。
 
@@ -189,7 +188,7 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
 数据路径：`npx tsx scripts/bake-map.mts map-pak` → `map-pak/` →`local-server.mjs` 的 `/map-pak/*` → `PakWorld`（分帧上传、零数组替换）。
 
 **已实测通过**：`tsc --noEmit` 0 错误；pak 模式单文件 / 多文件切换 / 大文件拖动 / 60s@4× 均**无 DXGI**；
-播放/暂停/重启/逐帧/拖动/速度、延迟跟随↔机舱、天气/时间/半径/分辨率/调试轴 HUD 均正常；服务接口正常。
+播放/暂停/重启/逐帧/拖动/速度、延迟跟随↔机舱、天气/时间/半径/调试轴 HUD 均正常；服务接口正常。当前回放固定原生分辨率。
 
 **已知环境问题**：Intel Arc 驱动偶发 `DXGI_ERROR_DEVICE_HUNG`（黑屏）——应用会**自动重启渲染**，并有
 `省电模式`/`重启渲染`；这不是数据 bug（见 §5 第 2 条）。
