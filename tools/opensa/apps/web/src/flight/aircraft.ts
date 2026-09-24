@@ -34,6 +34,8 @@ export interface AircraftHandle {
   /** Apply recorded/inferred animated node rotations. `nodes` follows {@link NODE_NAMES}. */
   applyNodes(nodes: readonly (Quat | null)[], gearStatus: number, inferred: { roll: number; pitch: number; yaw: number }): void;
   applyPaint(colors: readonly (number | null)[]): void;
+  /** Hide the whole aircraft while the camera is inside the original first-person seat. */
+  setVisible(visible: boolean): void;
   dispose(): void;
 }
 
@@ -62,6 +64,7 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
   });
   const modelId = engine.createVehicleModel(toRigidModelInit(data));
   const instance = engine.createVehicle(modelId);
+  let isVisible = true;
 
   // Bind rotation of each named node, so a recorded ABSOLUTE local rotation can be turned into the
   // animation delta `setPartRotation` expects (bind × anim).
@@ -113,6 +116,13 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
       if (rgb) {
         instance.setPaint({ primary: rgb.primary, quaternary: rgb.tertiary, secondary: rgb.secondary, tertiary: rgb.quaternary });
       }
+    },
+    setVisible(visible): void {
+      if (visible === isVisible) return;
+      for (let submesh = 0; submesh < data.submeshes.length; submesh += 1) {
+        instance.setSubmeshVisible(submesh, visible);
+      }
+      isVisible = visible;
     },
     applyPose(positionGta, orientation): void {
       // `orientation` maps the model's native axes (X=right, Y=forward, Z=up) to engine world, and for the

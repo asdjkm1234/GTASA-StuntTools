@@ -12,10 +12,10 @@ import type { AircraftHandle } from '../flight/aircraft';
 import type { FlightTrack } from '../flight/csv';
 
 import { loadAircraft } from '../flight/aircraft';
-import { ReplayCamera } from '../flight/camera';
+import { ReplayCamera, type CameraMode } from '../flight/camera';
 import { PakWorld } from '../flight/pak-world';
 import { NODE_NAMES, parseFlightCsv, sampleTrack } from '../flight/csv';
-import { rotateVec, type Vec3 } from '../flight/math';
+import { gtaDirToEngine, rotateVec, type Vec3 } from '../flight/math';
 import { loadMapSource } from '../flight/map-source';
 import { installWater } from '../flight/water';
 
@@ -24,6 +24,9 @@ const el = <T extends HTMLElement>(id: string): T => document.getElementById(id)
 /** Live diagnostic state, readable from a CDP/automation session (`window.__flight`). */
 interface FlightDebug {
   aircraft: string;
+  cameraMode: string;
+  cameraDistance: number;
+  cameraTravelDot: number;
   cells: number;
   error: null | string;
   gpu: string;
@@ -31,13 +34,15 @@ interface FlightDebug {
   maxUpStepDeg: number;
   parts: string;
   phase: string;
+  seatSource: string;
   envHud: string;
   renders: number;
   seeks: number;
   slowFrames: number;
   status: string;
+  worldReady: boolean;
 }
-const debug: FlightDebug = { aircraft: 'none', cells: 0, envHud: '', error: null, gpu: '', maxFrameMs: 0, maxUpStepDeg: 0, parts: '', phase: 'boot', renders: 0, seeks: 0, slowFrames: 0, status: '' };
+const debug: FlightDebug = { aircraft: 'none', cameraDistance: 0, cameraMode: 'chase-mid', cameraTravelDot: 0, cells: 0, envHud: '', error: null, gpu: '', maxFrameMs: 0, maxUpStepDeg: 0, parts: '', phase: 'boot', renders: 0, seatSource: 'none', seeks: 0, slowFrames: 0, status: '', worldReady: false };
 /** Camera-up from the previous frame, for the jitter metric (`maxUpStepDeg`). */
 let lastCameraUp: Vec3 | null = null;
 (window as unknown as { __flight: FlightDebug }).__flight = debug;
@@ -124,11 +129,22 @@ let active = 0;
 let playing = false;
 let elapsed = 0;
 let lastFrame = performance.now();
-let cameraMode: 'chase' | 'cockpit' = 'chase';
+const CAMERA_MODES: CameraMode[] = ['chase-near', 'chase-mid', 'chase-far', 'first-person', 'cockpit'];
+const CAMERA_LABELS: Record<CameraMode, string> = {
+  'chase-near': '原版跟随·近',
+  'chase-mid': '原版跟随·中',
+  'chase-far': '原版跟随·远',
+  'first-person': '原版第一人称',
+  cockpit: '机舱第一人称',
+};
+let cameraMode: CameraMode = 'chase-mid';
 let aircraft: AircraftHandle | null = null;
 let aircraftModel = -1;
 /** Part index of the cockpit/canopy inside the loaded aircraft, used as the first-person anchor. */
 let cockpitPart = -1;
+let seatLocal: Vec3 | null = null;
+let modelLength = 14;
+let modelTop = 3;
 let snapCamera = true;
 let lastWeather = -1;
 let envDriver: ReturnType<typeof createEngineEnvironmentDriver> | null = null;
@@ -213,6 +229,7 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   applyEnvironment(pose.row);
   const posEngine: Vec3 = [pose.pos[0], pose.pos[2], -pose.pos[1]];
   if (aircraft) {
+    aircraft.setVisible(cameraMode !== 'first-person');
     aircraft.applyPose(pose.pos, pose.orientation);
     aircraft.applyPaint(pose.row.colors);
     const keysInferred = {
@@ -241,14 +258,27 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   drawAxes(posEngine, forward, right, up);
   // Flatten BEFORE the camera: the cockpit anchor is a part world matrix, only valid for this frame.
   engine.updateVehicles();
-  let camBase = posEngine;
-  if (cameraMode === 'cockpit' && aircraft && cockpitPart >= 0) {
+  let cockpitPosition: Vec3 | undefined;
+  if (aircraft && cockpitPart >= 0) {
     const matrices = aircraft.instance.entity.matrices;
     const offset = cockpitPart * 16;
-    camBase = [matrices[offset + 12], matrices[offset + 13], matrices[offset + 14]];
+    cockpitPosition = [matrices[offset + 12], matrices[offset + 13], matrices[offset + 14]];
   }
+  const firstPersonPosition: Vec3 | undefined = seatLocal ? [
+    posEngine[0] + right[0] * seatLocal[0] + forward[0] * seatLocal[1] + up[0] * seatLocal[2],
+    posEngine[1] + right[1] * seatLocal[0] + forward[1] * seatLocal[1] + up[1] * seatLocal[2],
+    posEngine[2] + right[2] * seatLocal[0] + forward[2] * seatLocal[1] + up[2] * seatLocal[2],
+  ] : undefined;
   const dt = Math.min(0.1, Math.max(0.0001, (performance.now() - lastFrame) / 1000));
-  const cameraState = camera.state(dt, camBase, forward, up, canvas.width / Math.max(1, canvas.height), pose.speed, forceSnap || snapCamera);
+  const velocity = gtaDirToEngine(pose.velocity);
+  const cameraState = camera.state({
+    aspect: canvas.width / Math.max(1, canvas.height), cockpitPosition, dt, firstPersonPosition,
+    forward, modelLength, modelTop, position: posEngine, snap: forceSnap || snapCamera, up, velocity,
+  });
+  debug.cameraMode = cameraMode;
+  const view = [cameraState.target[0] - cameraState.eye[0], cameraState.target[1] - cameraState.eye[1], cameraState.target[2] - cameraState.eye[2]];
+  debug.cameraDistance = Math.hypot(...view);
+  debug.cameraTravelDot = view.reduce((sum, component, index) => sum + component * velocity[index], 0) / Math.max(1e-6, Math.hypot(...view) * Math.hypot(...velocity));
   snapCamera = false;
   try {
     engine.frame(cameraState);
@@ -267,8 +297,8 @@ function update(track: FlightTrack, forceSnap: boolean): void {
     scrub.max = String(track.duration);
   }
   scrub.value = String(elapsed);
-  modeChip.textContent = playing ? (cameraMode === 'cockpit' ? '机舱（播放中）' : '延迟跟随（播放中）') : cameraMode === 'cockpit' ? '机舱（暂停）' : '延迟跟随（暂停）';
-  el('follow').textContent = cameraMode === 'cockpit' ? '视角：机舱第一人称' : '视角：延迟跟随';
+  modeChip.textContent = `${CAMERA_LABELS[cameraMode]}（${playing ? '播放中' : '暂停'}）`;
+  el('follow').textContent = `视角：${CAMERA_LABELS[cameraMode]}`;
   if (pakWorld?.isReady) {
     pakWorld.update(pose.pos[0], pose.pos[1], HD_RADIUS, LOD_RADIUS);
     const busy = pakWorld.loadedCells === 0 && pakWorld.isLoading;
@@ -307,6 +337,11 @@ async function ensureAircraft(): Promise<void> {
   }
   aircraft?.dispose();
   aircraft = null;
+  cockpitPart = -1;
+  seatLocal = null;
+  modelLength = 14;
+  modelTop = 3;
+  debug.seatSource = 'none';
   aircraftModel = track.model;
   try {
     aircraft = await loadAircraft(engine, map, track.model);
@@ -314,6 +349,18 @@ async function ensureAircraft(): Promise<void> {
     if (cockpitPart < 0) {
       cockpitPart = aircraft.data.parts.findIndex((part) => part.name === 'chassis');
     }
+    const seat = aircraft.data.dummies.find((dummy) => dummy.name.toLowerCase() === 'ped_frontseat');
+    // GTA's vehicle first-person camera ignores the seat's sideways offset.
+    seatLocal = seat ? [0, seat.position[1] + 0.08, seat.position[2] + 0.62] : null;
+    debug.seatSource = seat ? 'ped_frontseat' : 'fallback';
+    let minY = Infinity;
+    let maxZ = -Infinity;
+    for (let i = 0; i < aircraft.data.positions.length; i += 3) {
+      minY = Math.min(minY, aircraft.data.positions[i + 1]);
+      maxZ = Math.max(maxZ, aircraft.data.positions[i + 2]);
+    }
+    modelLength = Number.isFinite(minY) ? Math.max(8, Math.min(35, -2 * minY)) : 14;
+    modelTop = Number.isFinite(maxZ) ? Math.max(1, Math.min(8, maxZ)) : 3;
     debug.aircraft = `${aircraft.name} ${describeNose(aircraft)}`;
     debug.parts = aircraft.data.parts.map((part, index) => `${index}:${part.name}`).join(' ');
     setStatus(`已载入原版 ${aircraft.name}（模型 ${track.model}）`);
@@ -481,6 +528,7 @@ async function boot(): Promise<void> {
     mapLoadingText.textContent = `读取预烘焙纹理 ${done}/${total}…`;
   });
   pakWorld = pak;
+  debug.worldReady = true;
   for (const node of document.querySelectorAll<HTMLElement>('.raw-only')) {
     node.style.display = 'none';
   }
@@ -520,7 +568,10 @@ function loop(): void {
   if (!track) {
     // Idle: keep the world drawing so the loading overlay can clear.
     if (engine && camera) {
-      engine.frame(camera.state(0.016, [0, 40, 0], [0, 0, -1], [0, 1, 0], canvas.width / Math.max(1, canvas.height), 0, false));
+      engine.frame(camera.state({
+        aspect: canvas.width / Math.max(1, canvas.height), dt: 0.016, forward: [0, 0, -1],
+        modelLength, modelTop, position: [0, 40, 0], snap: false, up: [0, 1, 0], velocity: [0, 0, 0],
+      }));
       engine.updateVehicles();
     }
     lastFrame = now;
@@ -548,12 +599,12 @@ function loop(): void {
 }
 
 function cycleCamera(): void {
-  cameraMode = cameraMode === 'chase' ? 'cockpit' : 'chase';
-  // The ReplayCamera owns its own mode; assigning the module variable alone left it on chase forever
-  // (the "both views look the same" bug).
+  const previous = cameraMode;
+  cameraMode = CAMERA_MODES[(CAMERA_MODES.indexOf(cameraMode) + 1) % CAMERA_MODES.length];
   camera.mode = cameraMode;
-  camera.reset();
-  snapCamera = true;
+  const changingFamily = !previous.startsWith('chase-') || !cameraMode.startsWith('chase-');
+  if (changingFamily) camera.reset();
+  snapCamera = changingFamily;
   frameOnce();
 }
 
@@ -617,8 +668,8 @@ function bindUi(): void {
   };
   el('follow').onclick = cycleCamera;
   el('resetView').onclick = () => {
-    cameraMode = 'chase';
-    camera.mode = 'chase';
+    cameraMode = 'chase-mid';
+    camera.mode = cameraMode;
     camera.reset();
     snapCamera = true;
     frameOnce();

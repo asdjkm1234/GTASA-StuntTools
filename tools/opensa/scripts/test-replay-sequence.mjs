@@ -1,6 +1,6 @@
 /**
- * Drives the replay through a full interaction sequence (play, cockpit, chase, timeline scrub, run to the
- * end) and screenshots each step, so camera/pose/streaming regressions are caught from actual pixels.
+ * Drives the replay through a full interaction sequence (play, far, original first person, cockpit, near,
+ * middle, timeline scrub, run to the end) and screenshots each step for camera/pose/streaming regressions.
  *
  *   node scripts/test-replay-sequence.mjs [url]
  */
@@ -51,15 +51,18 @@ await sleep(3000);
 console.log('B playing', JSON.stringify(await state()));
 await shot('seq-2-playing');
 
-await page.keyboard.press('KeyV');
-await sleep(2500);
-console.log('C cockpit', JSON.stringify(await state()));
-await shot('seq-3-cockpit');
-
-await page.keyboard.press('KeyV');
-await sleep(2500);
-console.log('D chase', JSON.stringify(await state()));
-await shot('seq-4-chase');
+for (const [label, shotName] of [
+  ['C far', 'seq-3-far'],
+  ['D original first person', 'seq-4-first-person'],
+  ['E cockpit', 'seq-5-cockpit'],
+  ['F near', 'seq-6-near'],
+  ['G middle', 'seq-7-middle'],
+]) {
+  await page.keyboard.press('KeyV');
+  await sleep(1200);
+  console.log(label, JSON.stringify(await state()));
+  await shot(shotName);
+}
 
 await page.evaluate(() => {
   const scrub = document.getElementById('scrub');
@@ -67,13 +70,13 @@ await page.evaluate(() => {
   scrub.dispatchEvent(new Event('input', { bubbles: true }));
 });
 await sleep(1200);
-console.log('E scrub', JSON.stringify(await state()));
-await shot('seq-5-scrub');
+console.log('H scrub', JSON.stringify(await state()));
+await shot('seq-8-scrub');
 
 // Let it play to the end of the recording.
 await sleep(16000);
-console.log('F end', JSON.stringify(await state()));
-await shot('seq-6-end');
+console.log('I end', JSON.stringify(await state()));
+await shot('seq-9-end');
 
 console.log('--- console ---');
 console.log(logs.slice(-40).join('\n'));

@@ -1,13 +1,10 @@
-/**
- * The replay camera (GTA-style delayed chase and cockpit). Position, look target, heading and pitch are
- * damped SEPARATELY against the aircraft's own frame, so a sudden bank or roll is followed a beat late
- * instead of snapping the view around the fuselage. Play, pause and timeline scrubbing all call the SAME
- * `update`, with `snap` forcing an immediate settle on scrub/reset — that is what keeps the aircraft the
- * same apparent distance whether it is flying or being dragged.
- */
+/** Aircraft replay cameras. The three exterior distances use SA's plane zoom values and follow the
+ * horizontal travel direction, with an orbiting yaw so reversing flight never pulls the eye through the
+ * aircraft. The original first-person view uses the model's front-seat dummy; the existing canopy camera
+ * remains a separate mode. */
 import type { Vec3 } from './math';
 
-export type CameraMode = 'chase' | 'cockpit';
+export type CameraMode = 'chase-near' | 'chase-mid' | 'chase-far' | 'first-person' | 'cockpit';
 
 export interface CameraStateOut {
   aspect: number;
@@ -19,12 +16,28 @@ export interface CameraStateOut {
   up: Vec3;
 }
 
+export interface CameraFrame {
+  aspect: number;
+  cockpitPosition?: Vec3;
+  dt: number;
+  forward: Vec3;
+  /** GTA's ped_frontseat dummy transformed into engine space. */
+  firstPersonPosition?: Vec3;
+  modelLength: number;
+  modelTop: number;
+  position: Vec3;
+  snap: boolean;
+  up: Vec3;
+  velocity: Vec3;
+}
+
 const WORLD_UP: Vec3 = [0, 1, 0];
-const CHASE_BACK = 16.2;
-const CHASE_UP = 4.8;
-const CHASE_TARGET_AHEAD = 4;
-const CHASE_TARGET_UP = 1.1;
-// Offsets are relative to the COCKPIT ANCHOR (the aircraft's canopy part), not the model origin.
+// SA's plane entries in the vehicle camera zoom/alpha tables, recovered by the SACarCam port.
+const PLANE_ZOOM: Record<'chase-near' | 'chase-mid' | 'chase-far', { alpha: number; zoom: number }> = {
+  'chase-near': { alpha: 0.08, zoom: 0.05 },
+  'chase-mid': { alpha: 0.08, zoom: 1.9 },
+  'chase-far': { alpha: 0.06, zoom: 15.9 },
+};
 const COCKPIT_AHEAD = 0.6;
 const COCKPIT_UP = 0.3;
 
@@ -49,80 +62,95 @@ function spring(position: Vec3, velocity: Vec3, goal: Vec3, smoothTime: number, 
   position[2] = goal[2] + change[2];
 }
 
+function angleDifference(from: number, to: number): number {
+  return Math.atan2(Math.sin(to - from), Math.cos(to - from));
+}
+
 export class ReplayCamera {
-  mode: CameraMode = 'chase';
+  mode: CameraMode = 'chase-mid';
+
   reset(): void {
     this.pose = null;
+    this.yaw = null;
+    this.distance = null;
+    this.followingVelocity = false;
   }
 
-  state(dt: number, position: Vec3, forward: Vec3, up: Vec3, aspect: number, speed: number, snap: boolean): CameraStateOut {
-    // Speed pull-back is deliberately small: a big change is what made playback and scrubbing disagree.
-    const pullBack = Math.min(6, Math.max(0, speed * 0.02));
-    let desiredPosition: Vec3;
-    let desiredTarget: Vec3;
-    let cameraUp: Vec3;
-    let positionSmooth: number;
-    let targetSmooth: number;
+  state(frame: CameraFrame): CameraStateOut {
+    const { position, forward, up, aspect, dt, snap } = frame;
+    if (this.mode === 'first-person') {
+      const eye: Vec3 = frame.firstPersonPosition ?? [
+        position[0] + forward[0] + up[0],
+        position[1] + forward[1] + up[1],
+        position[2] + forward[2] + up[2],
+      ];
+      return {
+        aspect, eye, far: 12000, fovYRad: (60 * Math.PI) / 180, near: 0.2,
+        target: [eye[0] + forward[0] * 85, eye[1] + forward[1] * 85, eye[2] + forward[2] * 85],
+        up,
+      };
+    }
 
     if (this.mode === 'cockpit') {
-      desiredPosition = [
-        position[0] + forward[0] * COCKPIT_AHEAD + up[0] * COCKPIT_UP,
-        position[1] + forward[1] * COCKPIT_AHEAD + up[1] * COCKPIT_UP,
-        position[2] + forward[2] * COCKPIT_AHEAD + up[2] * COCKPIT_UP,
+      const base = frame.cockpitPosition ?? position;
+      const desiredPosition: Vec3 = [
+        base[0] + forward[0] * COCKPIT_AHEAD + up[0] * COCKPIT_UP,
+        base[1] + forward[1] * COCKPIT_AHEAD + up[1] * COCKPIT_UP,
+        base[2] + forward[2] * COCKPIT_AHEAD + up[2] * COCKPIT_UP,
       ];
-      desiredTarget = [
+      const desiredTarget: Vec3 = [
         desiredPosition[0] + forward[0] * 85,
         desiredPosition[1] + forward[1] * 85,
         desiredPosition[2] + forward[2] * 85,
       ];
-      positionSmooth = 0.018;
-      targetSmooth = 0.018;
-      cameraUp = up;
-    } else {
-      // GTA's vehicle chase frames the car with the WORLD's vertical, so a roll does not spin the camera.
-      desiredTarget = [
-        position[0] + forward[0] * CHASE_TARGET_AHEAD + WORLD_UP[0] * CHASE_TARGET_UP,
-        position[1] + forward[1] * CHASE_TARGET_AHEAD + WORLD_UP[1] * CHASE_TARGET_UP,
-        position[2] + forward[2] * CHASE_TARGET_AHEAD + WORLD_UP[2] * CHASE_TARGET_UP,
-      ];
-      // Camera sits BEHIND the nose and ABOVE the aircraft: subtract along forward, ADD along world up.
-      // (Subtracting the up term put the camera under the belly and every chase view became an upward look.)
-      desiredPosition = [
-        desiredTarget[0] - forward[0] * (CHASE_BACK + pullBack) + WORLD_UP[0] * CHASE_UP,
-        desiredTarget[1] - forward[1] * (CHASE_BACK + pullBack) + WORLD_UP[1] * CHASE_UP,
-        desiredTarget[2] - forward[2] * (CHASE_BACK + pullBack) + WORLD_UP[2] * CHASE_UP,
-      ];
-      positionSmooth = 0.45;
-      targetSmooth = 0.16;
-      cameraUp = WORLD_UP;
-    }
-
-    const desiredPositionOffset: Vec3 = [desiredPosition[0] - position[0], desiredPosition[1] - position[1], desiredPosition[2] - position[2]];
-    const desiredTargetOffset: Vec3 = [desiredTarget[0] - position[0], desiredTarget[1] - position[1], desiredTarget[2] - position[2]];
-    if (snap || !this.pose) {
-      this.pose = {
-        positionOffset: desiredPositionOffset,
-        positionVelocity: [0, 0, 0],
-        targetOffset: desiredTargetOffset,
-        targetVelocity: [0, 0, 0],
+      const desiredPositionOffset: Vec3 = [desiredPosition[0] - base[0], desiredPosition[1] - base[1], desiredPosition[2] - base[2]];
+      const desiredTargetOffset: Vec3 = [desiredTarget[0] - base[0], desiredTarget[1] - base[1], desiredTarget[2] - base[2]];
+      if (snap || !this.pose) {
+        this.pose = { positionOffset: desiredPositionOffset, positionVelocity: [0, 0, 0], targetOffset: desiredTargetOffset, targetVelocity: [0, 0, 0] };
+      } else {
+        spring(this.pose.positionOffset, this.pose.positionVelocity, desiredPositionOffset, 0.018, dt);
+        spring(this.pose.targetOffset, this.pose.targetVelocity, desiredTargetOffset, 0.018, dt);
+      }
+      return {
+        aspect,
+        eye: [base[0] + this.pose.positionOffset[0], base[1] + this.pose.positionOffset[1], base[2] + this.pose.positionOffset[2]],
+        far: 12000,
+        fovYRad: (68 * Math.PI) / 180,
+        near: 0.5,
+        target: [base[0] + this.pose.targetOffset[0], base[1] + this.pose.targetOffset[1], base[2] + this.pose.targetOffset[2]],
+        up,
       };
-    } else {
-      spring(this.pose.positionOffset, this.pose.positionVelocity, desiredPositionOffset, positionSmooth, dt);
-      spring(this.pose.targetOffset, this.pose.targetVelocity, desiredTargetOffset, targetSmooth, dt);
     }
-    const eye: Vec3 = [position[0] + this.pose.positionOffset[0], position[1] + this.pose.positionOffset[1], position[2] + this.pose.positionOffset[2]];
-    const look: Vec3 = [position[0] + this.pose.targetOffset[0], position[1] + this.pose.targetOffset[1], position[2] + this.pose.targetOffset[2]];
 
-    return {
-      aspect,
-      eye,
-      far: 12000,
-      // First person needs a slightly wider vertical FOV so the nose does not fill the frame.
-      fovYRad: this.mode === 'cockpit' ? (68 * Math.PI) / 180 : (70 * Math.PI) / 180,
-      near: 0.5,
-      target: look,
-      up: cameraUp,
-    };
+    const planarSpeed = Math.hypot(frame.velocity[0], frame.velocity[2]);
+    if (planarSpeed > 0.12) this.followingVelocity = true;
+    else if (planarSpeed < 0.06) this.followingVelocity = false;
+    const planarForward = Math.hypot(forward[0], forward[2]);
+    const direction = this.followingVelocity && planarSpeed > 0.06
+      ? frame.velocity
+      : planarForward > 0.05 ? forward : [Math.sin(this.yaw ?? 0), 0, Math.cos(this.yaw ?? 0)];
+    const desiredYaw = Math.atan2(direction[0], direction[2]);
+    if (snap || this.yaw === null) {
+      this.yaw = desiredYaw;
+    } else {
+      // Preserve the orbit radius while the camera swings around a reversing plane.
+      const turn = angleDifference(this.yaw, desiredYaw) * (1 - Math.exp(-dt / 0.65));
+      const maxTurn = Math.PI * dt;
+      this.yaw += Math.max(-maxTurn, Math.min(maxTurn, turn));
+    }
+    const zoom = PLANE_ZOOM[this.mode];
+    const targetUp = Math.max(0.5, Math.min(8, frame.modelTop * 1.1 - 0.2));
+    const desiredDistance = Math.max(12, frame.modelLength + 3.5 + zoom.zoom + targetUp);
+    this.distance = snap || this.distance === null
+      ? desiredDistance
+      : this.distance + (desiredDistance - this.distance) * (1 - Math.exp(-dt / 0.25));
+    const target: Vec3 = [position[0], position[1] + targetUp, position[2]];
+    const eye: Vec3 = [
+      target[0] - Math.sin(this.yaw) * this.distance,
+      target[1] + Math.tan(zoom.alpha) * this.distance,
+      target[2] - Math.cos(this.yaw) * this.distance,
+    ];
+    return { aspect, eye, far: 12000, fovYRad: (70 * Math.PI) / 180, near: 0.5, target, up: WORLD_UP };
   }
 
   private pose: null | {
@@ -131,4 +159,7 @@ export class ReplayCamera {
     targetOffset: Vec3;
     targetVelocity: Vec3;
   } = null;
+  private yaw: number | null = null;
+  private distance: number | null = null;
+  private followingVelocity = false;
 }
