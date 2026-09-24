@@ -181,3 +181,34 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
 - 目标：录制→CSV→浏览器 WebGPU 回放；**不分发游戏资源**；OpenSA 为 AGPL-3.0。
 - 改动后：`build-flight-replay.ps1` 发布，`tsc --noEmit` 必须 0 错误，跑对应 `scripts/*` 自测并看截图。
 - 原则：**先定位根因再改**（本项目多个 bug 都来自符号/状态未同步/架构性增长，而非表面参数）；不要靠加大半径或强杀进程掩盖。
+
+## 10. v1.0 版本与接续开发（git tag: `v1.0`）
+
+**版本状态**：路线 A（仅 pak）完成并通过本机验证。配置全部走 HUD，不再依赖 URL 参数；回放**必须**有预烘焙 pak。
+
+数据路径：`npx tsx scripts/bake-map.mts map-pak` → `map-pak/` →`local-server.mjs` 的 `/map-pak/*` → `PakWorld`（分帧上传、零数组替换）。
+
+**已实测通过**：`tsc --noEmit` 0 错误；pak 模式单文件 / 多文件切换 / 大文件拖动 / 60s@4× 均**无 DXGI**；
+播放/暂停/重启/逐帧/拖动/速度、延迟跟随↔机舱、天气/时间/半径/分辨率/调试轴 HUD 均正常；服务接口正常。
+
+**已知环境问题**：Intel Arc 驱动偶发 `DXGI_ERROR_DEVICE_HUNG`（黑屏）——应用会**自动重启渲染**，并有
+`省电模式`/`重启渲染`；这不是数据 bug（见 §5 第 2 条）。
+
+### 下一对话/下一个 AI 的入口
+- 录制器：`recorder/src/FlightRecorderASI.cpp`（`build.ps1`/`install.ps1`，用 `tools/zig`）。
+- 回放 app：`tools/opensa/apps/web/src/standalone/flight-replay.ts` + `apps/web/src/flight/{pak-world,camera,csv,aircraft,math,map-source,asset-store}.ts`。
+- 烘焙器：`tools/opensa/scripts/bake-map.mts`。
+- 服务：`web-replay/local-server.mjs`（`/map-pak`、`/game-src`、`/local-recording/latest.csv`、`/webgpu-report`）。
+- 启动：双击 `start-replay.cmd` → `http://127.0.0.1:4173/`（无参数自动载入最新录像）。
+- 自测：`tools/opensa/scripts/{bake-map.mts, smoke-map.mts, capture-replay, test-multitrack, test-scrub, soak-replay, test-hud}`。
+
+### 建议的下一步（按优先级）
+1. **烘焙瘦身**：只烘“录像航迹附近”的 cell（按 CSV 轨迹包围盒）→ pak 从 ~760MB 降到几十 MB；可加 HUD“一键烘焙”。
+2. **彻底脱离安装**：把 `timecyc.dat`/`water.dat`/`carcols.dat` + 飞机 DFF/TXD 也烘进 pak，启动更快。
+3. **画质总开关**：一键关 bloom/godrays/云层，进一步降低驱动重置概率。
+4. **Route B（可选）**：给引擎加“就地追加层”，以支持真正无需预烘焙的动态流送。
+5. **兼容性**：SA-MP `SAMP.img/custom.img` 覆盖模型的烘焙；Rustler(476) 的座舱锚点与节点数。
+
+### 硬性约束（务必遵守）
+见 `AGENTS.md` 与 §5。每次改完必须：`npx tsc --noEmit -p tsconfig.json`（0 错误）→ `build-flight-replay.ps1` 发布 →
+跑对应 `scripts/*` 自测并看截图。纹理上传只能走 `beginLoad`+`drainUploads`；`.cmd/.ps1` 只写 ASCII。
