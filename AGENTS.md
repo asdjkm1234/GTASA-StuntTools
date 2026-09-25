@@ -51,7 +51,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ## Known environment issue
 - Intel Arc driver occasionally resets (`DXGI_ERROR_DEVICE_HUNG`). The page auto-recovers (reload, once per
-  minute) and offers `省电模式`/`重启渲染`. It is NOT a data bug.
+  minute). It is NOT a data bug.
 
 ## Next steps (see HANDOFF §10)
 1. Bake only the recording route's cells → small pak + HUD "bake" button.

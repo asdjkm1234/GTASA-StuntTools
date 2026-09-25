@@ -70,12 +70,8 @@ function drawAxes(p: Vec3, forward: Vec3, right: Vec3, up: Vec3): void {
 }
 
 const params = new URLSearchParams(location.search);
-// Streaming radii are URL-tunable: the Arc-class GPUs hung (DXGI_ERROR_DEVICE_HUNG) when ~450 cells
-// (HD 1100 m + LOD 3200 m) welded and uploaded at once, so the defaults stay conservative.
-// Tunables are HUD-driven; the URL is only an optional override (kept for scripted tests). Defaults are
-// deliberately conservative for older machines.
-let HD_RADIUS = Number(params.get('hd') ?? 400);
-let LOD_RADIUS = Number(params.get('lod') ?? 1000);
+const HD_RADIUS = 1200;
+const LOD_RADIUS = 3000;
 const SRC = params.get('src') ?? '/game-src';
 // `?axes=1` draws the aircraft's recorded forward (green) / up (blue) / right (red) as world-space lines.
 // If green does not run along the model's nose, the model orientation is wrong — a pixel fact, not a guess.
@@ -497,7 +493,7 @@ async function boot(): Promise<void> {
         setStatus(`GPU 设备丢失（${info.reason}），1 秒后自动重启渲染…`);
         window.setTimeout(() => location.reload(), 1000);
       } else {
-        setStatus(`GPU 设备丢失（${info.reason}）且刚刚已重启过：请用「启动回放-强制GPU.cmd」/换 Edge，或用「省电模式」缩小地图范围。`);
+        setStatus(`GPU 设备丢失（${info.reason}）且刚刚已重启过：请刷新页面，或用「启动回放-强制GPU.cmd」/换 Edge。`);
       }
     })
     .catch(() => { /* lost promise rejection is not actionable */ });
@@ -712,32 +708,6 @@ function bindUi(): void {
     frameOnce();
   };
 
-  // --- Settings (HUD-driven; the URL is no longer the place to configure anything) ---
-  el('loadLatestBtn').onclick = () => void loadLatest();
-  el('reloadBtn').onclick = () => location.reload();
-  const hd = el<HTMLInputElement>('hdSlider');
-  const lod = el<HTMLInputElement>('lodSlider');
-  hd.value = String(HD_RADIUS);
-  lod.value = String(LOD_RADIUS);
-  el('hdLabel').textContent = String(HD_RADIUS);
-  el('lodLabel').textContent = String(LOD_RADIUS);
-  hd.oninput = () => {
-    HD_RADIUS = Number(hd.value);
-    el('hdLabel').textContent = hd.value;
-    frameOnce();
-  };
-  lod.oninput = () => {
-    LOD_RADIUS = Number(lod.value);
-    el('lodLabel').textContent = lod.value;
-    frameOnce();
-  };
-  el('ecoBtn').onclick = () => {
-    // Reduce streamed map detail when the Intel Arc driver resets under sustained load.
-    hd.value = '250'; lod.value = '600';
-    el('hdLabel').textContent = '250'; el('lodLabel').textContent = '600';
-    HD_RADIUS = 250; LOD_RADIUS = 600;
-    frameOnce();
-  };
   el<HTMLInputElement>('axesToggle').onchange = (event) => {
     SHOW_AXES = (event.target as HTMLInputElement).checked;
     if (SHOW_AXES) ensureAxes();

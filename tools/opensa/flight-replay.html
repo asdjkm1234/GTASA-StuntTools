@@ -41,8 +41,6 @@
       .hud-row input[type="range"] { width: 170px; accent-color: var(--accent); }
       .hud-row .val { color: var(--text); font-variant-numeric: tabular-nums; min-width: 5.5em; }
       .hud-row input[type="checkbox"] { accent-color: var(--accent); }
-      .hud-row .sep { color: #33506e; }
-      .hud-row button { padding: .3rem .55rem; }
       .chips { position: fixed; z-index: 4; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
       .chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: #bfd1e4; }
       #mapLoading { position: fixed; z-index: 8; inset: 0; display: grid; place-content: center; gap: 10px; text-align: center; background: #07101bf2; }
@@ -97,20 +95,6 @@
           <span class="val" id="hourLabel">—</span>
         </label>
         <label><input id="followEnv" type="checkbox" checked /> 跟随录制</label>
-      </div>
-      <div class="hud-row">
-        <button id="loadLatestBtn">载入最新记录</button>
-        <button id="reloadBtn">重启渲染</button>
-        <button id="ecoBtn" title="缩小地图流送范围，减少 GPU 负载">省电模式</button>
-        <label>高清半径
-          <input id="hdSlider" type="range" min="100" max="1200" step="50" value="400" />
-          <span class="val" id="hdLabel">400</span>
-        </label>
-        <label>远景半径
-          <input id="lodSlider" type="range" min="300" max="3000" step="100" value="1000" />
-          <span class="val" id="lodLabel">1000</span>
-        </label>
-        <span class="sep">|</span>
         <label><input id="axesToggle" type="checkbox" /> 调试轴</label>
       </div>
     </div>

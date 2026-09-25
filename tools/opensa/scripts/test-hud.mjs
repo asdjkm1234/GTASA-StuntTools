@@ -64,18 +64,15 @@ await sleep(1200);
 await page.screenshot({ path: join(outDir, 'hud-2-follow.png') });
 console.log('follow', JSON.stringify(await read()));
 
-// SETTINGS: radii / debug axes
+// DEBUG AXES
 await page.evaluate(() => {
-  const set = (id, value) => { const e = document.getElementById(id); e.value = value; e.dispatchEvent(new Event('input', { bubbles: true })); };
   const toggle = (id, checked) => { const e = document.getElementById(id); e.checked = checked; e.dispatchEvent(new Event('change', { bubbles: true })); };
-  set('hdSlider', '300'); set('lodSlider', '800');
   toggle('axesToggle', true);
 });
 await sleep(1500);
-await page.screenshot({ path: join(outDir, 'hud-3-settings.png') });
-console.log('settings', JSON.stringify(await page.evaluate(() => ({
-  hd: document.getElementById('hdLabel')?.textContent,
-  lod: document.getElementById('lodLabel')?.textContent,
+await page.screenshot({ path: join(outDir, 'hud-3-axes.png') });
+console.log('axes', JSON.stringify(await page.evaluate(() => ({
+  enabled: document.getElementById('axesToggle')?.checked,
 }))));
 
 console.log(logs.slice(-10).join('\n'));
