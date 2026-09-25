@@ -47,12 +47,57 @@
       #mapLoading[hidden] { display: none; }
       .spinner { width: 34px; height: 34px; margin: auto; border: 3px solid #28415b; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
       @keyframes spin { to { transform: rotate(1turn); } }
+      /* Analysis overlay. `.analysis-hud` / `.analysis-heatmap` are the distinct classes an MP4 export frames;
+         the old controls carry data-capture="exclude" so the exporter can drop them. Emptied hosts hide
+         themselves until the flight-analysis modules mount. */
+      .analysis-hud-host:empty, .analysis-heatmap-host:empty { display: none; }
+      /* `display` on the mounted roots beats the UA `[hidden] { display:none }` rule, so spell it out here. */
+      .analysis-hud-host[hidden], .analysis-heatmap-host[hidden],
+      .analysis-hud[hidden], .analysis-heatmap[hidden] { display: none; }
+      .analysis-hud { position: fixed; z-index: 7; left: 50%; bottom: 132px; transform: translateX(-50%); width: min(760px, calc(100vw - 28px)); padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; backdrop-filter: blur(4px); }
+      .analysis-hud__bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+      .analysis-hud__title { font-weight: 700; letter-spacing: .04em; }
+      .analysis-hud__status { flex: 1; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .analysis-hud__reset { padding: .2rem .5rem; font-size: 11px; }
+      .analysis-hud__collapse { padding: .2rem .5rem; font-size: 11px; }
+      .analysis-hud--collapsed .analysis-hud__grid, .analysis-hud--collapsed .analysis-hud__hidden { display: none; }
+      .analysis-hud__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
+      .analysis-gauge { display: flex; flex-direction: column; gap: 2px; min-height: 56px; padding: 6px 8px; border: 1px solid #22364d; border-radius: 8px; background: #0a1726aa; }
+      .analysis-gauge--hidden { display: none; }
+      .analysis-gauge__head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+      .analysis-gauge__label { color: var(--muted); font-size: 10px; letter-spacing: .08em; }
+      .analysis-gauge__hide { width: 16px; height: 16px; padding: 0; font-size: 11px; line-height: 1; background: transparent; border: 1px solid #2b405a; border-radius: 4px; }
+      .analysis-gauge__value { font-size: 15px; font-variant-numeric: tabular-nums; }
+      .analysis-gauge__sub { min-height: 12px; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+      .analysis-bar { height: 4px; margin-top: 2px; border-radius: 999px; background: #1d3044; overflow: hidden; }
+      .analysis-bar__fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4fd1c5, #8dfff5); }
+      .analysis-attitude { position: relative; height: 34px; margin-top: 2px; border: 1px solid #22364d; border-radius: 6px; overflow: hidden; background: #0b2033; }
+      .analysis-attitude__disc { position: absolute; inset: -40% -50%; transform: rotate(calc(-1 * var(--analysis-roll, 0deg))) translateY(var(--analysis-pitch, 0px)); }
+      .analysis-attitude__sky { position: absolute; inset: 0 0 50% 0; background: linear-gradient(#2a6db3, #7fb6e6); }
+      .analysis-attitude__ground { position: absolute; inset: 50% 0 0 0; background: linear-gradient(#7a5a34, #3a2a18); }
+      .analysis-attitude__horizon { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #fff; }
+      .analysis-attitude__marker { position: absolute; left: 50%; top: 50%; width: 22px; height: 1px; background: #ffd166; transform: translate(-50%, -50%); }
+      .analysis-hud__hidden { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+      .analysis-chip { padding: .15rem .5rem; font-size: 11px; border-radius: 999px; }
+      .analysis-heatmap { position: fixed; z-index: 7; right: 14px; bottom: 132px; display: flex; flex-direction: column; gap: 8px; width: 320px; max-width: calc(100vw - 28px); padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; backdrop-filter: blur(4px); }
+      .analysis-heatmap__canvas { display: block; width: 100%; height: 200px; border-radius: 8px; background: #07101b; touch-action: none; }
+      .analysis-heatmap__legend { max-height: 110px; margin: 0; padding: 0; list-style: none; overflow: auto; font-size: 11px; }
+      .analysis-heatmap__item.is-active { background: #12273b; border-radius: 6px; }
+      .analysis-heatmap__item.is-selected { outline: 1px solid var(--accent); border-radius: 6px; }
+      .analysis-heatmap__row { display: block; width: 100%; padding: 4px 6px; overflow: hidden; color: var(--muted); font-variant-numeric: tabular-nums; text-align: left; text-overflow: ellipsis; white-space: nowrap; background: transparent; border: 0; }
+      .analysis-heatmap__row:hover { color: var(--text); background: #12273b; }
+      @media (max-width: 720px) {
+        .analysis-hud { bottom: 150px; }
+        .analysis-hud__grid { grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); }
+        .analysis-heatmap { bottom: 150px; width: min(260px, calc(100vw - 28px)); }
+        .analysis-heatmap__canvas { height: 150px; }
+      }
     </style>
   </head>
   <body>
     <canvas id="canvas"></canvas>
-    <div class="chips"><span class="chip">模式 <strong id="mode">等待文件</strong></span><span class="chip">片段 <strong id="segment">—</strong></span></div>
-    <aside class="panel" id="left">
+    <div class="chips" data-capture="exclude"><span class="chip">模式 <strong id="mode">等待文件</strong></span><span class="chip">片段 <strong id="segment">—</strong></span></div>
+    <aside class="panel" id="left" data-capture="exclude">
       <h1>Flight Replay</h1>
       <p class="sub">GTASA 特技飞行记录（OpenSA WebGPU）</p>
       <div id="drop" role="button" tabindex="0">拖入一个或多个 CSV<br /><span class="small">或点击选择文件</span></div>
@@ -63,14 +108,14 @@
       <button id="bakeRoute" title="为当前飞行生成较小的本地地图包；远景范围缩至 1200 单位">烘焙当前航迹</button>
       <p class="small" id="bakeStatus">需要本机 GTA 安装；完成后自动切换到航迹包。</p>
     </aside>
-    <aside class="panel" id="right">
+    <aside class="panel" id="right" data-capture="exclude">
       <h1>实时数据</h1>
       <p class="sub" id="status">拖入录制 CSV 开始回放</p>
       <dl id="readout"></dl>
       <h2>按键状态</h2>
       <div class="keygrid" id="keys"></div>
     </aside>
-    <div class="panel" id="transport">
+    <div class="panel" id="transport" data-capture="exclude">
       <div class="transport-row">
         <button id="restart" title="回到开头">↺</button>
         <button id="play" title="播放或暂停">▶</button>
@@ -100,7 +145,9 @@
         <label><input id="axesToggle" type="checkbox" /> 调试轴</label>
       </div>
     </div>
-    <div id="mapLoading" hidden><div class="spinner"></div><strong>正在加载预烘焙地图</strong><span id="mapLoadingText">准备附近地块…</span></div>
+    <div id="analysis-hud" class="analysis-hud-host" data-capture="include"></div>
+    <div id="analysis-heatmap" class="analysis-heatmap-host" data-capture="include"></div>
+    <div id="mapLoading" hidden data-capture="exclude"><div class="spinner"></div><strong>正在加载预烘焙地图</strong><span id="mapLoadingText">准备附近地块…</span></div>
     <script type="module" src="./apps/web/src/standalone/flight-replay.ts"></script>
   </body>
 </html>
