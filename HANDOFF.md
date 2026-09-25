@@ -28,7 +28,7 @@ GTASA-StuntTools/
   README.md / HANDOFF.md / AGENTS.md
   GTA San Andreas/                    游戏；录制器与 flight_recordings/ 都在这里
   recorder/
-    src/FlightRecorderASI.cpp         录制器 v6 源（无 CLEO opcode）
+    src/FlightRecorderASI.cpp         录制器 v7 源（无 CLEO opcode）
     build.ps1 / install.ps1           zig 编译 / 安装（安装前自动备份到 recorder/backups）
     README.md                          字段与规则
   web-replay/
@@ -100,7 +100,7 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
 
 ## 4. 关键架构与已完成
 
-- **录制器 v6**（`recorder/src/FlightRecorderASI.cpp`）：独立 ASI，25Hz，仅 520/476；进入即录、下车/爆炸/失效/换机/QuickHome(≥120m/采样) 切档。v6 额外写：
+- **录制器 v7**（`recorder/src/FlightRecorderASI.cpp`）：独立 ASI，25Hz，仅 520/476；进入即录、下车/爆炸/失效/换机/QuickHome(≥120m/采样) 切档。保留 v6 字段，并额外记录 Hydra `misc_a`/`misc_b` 的局部四元数、局部位置与有效位；v6 原有字段包括：
   - `game_hour/minute/second`（`CClock`）与 `weather_new/old/forced`（`CWeather`）；
   - **真实动画节点四元数**（`CPlane::m_aCarNodes` 的 `RwFrame` 局部建模矩阵，7 个：rudder/elevator_l,elevator_r,aileron_l,aileron_r,gear_l,gear_r），用 `node_status` 位掩码 + `surface_source=real|partial|inferred` 标注。
   - **诚实规则**：Q/A/E/D/上下键是输入列；真实节点读不到就写 `nan` 且标 `inferred`，绝不把按键伪装成舵面。
@@ -155,10 +155,11 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
 
 ## 6. 数据格式（CSV）
 
-列名驱动、**向后兼容 v4/v5**（缺列为 `null`）。v6 表头（顺序）：
+列名驱动、**向后兼容 v4/v5/v6**（缺列为 `null`）。v6 基础表头（顺序）：
 `local_timestamp,model,health,x,y,z,heading_deg,right_x/y/z,up_x/y/z,forward_x/y/z,vx,vy,vz,ax,ay,az,steer,throttle,brake,color_primary/secondary/tertiary/quaternary,landing_gear_status,key_q,key_a,key_e,key_d,key_up,key_down,game_hour,game_minute,game_second,weather_new,weather_old,weather_forced,node_status,surface_source,` 然后 7 组 `<node>_qx,qy,qz,qw`（rudder,elevator_l,elevator_r,aileron_l,aileron_r,gear_l,gear_r）。
 `node_status` 位：0 rudder、1 elevator_l、2 elevator_r、3 aileron_l、4 aileron_r、5 gear_l、6 gear_r；该位为 0 时四元数写 `nan`。
 文件以 `# session_start,…` 开头、`# session_end,<reason>,…` 结束。旧 v5 无游戏时钟/天气/节点列。
+v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` 各自的 `qx/qy/qz/qw/x/y/z`。2026-09-26 的完整收放录像表明两节点每帧都可读、位置不变，收起角分别为 −80°、+130°；回放优先使用实测四元数，旧 CSV 按该角度和收轮进度补全。
 
 ## 7. 当前状态与遗留
 

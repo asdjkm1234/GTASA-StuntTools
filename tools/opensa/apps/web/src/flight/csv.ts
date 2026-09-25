@@ -1,5 +1,5 @@
 /**
- * Flight CSV reader. The recorder's columns are read by NAME, so a v4 row, a v5 row and a v6 row all load:
+ * Flight CSV reader. The recorder's columns are read by NAME, so older rows and v7 rows all load:
  * a missing column is `null`, never a wrong number. Orientation is built from the recorded right/up/forward
  * basis and interpolated by quaternion SLERP — never by blending the raw matrix, which is what produced the
  * flattened-plane / frozen-heading artefacts.
@@ -8,8 +8,8 @@ import type { Quat, Vec3 } from './math';
 
 import { conjugate, normalizeQuat, orientationFromGta, quatMultiply, slerp } from './math';
 
-/** The animated nodes the v6 recorder writes, in its fixed order. */
-export const NODE_NAMES = ['rudder', 'elevator_l', 'elevator_r', 'aileron_l', 'aileron_r', 'gear_l', 'gear_r'] as const;
+/** The seven v6 nodes followed by the two Hydra center gear nodes added in v7. */
+export const NODE_NAMES = ['rudder', 'elevator_l', 'elevator_r', 'aileron_l', 'aileron_r', 'gear_l', 'gear_r', 'misc_a', 'misc_b'] as const;
 
 export interface FlightRow {
   s: number;

@@ -116,20 +116,21 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
     carryToChildren(index, quatMultiply(quatMultiply(quat, anim), conjugate(quat)));
   }
 
-  // The Hydra's two centreline wheels belong to misc_a/misc_b, not gear_l/gear_r. The v6 CSV records
-  // landing_gear_status but not those two frame rotations. Fold their authored struts about their X pivots
-  // and carry the wheel children with them; otherwise both wheels stay exposed after the main gear retracts.
-  function applyHydraCenterGear(gearStatus: number): void {
+  // v7 records the centerline gear frames directly. Older CSVs need the angles measured from GTA:
+  // misc_a goes to -80 degrees and misc_b to +130 degrees as |gearStatus| reaches one.
+  function applyHydraCenterGear(gearStatus: number, nodes: readonly (null | Quat)[]): void {
     if (model !== 520) return;
     const progress = Math.min(1, Math.abs(gearStatus));
-    for (const [name, wheel, angle] of [
-      ['misc_a', 'wheel_rf_dummy', -Math.PI / 2],
-      ['misc_b', 'wheel_lf_dummy', -Math.PI],
+    for (const [nodeIndex, wheel, angle] of [
+      [7, 'wheel_rf_dummy', -80 * Math.PI / 180],
+      [8, 'wheel_lf_dummy', 130 * Math.PI / 180],
     ] as const) {
-      const part = instance.entity.partIndex(name);
-      if (part < 0 || !childrenOf[part].some((child) => data.parts[child].name === wheel)) continue;
+      const part = partFor[nodeIndex];
+      const bind = bindFor[nodeIndex];
+      if (nodes[nodeIndex] || part === null || !bind ||
+        !childrenOf[part].some((child) => data.parts[child].name === wheel)) continue;
       const half = (angle * progress) / 2;
-      applyRotation(part, [Math.sin(half), 0, 0, Math.cos(half)]);
+      applyRotation(part, relativeNodeRotation(bind, [Math.sin(half), 0, 0, Math.cos(half)]));
     }
   }
 
@@ -146,6 +147,7 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
 
           return;
         }
+        if (index >= 7) return; // Hydra center gear fallback is handled below.
         // Inferred fallback (keys / gear status) is applied ONLY when the real node was unreadable, and the
         // readout says so. Gear openness is a signed status in SA; negative is not "down".
         const isGear = index >= 5;
@@ -165,7 +167,7 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
         const side = index === 1 || index === 3 ? 1 : -1;
         applyRotation(part, [axisAngle[0] * side, axisAngle[1] * side, axisAngle[2] * side, axisAngle[3]]);
       });
-      applyHydraCenterGear(gearStatus);
+      applyHydraCenterGear(gearStatus, nodes);
     },
     applyPaint(colors): void {
       const rgb = resolvePaint(map, colors);

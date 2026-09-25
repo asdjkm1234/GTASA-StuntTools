@@ -5,7 +5,7 @@ file is the fast onboarding for a new AI session. Do not distribute game assets;
 
 ## What it is
 - **Recorder**: standalone ASI `recorder/src/FlightRecorderASI.cpp` — records Hydra(520)/Rustler(476) to CSV at
-  25 Hz (v6 columns: full pose basis, real control-surface node quaternions, game clock/weather).
+  25 Hz (v7: full pose basis, real control-surface quaternions, Hydra center gear node poses, game clock/weather).
 - **Replay**: OpenSA WebGPU engine in the browser, streaming a **locally baked map pak** (Route A). The
   raw-install live-welding path was removed (HANDOFF §8) — a pak is required.
 - Everything runs on this machine; the browser reads the user's own install only.

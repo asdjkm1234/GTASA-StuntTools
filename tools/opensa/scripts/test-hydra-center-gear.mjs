@@ -1,6 +1,6 @@
 /** Capture the Hydra's centerline landing gear at extended and retracted times. */
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 
@@ -8,6 +8,8 @@ import { chromium } from 'playwright';
 
 const recording = resolve(process.argv[2] ?? '');
 if (!process.argv[2] || !existsSync(recording)) throw new Error('pass a Hydra CSV path');
+const hasRecordedCenterGear = readFileSync(recording, 'utf8').startsWith(
+  '# gtasa_flight_recorder,version=7,sample_hz=25,camera_debug=1,center_gear_debug=1');
 const times = process.argv.slice(3).map(Number);
 if (times.length === 0 || times.some((time) => !Number.isFinite(time) || time < 0)) {
   throw new Error('pass one or more seek times in seconds');
@@ -49,9 +51,15 @@ try {
       const shot = join(output, `hydra-center-gear-${basename(recording, '.csv')}-${String(time).replace('.', '_')}.png`);
       await page.screenshot({ path: shot });
       const state = await page.evaluate(() => ({ error: globalThis.__flight?.error,
-        aircraft: globalThis.__flight?.aircraft, renders: globalThis.__flight?.renders }));
+        aircraft: globalThis.__flight?.aircraft, renders: globalThis.__flight?.renders,
+        nodes: [...document.querySelectorAll('#readout dt')]
+          .find((entry) => entry.textContent.trim() === '节点')?.nextElementSibling?.textContent }));
       console.log(JSON.stringify({ time, shot, state }));
       if (state.error || state.renders < 1) throw new Error(`replay failed at ${time}s`);
+      if (hasRecordedCenterGear &&
+        (!state.nodes?.includes('misc_a:R') || !state.nodes?.includes('misc_b:R'))) {
+        throw new Error(`recorded center gear nodes not active at ${time}s`);
+      }
     }
     if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`);
   } finally {
