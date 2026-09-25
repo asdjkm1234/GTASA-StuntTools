@@ -2,9 +2,10 @@
  * Route A — offline map baker. Runs the SAME weld pipeline the browser uses (`weldCell` + `TexturePlanner`)
  * in Node, over the user's own install, and writes an engine-ready pak:
  *
- *   <out>/index.json                 { cellSize, cells:[{cx,cy,lod}], arrays:[{ref,layers}] }
+ *   <out>/index.json                 render cells, texture arrays and camera collision cells
  *   <out>/cells/<cx>_<cy>[_lod].bin   the `.oscell` bytes, loaded with `engine.cells.load`
- *   <out>/textures/<ref>.ostex        the texture arrays, loaded with `engine.textures.load`
+ *   <out>/textures/<ref>.ostex        arrays uploaded with `beginLoad` + per-frame `drainUploads`
+ *   <out>/collision/<cx>_<cy>.oscol   GTA COL shapes on the 256-unit game grid
  *
  * Because ONE planner produced every cell, layer indices are globally consistent and the arrays are complete
  * up front: the replay uploads them once and NEVER grows/replaces an array at runtime (the black-screen/TDR
@@ -18,10 +19,15 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import { CELL_SIZE, TexturePlanner, weldCell } from '@opensa/cell-weld';
+import { GAME_CELL_SIZE } from '@opensa/cell-weld/cell-size';
+import { encodeOscol } from '@opensa/engine-formats';
+import { buildCellColliders } from '@opensa/renderware/collision/build-cell-colliders';
+import { buildCollisionIndex } from '@opensa/renderware/collision/collision-index';
 import { cellModelNames } from '@opensa/renderware/map/cell-groups';
-import { cellKey } from '@opensa/renderware/map/world-grid';
+import { buildWorldGrid, cellKey } from '@opensa/renderware/map/world-grid';
 
 import { loadMapSource } from '../apps/web/src/flight/map-source';
+import { bakeCellCollision, collisionCellRect } from '../tools/opensa-pack/src/pack-collision';
 
 const outDir = path.resolve(process.argv[2] ?? 'map-pak');
 const rect = process.argv.length >= 7 ? process.argv.slice(3, 7).map(Number) : null;
@@ -40,6 +46,7 @@ console.log(`baking ${cells.length} cell(s)${rect ? ` in rect ${rect.join(',')}`
 
 await fs.mkdir(path.join(outDir, 'cells'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'textures'), { recursive: true });
+await fs.mkdir(path.join(outDir, 'collision'), { recursive: true });
 
 const planner = new TexturePlanner(map.fs, map.defs.txdParents ?? new Map<string, string>());
 const written: { cx: number; cy: number; lod: boolean }[] = [];
@@ -72,12 +79,36 @@ const arrays = planner.build();
 for (const array of arrays) {
   await fs.writeFile(path.join(outDir, 'textures', `${array.ref}.ostex`), array.bytes);
 }
+
+// The camera needs the original game's COL surfaces to pull in around bridges and walls.
+// Collision uses the 256-unit game grid, not the render grid's 250-unit cells.
+const colBytes = await map.assets.ensureCollisionLibraries();
+const collisionIndex = buildCollisionIndex(map.fs);
+const collisionGrid = buildWorldGrid(map.defs, GAME_CELL_SIZE);
+const collisionRect = rect ? collisionCellRect(
+  [rect[0], rect[2], rect[1], rect[3]], CELL_SIZE, GAME_CELL_SIZE,
+) : null;
+const collisionCells: { cx: number; cy: number }[] = [];
+let collisionBytes = 0;
+for (const cell of collisionGrid.values()) {
+  const { cx, cy } = cell;
+  if (collisionRect && (cx < collisionRect[0] || cx > collisionRect[2]
+    || cy < collisionRect[1] || cy > collisionRect[3])) continue;
+  const regions = buildCellColliders(collisionIndex, map.defs, collisionGrid, cx, cy);
+  if (regions.length === 0) continue;
+  const bytes = encodeOscol(bakeCellCollision(regions, () => false));
+  await fs.writeFile(path.join(outDir, 'collision', `${cx}_${cy}.oscol`), bytes);
+  collisionCells.push({ cx, cy });
+  collisionBytes += bytes.byteLength;
+}
 await fs.writeFile(
   path.join(outDir, 'index.json'),
   JSON.stringify({
     arrays: arrays.map((array) => ({ layers: array.meta.layers, ref: array.ref })),
     cellSize: CELL_SIZE,
     cells: written,
+    collisionCellSize: GAME_CELL_SIZE,
+    collisionCells,
     generated: new Date().toISOString(),
     source: base,
   }),
@@ -86,4 +117,5 @@ await fs.writeFile(
 const arrayBytes = arrays.reduce((sum, array) => sum + array.bytes.byteLength, 0);
 console.log(`done: ${written.length} cell files, ${arrays.length} texture arrays`);
 console.log(`  cells ${(bytesWritten / 1024 / 1024).toFixed(1)} MB · textures ${(arrayBytes / 1024 / 1024).toFixed(1)} MB`);
+console.log(`  collision ${collisionCells.length} cells, ${(collisionBytes / 1024 / 1024).toFixed(1)} MB (read ${(colBytes / 1024 / 1024).toFixed(1)} MB COL)`);
 console.log(`  total ${((performance.now() - started) / 1000).toFixed(0)}s`);

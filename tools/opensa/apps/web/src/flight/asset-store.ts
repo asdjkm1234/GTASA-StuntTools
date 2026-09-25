@@ -71,6 +71,21 @@ export class AssetStore {
     return bytes;
   }
 
+  /** Ingest the install's COL libraries once for the offline camera-collision bake. */
+  async ensureCollisionLibraries(): Promise<number> {
+    const entries: [string, Uint8Array][] = [];
+    let bytes = 0;
+    for (const entry of this.byName.values()) {
+      if (!entry.name.toLowerCase().endsWith('.col')) continue;
+      const data = await readEntry(this.install, entry).catch(() => null);
+      if (!data) continue;
+      entries.push([entry.name, data]);
+      bytes += data.byteLength;
+    }
+    if (entries.length > 0) this.fs.addFiles('collision-libraries', entries);
+    return bytes;
+  }
+
   /** Read one archive entry by exact lowercased name (`hydra.dff`, `hydra.txd`). Null when absent. */
   async readRaw(name: string): Promise<Uint8Array | null> {
     const entry = this.byName.get(name.toLowerCase());

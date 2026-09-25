@@ -284,7 +284,7 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   const velocity = gtaDirToEngine(pose.velocity);
   const aspect = canvas.width / Math.max(1, canvas.height);
   const gameAspect = window.screen.width / Math.max(1, window.screen.height);
-  const cameraState = isChaseMode(cameraMode)
+  let cameraState = isChaseMode(cameraMode)
     ? timelineFor(track).state(elapsed, cameraMode, aspect, gameAspect)
     : camera.state({
       aspect, gameAspect, cockpitPosition, dt, firstPersonPosition, forward,
@@ -299,6 +299,9 @@ function update(track: FlightTrack, forceSnap: boolean): void {
     } else {
       chaseTransition = null;
     }
+  }
+  if (isChaseMode(cameraMode) && pakWorld?.isReady) {
+    cameraState = pakWorld.resolveCamera(cameraState, cameraMode, dt, forceSnap || snapCamera);
   }
   debug.cameraMode = cameraMode;
   const view = [cameraState.target[0] - cameraState.eye[0], cameraState.target[1] - cameraState.eye[1], cameraState.target[2] - cameraState.eye[2]];
@@ -590,6 +593,7 @@ function loop(): void {
   requestAnimationFrame(loop);
   // Pak texture arrays upload a slice per frame (a single synchronous burst is what TDRs).
   if (pakWorld) {
+    pakWorld.pumpCameraCollision(2);
     if (!pakWorld.isReady) {
       pakWorld.pump(1);
       mapLoading.hidden = false;

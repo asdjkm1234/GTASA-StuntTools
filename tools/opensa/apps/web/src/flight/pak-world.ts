@@ -8,10 +8,17 @@
  */
 import type { Engine } from '@opensa/engine';
 
+import type { CameraStateOut } from './camera';
+import type { ChaseMode } from './camera-track';
+
+import { CameraCollisionWorld } from './camera-collision-world';
+
 interface PakIndex {
   arrays: { layers: number; ref: number }[];
   cellSize: number;
   cells: { cx: number; cy: number; lod: boolean }[];
+  collisionCellSize?: number;
+  collisionCells?: { cx: number; cy: number }[];
   generated?: string;
   source?: string;
 }
@@ -31,6 +38,7 @@ export class PakWorld {
   private readonly refs: number[] = [];
   private ready = false;
   private waitingForGpu = false;
+  private cameraCollision: CameraCollisionWorld | null = null;
 
   constructor(
     private readonly engine: Engine,
@@ -51,6 +59,9 @@ export class PakWorld {
     const index = (await (await fetch(`${this.base}/index.json`)).json()) as PakIndex;
     this.cells = index.cells;
     this.cellSize = index.cellSize || 300;
+    const collisionReady = index.collisionCellSize && index.collisionCells?.length
+      ? CameraCollisionWorld.create(this.base, index.collisionCellSize, index.collisionCells)
+      : Promise.resolve(null);
     let done = 0;
     for (const array of index.arrays) {
       const response = await fetch(`${this.base}/textures/${array.ref}.ostex`);
@@ -62,6 +73,7 @@ export class PakWorld {
       done += 1;
       onProgress?.(done, index.arrays.length);
     }
+    this.cameraCollision = await collisionReady;
   }
 
   /** Advance this frame's slice of the array uploads; flips `isReady` once every array is resident. */
@@ -99,12 +111,22 @@ export class PakWorld {
   }
 
   note(): string {
-    return ` · pak ${this.arrays} 纹理数组 · 地块 ${this.loaded}（加载中 ${this.pending.size}，失败 ${this.failed}）`;
+    return ` · pak ${this.arrays} 纹理数组 · 地块 ${this.loaded}（加载中 ${this.pending.size}，失败 ${this.failed}）` +
+      ` · 相机碰撞 ${this.cameraCollision?.loadedCells ?? 0}`;
+  }
+
+  pumpCameraCollision(budgetMs: number): void {
+    this.cameraCollision?.pump(budgetMs);
+  }
+
+  resolveCamera(state: CameraStateOut, mode: ChaseMode, dt: number, snap: boolean): CameraStateOut {
+    return this.cameraCollision?.resolve(state, mode, dt, snap) ?? state;
   }
 
   /** Make the cells around (x, y) resident: HD within `hd`, LOD within `lod`, HD wins on overlap. */
   update(x: number, y: number, hd: number, lod: number): void {
     if (!this.ready) return;
+    this.cameraCollision?.update(x, y);
     const wanted = new Map<string, { cx: number; cy: number; lod: boolean }>();
     for (const cell of this.cells) {
       const dx = (cell.cx + 0.5) * this.cellSize - x;
