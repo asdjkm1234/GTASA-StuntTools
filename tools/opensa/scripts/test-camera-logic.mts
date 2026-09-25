@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { ReplayCamera, type CameraMode } from '../apps/web/src/flight/camera';
+import { ChaseCameraTimeline } from '../apps/web/src/flight/camera-track';
 import { parseFlightCsv, sampleTrack } from '../apps/web/src/flight/csv';
 import { gtaDirToEngine, rotateVec, type Vec3 } from '../apps/web/src/flight/math';
 
@@ -23,7 +24,7 @@ function frame(at: number, snap = false) {
   const forward = rotateVec(pose.orientation, [0, 1, 0]);
   const velocity = gtaDirToEngine(pose.velocity);
   const state = camera.state({
-    aspect: 1.6, dt: 0.04, forward, modelLength: 16, modelTop: 3,
+    aspect: 1.6, dt: 0.04, forward, model: pose.row.model, modelLength: 16, modelTop: 3,
     position, snap,
     up: rotateVec(pose.orientation, [0, 0, 1]), velocity,
     firstPersonPosition: [position[0] + 1, position[1] + 2, position[2] + 3],
@@ -55,6 +56,14 @@ assert(divePitch < climbPitch, `descending flight should lower the view: ${diveP
 const seekPitch = pitchDeg(frame(115.977, true).state);
 assert(seekPitch > 10, `seeking into a climb should still look up: ${seekPitch}`);
 console.log('camera pitch level/climb/dive/seek', [levelPitch, climbPitch, divePitch, seekPitch].map((value) => value.toFixed(1)));
+
+const directTimeline = new ChaseCameraTimeline(track, 16, 3);
+const steppedTimeline = new ChaseCameraTimeline(track, 16, 3);
+const direct = directTimeline.state(115.977, 'chase-mid', 1.6);
+for (let at = 0; at < 115.977; at += 1 / 60) steppedTimeline.state(at, 'chase-mid', 1.6);
+const stepped = steppedTimeline.state(115.977, 'chase-mid', 1.6);
+assert(Math.hypot(...minus(direct.eye, stepped.eye)) < 1e-6, 'camera must be independent of render call rate and seek order');
+assert(Math.hypot(...minus(direct.target, stepped.target)) < 1e-6, 'target must be independent of render call rate');
 
 const distances: number[] = [];
 for (const mode of ['chase-near', 'chase-mid', 'chase-far'] as CameraMode[]) {

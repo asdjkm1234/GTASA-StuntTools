@@ -21,6 +21,7 @@ export interface CameraFrame {
   forward: Vec3;
   /** GTA's ped_frontseat dummy transformed into engine space. */
   firstPersonPosition?: Vec3;
+  model: number;
   modelLength: number;
   modelTop: number;
   position: Vec3;
@@ -38,6 +39,10 @@ const PLANE_ZOOM: Record<'chase-near' | 'chase-mid' | 'chase-far', { alpha: numb
 };
 const COCKPIT_AHEAD = 0.6;
 const COCKPIT_UP = 0.3;
+// The 2026-09-25 Hydra camera trace gives a target 0.84104 m above the aircraft and a
+// collision-box-based length of 14.3182 m. The visual mesh bounds are different.
+const HYDRA_TARGET_UP = 0.84104;
+const HYDRA_CAMERA_LENGTH = 14.3182;
 // Plane values from SACarCam's reconstruction of SA's FollowCar camera. GTA time step is 50 Hz.
 const PLANE = { heightScale: 1.1, heightInset: 0.2, baseOffset: 3.5, minHistoryDistance: 25,
   yawVelocityGain: 0.005, yawStepLimit: 0.2, yawResponse: 0.75, yawSpeedLimit: 0.1,
@@ -127,8 +132,11 @@ export class ReplayCamera {
     }
 
     const zoom = PLANE_ZOOM[this.mode];
-    const targetUp = Math.max(0, frame.modelTop * PLANE.heightScale - PLANE.heightInset);
-    const desiredDistance = Math.max(3.5, frame.modelLength + PLANE.baseOffset + zoom.zoom + targetUp);
+    const targetUp = frame.model === 520 ? HYDRA_TARGET_UP
+      : Math.max(0, frame.modelTop * PLANE.heightScale - PLANE.heightInset);
+    const cameraLength = frame.model === 520 ? HYDRA_CAMERA_LENGTH : frame.modelLength;
+    const desiredDistance = Math.max(3.5, cameraLength + PLANE.baseOffset + zoom.zoom + targetUp);
+    const alphaOffset = zoom.alpha + 0.3 * targetUp / desiredDistance;
     this.distance = snap || this.distance === null
       ? desiredDistance
       : this.distance + (desiredDistance - this.distance) * (1 - Math.exp(-dt / 0.25));
@@ -140,9 +148,9 @@ export class ReplayCamera {
       this.beta = Math.atan2(initialDirection[0], initialDirection[2]);
       const speed = Math.hypot(...frame.velocity);
       const pathPitch = speed > 0.05 ? Math.atan2(frame.velocity[1], planarSpeed) : 0;
-      this.alpha = clamp(pathPitch * 0.65 - zoom.alpha, -PLANE.pitchLimit, PLANE.pitchLimit);
+      this.alpha = clamp(pathPitch * 0.65 - alphaOffset, -PLANE.pitchLimit, PLANE.pitchLimit);
       this.betaSpeed = 0;
-      const initialAim = directionFromAngles(this.beta, this.alpha + zoom.alpha);
+      const initialAim = directionFromAngles(this.beta, this.alpha + alphaOffset);
       this.historyEye = subtractScaled(target, initialAim, Math.max(this.distance, PLANE.minHistoryDistance));
     }
     const step = Math.min(5, Math.max(0, dt * 50));
@@ -168,15 +176,16 @@ export class ReplayCamera {
     this.betaSpeed = this.betaSpeed * Math.pow(PLANE.yawResponse, step)
       + wantedBetaSpeed * (1 - Math.pow(PLANE.yawResponse, step));
     this.beta += step * this.betaSpeed;
-    const desiredAlpha = clamp(Math.asin(clamp(towardTarget[1], -1, 1)) - zoom.alpha,
+    const desiredAlpha = clamp(Math.asin(clamp(towardTarget[1], -1, 1)) - alphaOffset,
       -PLANE.pitchLimit, PLANE.pitchLimit);
     this.alpha += clamp((desiredAlpha - this.alpha) * (1 - Math.pow(PLANE.pitchResponse, step)),
       -PLANE.pitchStepLimit * step, PLANE.pitchStepLimit * step);
     this.alpha = clamp(this.alpha, -PLANE.pitchLimit, PLANE.pitchLimit);
     const eye = subtractScaled(target, directionFromAngles(this.beta, this.alpha), this.distance);
-    this.historyEye = subtractScaled(target, directionFromAngles(this.beta, desiredAlpha + zoom.alpha),
+    this.historyEye = subtractScaled(target, directionFromAngles(this.beta, desiredAlpha + alphaOffset),
       Math.max(this.distance, PLANE.minHistoryDistance));
-    return { aspect, eye, far: 12000, fovYRad: (70 * Math.PI) / 180, near: 0.5, target, up: WORLD_UP };
+    // SA's CCam FOV is horizontal; OpenSA's renderer expects a vertical FOV.
+    return { aspect, eye, far: 12000, fovYRad: horizontalFovToVertical(70, aspect), near: 0.5, target, up: WORLD_UP };
   }
 
   private pose: null | {
@@ -212,4 +221,8 @@ function directionFromAngles(beta: number, alpha: number): Vec3 {
 function subtractScaled(origin: Vec3, direction: Vec3, distance: number): Vec3 {
   return [origin[0] - direction[0] * distance, origin[1] - direction[1] * distance,
     origin[2] - direction[2] * distance];
+}
+
+export function horizontalFovToVertical(degrees: number, aspect: number): number {
+  return 2 * Math.atan(Math.tan((degrees * Math.PI) / 360) / Math.max(0.1, aspect));
 }

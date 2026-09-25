@@ -13,6 +13,7 @@ import type { FlightTrack } from '../flight/csv';
 
 import { loadAircraft } from '../flight/aircraft';
 import { ReplayCamera, type CameraMode } from '../flight/camera';
+import { ChaseCameraTimeline, isChaseMode, type ChaseMode } from '../flight/camera-track';
 import { PakWorld } from '../flight/pak-world';
 import { NODE_NAMES, parseFlightCsv, sampleTrack } from '../flight/csv';
 import { gtaDirToEngine, rotateVec, type Vec3 } from '../flight/math';
@@ -149,7 +150,21 @@ let engine: Engine;
 let pakWorld: PakWorld | null = null;
 const MAP_PAK_BASE = params.get('pak') ?? '/map-pak';
 let camera: ReplayCamera;
+let chaseTimeline: ChaseCameraTimeline | null = null;
+let chaseTrack: FlightTrack | null = null;
+let chaseSize = '';
+let chaseTransition: { from: ChaseMode; started: number } | null = null;
 let timecycText = '';
+
+function timelineFor(track: FlightTrack): ChaseCameraTimeline {
+  const size = `${modelLength},${modelTop}`;
+  if (!chaseTimeline || chaseTrack !== track || chaseSize !== size) {
+    chaseTimeline = new ChaseCameraTimeline(track, modelLength, modelTop);
+    chaseTrack = track;
+    chaseSize = size;
+  }
+  return chaseTimeline;
+}
 
 function fmt(s: number): string {
   const safe = Number.isFinite(s) ? Math.max(0, s) : 0;
@@ -267,11 +282,23 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   ] : undefined;
   const dt = Math.min(0.1, Math.max(0.0001, (performance.now() - lastFrame) / 1000));
   const velocity = gtaDirToEngine(pose.velocity);
-  const cameraState = camera.state({
-    aspect: canvas.width / Math.max(1, canvas.height), cockpitPosition, dt, firstPersonPosition,
-    forward, modelLength, modelTop,
-    position: posEngine, snap: forceSnap || snapCamera, up, velocity,
-  });
+  const aspect = canvas.width / Math.max(1, canvas.height);
+  const cameraState = isChaseMode(cameraMode)
+    ? timelineFor(track).state(elapsed, cameraMode, aspect)
+    : camera.state({
+      aspect, cockpitPosition, dt, firstPersonPosition, forward,
+      model: pose.row.model, modelLength, modelTop,
+      position: posEngine, snap: forceSnap || snapCamera, up, velocity,
+    });
+  if (chaseTransition && isChaseMode(cameraMode)) {
+    const blend = Math.min(1, (performance.now() - chaseTransition.started) / 250);
+    if (blend < 1) {
+      const previous = timelineFor(track).state(elapsed, chaseTransition.from, aspect);
+      cameraState.eye = [0, 1, 2].map((axis) => previous.eye[axis] + (cameraState.eye[axis] - previous.eye[axis]) * blend) as Vec3;
+    } else {
+      chaseTransition = null;
+    }
+  }
   debug.cameraMode = cameraMode;
   const view = [cameraState.target[0] - cameraState.eye[0], cameraState.target[1] - cameraState.eye[1], cameraState.target[2] - cameraState.eye[2]];
   debug.cameraDistance = Math.hypot(...view);
@@ -308,6 +335,7 @@ async function selectTrack(index: number): Promise<void> {
   active = Math.max(0, Math.min(plays.length - 1, index));
   elapsed = 0;
   snapCamera = true;
+  chaseTransition = null;
   void ensureAircraft();
   renderTrackList();
   frameOnce();
@@ -565,7 +593,7 @@ function loop(): void {
     if (engine && camera) {
       engine.frame(camera.state({
         aspect: canvas.width / Math.max(1, canvas.height), dt: 0.016, forward: [0, 0, -1],
-        modelLength, modelTop, position: [0, 40, 0], snap: false, up: [0, 1, 0], velocity: [0, 0, 0],
+        model: 520, modelLength, modelTop, position: [0, 40, 0], snap: false, up: [0, 1, 0], velocity: [0, 0, 0],
       }));
       engine.updateVehicles();
     }
@@ -597,7 +625,8 @@ function cycleCamera(): void {
   const previous = cameraMode;
   cameraMode = CAMERA_MODES[(CAMERA_MODES.indexOf(cameraMode) + 1) % CAMERA_MODES.length];
   camera.mode = cameraMode;
-  const changingFamily = !previous.startsWith('chase-') || !cameraMode.startsWith('chase-');
+  const changingFamily = !isChaseMode(previous) || !isChaseMode(cameraMode);
+  chaseTransition = !changingFamily && isChaseMode(previous) ? { from: previous, started: performance.now() } : null;
   if (changingFamily) camera.reset();
   snapCamera = changingFamily;
   frameOnce();
@@ -666,6 +695,7 @@ function bindUi(): void {
     cameraMode = 'chase-mid';
     camera.mode = cameraMode;
     camera.reset();
+    chaseTransition = null;
     snapCamera = true;
     frameOnce();
   };
