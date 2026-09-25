@@ -17,6 +17,21 @@
 namespace {
 constexpr uintptr_t kGameProcessCall = 0x53E981;
 constexpr uintptr_t kFindPlayerVehicle = 0x56E0D0;
+// GTA SA 1.0 US CCamera/CCam layout (Plugin-SDK). Read only, for temporary comparison traces.
+constexpr uintptr_t kTheCamera = 0xB6F028;
+constexpr size_t kCamActive = 0x59;
+constexpr size_t kCamZoom = 0xB4;
+constexpr size_t kCamZoomSmoothed = 0xC0;
+constexpr size_t kCamArray = 0x174;
+constexpr size_t kCamSize = 0x238;
+constexpr size_t kCamMode = 0xC;
+constexpr size_t kCamAlpha = 0xAC;
+constexpr size_t kCamFov = 0xB4;
+constexpr size_t kCamBeta = 0xBC;
+constexpr size_t kCamFront = 0x190;
+constexpr size_t kCamSource = 0x19C;
+constexpr size_t kCamUp = 0x1B4;
+constexpr size_t kCameraMatrix = 0x974;
 constexpr float kQuickhomeDistanceMetres = 120.0f;
 constexpr auto kSamplePeriod = std::chrono::milliseconds(40); // GTA SA's native ~25 Hz logic cadence
 
@@ -24,6 +39,18 @@ struct Vec3 { float x, y, z; };
 // CMatrix stores right, forward (called `up` in some old SDK headers), then up
 // (called `at`/`forward` in those headers).  Keep the semantic names here.
 struct Matrix { Vec3 right; float padRight; Vec3 forward; float padForward; Vec3 up; float padUp; Vec3 position; float padPosition; };
+
+struct CameraDebug {
+    int valid = 0;
+    int matrixValid = 0;
+    int active = -1;
+    int mode = -1;
+    unsigned zoom = 0;
+    float zoomSmoothed = 0.0f;
+    float alpha = 0.0f, beta = 0.0f, fov = 0.0f;
+    Vec3 source{}, front{}, up{};
+    Matrix finalMatrix{};
+};
 
 // Verified against GTA SA 1.0 US Plugin-SDK layouts.
 constexpr size_t kVehicleMatrix = 0x14;
@@ -89,6 +116,7 @@ struct Sample {
     unsigned nodeStatus;         // bit i set => node i frame readable
     float nodeQuat[kPlaneNodeSpecCount][4]; // local modelling rotation per node
     int nodesReadable;
+    CameraDebug camera;
 };
 
 FILE* gFile = nullptr;
@@ -229,11 +257,12 @@ void startSession(const Sample& s) {
     gFile = std::fopen(path, "wb");
     if (!gFile) return;
     char now[32]; timestamp(now, sizeof(now));
-    std::fprintf(gFile, "# gtasa_flight_recorder,version=6,sample_hz=25\n");
+    std::fprintf(gFile, "# gtasa_flight_recorder,version=6,sample_hz=25,camera_debug=1\n");
     std::fprintf(gFile, "# node_columns=rudder,elevator_l,elevator_r,aileron_l,aileron_r,gear_l,gear_r\n");
     std::fprintf(gFile, "# surface_source: real=read from CPlane node frames, partial=some nodes, inferred=not available (keys only)\n");
+    std::fprintf(gFile, "# camera_debug: active CCam and final CCamera matrix, sampled with aircraft; temporary reference data\n");
     std::fprintf(gFile, "# session_start,%s,reason=vehicle_entered,model=%d\n", now, s.model);
-    std::fprintf(gFile, "local_timestamp,model,health,x,y,z,heading_deg,right_x,right_y,right_z,up_x,up_y,up_z,forward_x,forward_y,forward_z,vx,vy,vz,ax,ay,az,steer,throttle,brake,color_primary,color_secondary,color_tertiary,color_quaternary,landing_gear_status,key_q,key_a,key_e,key_d,key_up,key_down,game_hour,game_minute,game_second,weather_new,weather_old,weather_forced,node_status,surface_source,rudder_qx,rudder_qy,rudder_qz,rudder_qw,elevator_l_qx,elevator_l_qy,elevator_l_qz,elevator_l_qw,elevator_r_qx,elevator_r_qy,elevator_r_qz,elevator_r_qw,aileron_l_qx,aileron_l_qy,aileron_l_qz,aileron_l_qw,aileron_r_qx,aileron_r_qy,aileron_r_qz,aileron_r_qw,gear_l_qx,gear_l_qy,gear_l_qz,gear_l_qw,gear_r_qx,gear_r_qy,gear_r_qz,gear_r_qw\n");
+    std::fprintf(gFile, "local_timestamp,model,health,x,y,z,heading_deg,right_x,right_y,right_z,up_x,up_y,up_z,forward_x,forward_y,forward_z,vx,vy,vz,ax,ay,az,steer,throttle,brake,color_primary,color_secondary,color_tertiary,color_quaternary,landing_gear_status,key_q,key_a,key_e,key_d,key_up,key_down,game_hour,game_minute,game_second,weather_new,weather_old,weather_forced,node_status,surface_source,rudder_qx,rudder_qy,rudder_qz,rudder_qw,elevator_l_qx,elevator_l_qy,elevator_l_qz,elevator_l_qw,elevator_r_qx,elevator_r_qy,elevator_r_qz,elevator_r_qw,aileron_l_qx,aileron_l_qy,aileron_l_qz,aileron_l_qw,aileron_r_qx,aileron_r_qy,aileron_r_qz,aileron_r_qw,gear_l_qx,gear_l_qy,gear_l_qz,gear_l_qw,gear_r_qx,gear_r_qy,gear_r_qz,gear_r_qw,camera_valid,camera_matrix_valid,camera_active,camera_mode,camera_zoom,camera_zoom_smoothed,camera_alpha,camera_beta,camera_fov,camera_source_x,camera_source_y,camera_source_z,camera_front_x,camera_front_y,camera_front_z,camera_up_x,camera_up_y,camera_up_z,camera_matrix_x,camera_matrix_y,camera_matrix_z,camera_matrix_right_x,camera_matrix_right_y,camera_matrix_right_z,camera_matrix_forward_x,camera_matrix_forward_y,camera_matrix_forward_z,camera_matrix_up_x,camera_matrix_up_y,camera_matrix_up_z\n");
     gVehicle = s.vehicle;
 }
 
@@ -268,6 +297,16 @@ void writeSample(const Sample& s, std::chrono::steady_clock::time_point sampleTi
         writeQuat(s.nodeQuat[i], (s.nodeStatus >> i) & 1u, buffer, sizeof(buffer));
         std::fprintf(gFile, ",%s", buffer);
     }
+    const CameraDebug& c = s.camera;
+    std::fprintf(gFile, ",%d,%d,%d,%d,%u,%.6f,%.6f,%.6f,%.6f"
+        ",%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f"
+        ",%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f",
+        c.valid, c.matrixValid, c.active, c.mode, c.zoom, c.zoomSmoothed, c.alpha, c.beta, c.fov,
+        c.source.x, c.source.y, c.source.z, c.front.x, c.front.y, c.front.z, c.up.x, c.up.y, c.up.z,
+        c.finalMatrix.position.x, c.finalMatrix.position.y, c.finalMatrix.position.z,
+        c.finalMatrix.right.x, c.finalMatrix.right.y, c.finalMatrix.right.z,
+        c.finalMatrix.forward.x, c.finalMatrix.forward.y, c.finalMatrix.forward.z,
+        c.finalMatrix.up.x, c.finalMatrix.up.y, c.finalMatrix.up.z);
     std::fprintf(gFile, "\n");
     std::fflush(gFile);
     gPrevious = s; gPreviousSampleTime = sampleTime; gHasPrevious = true;
@@ -291,6 +330,51 @@ void readWeather(Sample& s) {
     s.weather_new = (readAt(reinterpret_cast<const void*>(kWeatherNew), 0, value), static_cast<int>(value));
     s.weather_old = (readAt(reinterpret_cast<const void*>(kWeatherOld), 0, value), static_cast<int>(value));
     s.weather_forced = (readAt(reinterpret_cast<const void*>(kWeatherForced), 0, value), static_cast<int>(value));
+}
+
+bool finiteVec(const Vec3& v) {
+    return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+
+float vecLength(const Vec3& v) {
+    return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+void readCameraDebug(Sample& s) {
+    CameraDebug& c = s.camera;
+    const void* camera = reinterpret_cast<const void*>(kTheCamera);
+    unsigned char active = 0xff;
+    if (!readAt(camera, kCamActive, active) || active >= 3) return;
+    c.active = active;
+    const void* cam = reinterpret_cast<const void*>(kTheCamera + kCamArray + active * kCamSize);
+    uint16_t mode = 0;
+    if (readAt(cam, kCamMode, mode)
+        && readAt(cam, kCamAlpha, c.alpha)
+        && readAt(cam, kCamBeta, c.beta)
+        && readAt(cam, kCamFov, c.fov)
+        && readAt(cam, kCamSource, c.source)
+        && readAt(cam, kCamFront, c.front)
+        && readAt(cam, kCamUp, c.up)
+        && std::isfinite(c.alpha) && std::isfinite(c.beta)
+        && c.fov >= 10.0f && c.fov <= 160.0f
+        && finiteVec(c.source) && finiteVec(c.front) && finiteVec(c.up)
+        && vecLength(c.front) > 0.5f && vecLength(c.front) < 1.5f
+        && vecLength(c.up) > 0.5f && vecLength(c.up) < 1.5f) {
+        c.mode = mode;
+        c.valid = 1;
+    }
+    readAt(camera, kCamZoom, c.zoom);
+    readAt(camera, kCamZoomSmoothed, c.zoomSmoothed);
+    if (readAt(camera, kCameraMatrix, c.finalMatrix)
+        && finiteVec(c.finalMatrix.position)
+        && finiteVec(c.finalMatrix.right)
+        && finiteVec(c.finalMatrix.forward)
+        && finiteVec(c.finalMatrix.up)
+        && vecLength(c.finalMatrix.right) > 0.5f
+        && vecLength(c.finalMatrix.forward) > 0.5f
+        && vecLength(c.finalMatrix.up) > 0.5f) {
+        c.matrixValid = 1;
+    }
 }
 
 bool captureSample(Sample& s) {
@@ -337,6 +421,7 @@ bool captureSample(Sample& s) {
     }
     readGameClock(s);
     readWeather(s);
+    readCameraDebug(s);
     return true;
 }
 

@@ -267,10 +267,9 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   ] : undefined;
   const dt = Math.min(0.1, Math.max(0.0001, (performance.now() - lastFrame) / 1000));
   const velocity = gtaDirToEngine(pose.velocity);
-  const earlierHeight = sampleTrack(track, Math.max(0, elapsed - 0.25)).pos[2];
   const cameraState = camera.state({
     aspect: canvas.width / Math.max(1, canvas.height), cockpitPosition, dt, firstPersonPosition,
-    forward, heightTrail: pose.pos[2] - earlierHeight, modelLength, modelTop,
+    forward, modelLength, modelTop,
     position: posEngine, snap: forceSnap || snapCamera, up, velocity,
   });
   debug.cameraMode = cameraMode;

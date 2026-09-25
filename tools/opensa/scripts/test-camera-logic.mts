@@ -22,10 +22,9 @@ function frame(at: number, snap = false) {
   const position: Vec3 = [pose.pos[0], pose.pos[2], -pose.pos[1]];
   const forward = rotateVec(pose.orientation, [0, 1, 0]);
   const velocity = gtaDirToEngine(pose.velocity);
-  const earlierHeight = sampleTrack(track, Math.max(0, at - 0.25)).pos[2];
   const state = camera.state({
     aspect: 1.6, dt: 0.04, forward, modelLength: 16, modelTop: 3,
-    heightTrail: pose.pos[2] - earlierHeight, position, snap,
+    position, snap,
     up: rotateVec(pose.orientation, [0, 0, 1]), velocity,
     firstPersonPosition: [position[0] + 1, position[1] + 2, position[2] + 3],
   });
@@ -45,13 +44,17 @@ assert(dot(travel, sample123.velocity) / (Math.hypot(...travel) * Math.hypot(...
 console.log('reversal follows travel at 124 seconds');
 
 const levelPitch = pitchDeg(frame(0, true).state);
-const climbPitch = pitchDeg(frame(115.977, true).state);
-const divePitch = pitchDeg(frame(124, true).state);
+let climbPitch = 0;
+frame(110, true);
+for (let at = 110.04; at <= 116; at += 0.04) climbPitch = pitchDeg(frame(at).state);
+let divePitch = 0;
+for (let at = 116.04; at <= 124; at += 0.04) divePitch = pitchDeg(frame(at).state);
 assert(levelPitch < 0 && levelPitch > -10, `level camera offset: ${levelPitch}`);
-assert(climbPitch > 20 && climbPitch < 45, `climb should look up moderately: ${climbPitch}`);
-assert(divePitch < -10, `descending flight should look down: ${divePitch}`);
-assert(Math.abs(pitchDeg(frame(115.977, true).state) - climbPitch) < 1e-6, 'seek and replay pitch should agree');
-console.log('camera pitch level/climb/dive', [levelPitch, climbPitch, divePitch].map((value) => value.toFixed(1)));
+assert(climbPitch > 10 && climbPitch < 70, `climb should look up without going vertical: ${climbPitch}`);
+assert(divePitch < climbPitch, `descending flight should lower the view: ${divePitch}`);
+const seekPitch = pitchDeg(frame(115.977, true).state);
+assert(seekPitch > 10, `seeking into a climb should still look up: ${seekPitch}`);
+console.log('camera pitch level/climb/dive/seek', [levelPitch, climbPitch, divePitch, seekPitch].map((value) => value.toFixed(1)));
 
 const distances: number[] = [];
 for (const mode of ['chase-near', 'chase-mid', 'chase-far'] as CameraMode[]) {

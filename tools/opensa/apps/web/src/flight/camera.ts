@@ -1,7 +1,5 @@
-/** Aircraft replay cameras. The three exterior distances use SA's plane zoom values and follow the
- * horizontal travel direction, with an orbiting yaw so reversing flight never pulls the eye through the
- * aircraft. The original first-person view uses the model's front-seat dummy; the existing canopy camera
- * remains a separate mode. */
+/** Aircraft replay cameras. The exterior camera keeps a target/eye history and smoothed yaw/pitch,
+ * based on the plane branch described by SACarCam. The front-seat and canopy cameras are separate. */
 import type { Vec3 } from './math';
 
 export type CameraMode = 'chase-near' | 'chase-mid' | 'chase-far' | 'first-person' | 'cockpit';
@@ -29,8 +27,6 @@ export interface CameraFrame {
   snap: boolean;
   up: Vec3;
   velocity: Vec3;
-  /** Current aircraft height minus its height a short time ago, in engine units. */
-  heightTrail?: number;
 }
 
 const WORLD_UP: Vec3 = [0, 1, 0];
@@ -42,7 +38,10 @@ const PLANE_ZOOM: Record<'chase-near' | 'chase-mid' | 'chase-far', { alpha: numb
 };
 const COCKPIT_AHEAD = 0.6;
 const COCKPIT_UP = 0.3;
-const MAX_CHASE_PITCH = (55 * Math.PI) / 180;
+// Plane values from SACarCam's reconstruction of SA's FollowCar camera. GTA time step is 50 Hz.
+const PLANE = { heightScale: 1.1, heightInset: 0.2, baseOffset: 3.5, minHistoryDistance: 25,
+  yawVelocityGain: 0.005, yawStepLimit: 0.2, yawResponse: 0.75, yawSpeedLimit: 0.1,
+  pitchResponse: 0.5, pitchStepLimit: 1, pitchLimit: 1.5533431 };
 
 function spring(position: Vec3, velocity: Vec3, goal: Vec3, smoothTime: number, dt: number): void {
   const omega = 2 / Math.max(0.001, smoothTime);
@@ -74,9 +73,11 @@ export class ReplayCamera {
 
   reset(): void {
     this.pose = null;
-    this.yaw = null;
+    this.beta = null;
+    this.alpha = 0;
+    this.betaSpeed = 0;
+    this.historyEye = null;
     this.distance = null;
-    this.followingVelocity = false;
   }
 
   state(frame: CameraFrame): CameraStateOut {
@@ -125,39 +126,56 @@ export class ReplayCamera {
       };
     }
 
-    const planarSpeed = Math.hypot(frame.velocity[0], frame.velocity[2]);
-    if (planarSpeed > 0.12) this.followingVelocity = true;
-    else if (planarSpeed < 0.06) this.followingVelocity = false;
-    const planarForward = Math.hypot(forward[0], forward[2]);
-    const direction = this.followingVelocity && planarSpeed > 0.06
-      ? frame.velocity
-      : planarForward > 0.05 ? forward : [Math.sin(this.yaw ?? 0), 0, Math.cos(this.yaw ?? 0)];
-    const desiredYaw = Math.atan2(direction[0], direction[2]);
-    if (snap || this.yaw === null) {
-      this.yaw = desiredYaw;
-    } else {
-      // Preserve the orbit radius while the camera swings around a reversing plane.
-      const turn = angleDifference(this.yaw, desiredYaw) * (1 - Math.exp(-dt / 0.65));
-      const maxTurn = Math.PI * dt;
-      this.yaw += Math.max(-maxTurn, Math.min(maxTurn, turn));
-    }
     const zoom = PLANE_ZOOM[this.mode];
-    const targetUp = Math.max(0.5, Math.min(8, frame.modelTop * 1.1 - 0.2));
-    const desiredDistance = Math.max(12, frame.modelLength + 3.5 + zoom.zoom + targetUp);
+    const targetUp = Math.max(0, frame.modelTop * PLANE.heightScale - PLANE.heightInset);
+    const desiredDistance = Math.max(3.5, frame.modelLength + PLANE.baseOffset + zoom.zoom + targetUp);
     this.distance = snap || this.distance === null
       ? desiredDistance
       : this.distance + (desiredDistance - this.distance) * (1 - Math.exp(-dt / 0.25));
     const target: Vec3 = [position[0], position[1] + targetUp, position[2]];
-    // SA's plane alpha is an offset to a moving camera angle, not a fixed pitch. A short target-height
-    // history leaves the eye below a climbing plane (or above a diving one) even after a timeline seek.
-    const heightTrail = Math.max(-this.distance * 2, Math.min(this.distance * 2, frame.heightTrail ?? 0));
-    const pitch = Math.max(-MAX_CHASE_PITCH, Math.min(MAX_CHASE_PITCH,
-      Math.atan2(heightTrail - Math.tan(zoom.alpha) * this.distance, this.distance)));
-    const eye: Vec3 = [
-      target[0] - Math.sin(this.yaw) * this.distance,
-      target[1] - Math.tan(pitch) * this.distance,
-      target[2] - Math.cos(this.yaw) * this.distance,
-    ];
+    const planarSpeed = Math.hypot(frame.velocity[0], frame.velocity[2]);
+    if (snap || this.beta === null || this.historyEye === null) {
+      // A seek has no preceding camera state. Start behind the direction of travel when it is known.
+      const initialDirection = planarSpeed > 0.02 ? frame.velocity : forward;
+      this.beta = Math.atan2(initialDirection[0], initialDirection[2]);
+      const speed = Math.hypot(...frame.velocity);
+      const pathPitch = speed > 0.05 ? Math.atan2(frame.velocity[1], planarSpeed) : 0;
+      this.alpha = clamp(pathPitch * 0.65 - zoom.alpha, -PLANE.pitchLimit, PLANE.pitchLimit);
+      this.betaSpeed = 0;
+      const initialAim = directionFromAngles(this.beta, this.alpha + zoom.alpha);
+      this.historyEye = subtractScaled(target, initialAim, Math.max(this.distance, PLANE.minHistoryDistance));
+    }
+    const step = Math.min(5, Math.max(0, dt * 50));
+    // Keep a previous predicted eye. As the plane climbs away, the target rises in that eye's view;
+    // the elevation accumulates naturally instead of using a hard-coded height interval.
+    const towardTarget = normalized([
+      target[0] - this.historyEye[0], target[1] - this.historyEye[1], target[2] - this.historyEye[2],
+    ]);
+    const currentYaw = Math.atan2(towardTarget[0], towardTarget[2]);
+    const velocityYaw = planarSpeed > 0.02 ? Math.atan2(frame.velocity[0], frame.velocity[2]) : currentYaw;
+    const along = dot(frame.velocity, towardTarget);
+    const sideSpeed = Math.hypot(
+      frame.velocity[0] - along * towardTarget[0],
+      frame.velocity[1] - along * towardTarget[1],
+      frame.velocity[2] - along * towardTarget[2],
+    );
+    const velocityTurn = clamp(angleDifference(currentYaw, velocityYaw)
+      * Math.min(1, PLANE.yawVelocityGain * step * sideSpeed),
+    -PLANE.yawStepLimit * step, PLANE.yawStepLimit * step);
+    const desiredBeta = currentYaw + velocityTurn;
+    const wantedBetaSpeed = clamp(angleDifference(this.beta, desiredBeta) / Math.max(1, step),
+      -PLANE.yawSpeedLimit, PLANE.yawSpeedLimit);
+    this.betaSpeed = this.betaSpeed * Math.pow(PLANE.yawResponse, step)
+      + wantedBetaSpeed * (1 - Math.pow(PLANE.yawResponse, step));
+    this.beta += step * this.betaSpeed;
+    const desiredAlpha = clamp(Math.asin(clamp(towardTarget[1], -1, 1)) - zoom.alpha,
+      -PLANE.pitchLimit, PLANE.pitchLimit);
+    this.alpha += clamp((desiredAlpha - this.alpha) * (1 - Math.pow(PLANE.pitchResponse, step)),
+      -PLANE.pitchStepLimit * step, PLANE.pitchStepLimit * step);
+    this.alpha = clamp(this.alpha, -PLANE.pitchLimit, PLANE.pitchLimit);
+    const eye = subtractScaled(target, directionFromAngles(this.beta, this.alpha), this.distance);
+    this.historyEye = subtractScaled(target, directionFromAngles(this.beta, desiredAlpha + zoom.alpha),
+      Math.max(this.distance, PLANE.minHistoryDistance));
     return { aspect, eye, far: 12000, fovYRad: (70 * Math.PI) / 180, near: 0.5, target, up: WORLD_UP };
   }
 
@@ -167,7 +185,31 @@ export class ReplayCamera {
     targetOffset: Vec3;
     targetVelocity: Vec3;
   } = null;
-  private yaw: number | null = null;
+  private beta: number | null = null;
+  private alpha = 0;
+  private betaSpeed = 0;
+  private historyEye: Vec3 | null = null;
   private distance: number | null = null;
-  private followingVelocity = false;
+}
+
+function clamp(value: number, low: number, high: number): number {
+  return Math.max(low, Math.min(high, value));
+}
+
+function normalized(value: Vec3): Vec3 {
+  const length = Math.hypot(...value);
+  return length > 0.00001 ? [value[0] / length, value[1] / length, value[2] / length] : [0, 0, 1];
+}
+
+function dot(a: Vec3, b: Vec3): number {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+function directionFromAngles(beta: number, alpha: number): Vec3 {
+  return [Math.sin(beta) * Math.cos(alpha), Math.sin(alpha), Math.cos(beta) * Math.cos(alpha)];
+}
+
+function subtractScaled(origin: Vec3, direction: Vec3, distance: number): Vec3 {
+  return [origin[0] - direction[0] * distance, origin[1] - direction[1] * distance,
+    origin[2] - direction[2] * distance];
 }

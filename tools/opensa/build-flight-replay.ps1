@@ -13,7 +13,7 @@ if (-not (Test-Path (Join-Path $opensa 'node_modules'))) {
 }
 Push-Location $opensa
 try {
-    & npx.cmd vite build --config vite.flight.config.ts
+    & (Join-Path $opensa 'node_modules\.bin\vite.cmd') build --config vite.flight.config.ts
     if ($LASTEXITCODE -ne 0) { throw "vite build failed ($LASTEXITCODE)" }
 } finally {
     Pop-Location

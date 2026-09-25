@@ -209,3 +209,12 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
 ### 硬性约束（务必遵守）
 见 `AGENTS.md` 与 §5。每次改完必须：`npx tsc --noEmit -p tsconfig.json`（0 错误）→ `build-flight-replay.ps1` 发布 →
 跑对应 `scripts/*` 自测并看截图。纹理上传只能走 `beginLoad`+`drainUploads`；`.cmd/.ps1` 只写 ASCII。
+
+## 11. 镜头对照调试（临时）
+
+- 三档跟随镜头现参考 SACarCam 的飞机参数和有状态的目标/视点历史、水平/垂直角平滑；第一人称和机舱镜头保持独立。
+- 录制器仍是 v6 飞行格式，调试构建在 CSV 表尾追加 `camera_*` 列，文件头标记 `camera_debug=1`。
+  `camera_valid` 对应活动 CCam；`camera_matrix_valid` 对应最终 CCamera 矩阵。两者按现有飞机采样节奏
+  约 25 Hz 同步读取，不要把它误认为每一渲染帧的精确镜头轨迹。
+- 用户会在不动鼠标的情况下录制几段第一人称和第三人称飞行。取得新 CSV 后先确认 valid 值和
+  活动镜头模式/缩放，再对齐原版镜头与回放；调试完成后移除这些临时列。
