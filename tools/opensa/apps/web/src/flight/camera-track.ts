@@ -1,5 +1,5 @@
 /** Sample exterior camera motion on a fixed game-frame timeline, independent of browser refresh rate. */
-import { ReplayCamera, horizontalFovToVertical, type CameraMode, type CameraStateOut } from './camera';
+import { ReplayCamera, saChaseFovY, type CameraMode, type CameraStateOut } from './camera';
 import { sampleTrack, type FlightTrack } from './csv';
 import { gtaDirToEngine, rotateVec, type Vec3 } from './math';
 
@@ -17,7 +17,7 @@ export class ChaseCameraTimeline {
 
   constructor(private track: FlightTrack, private modelLength: number, private modelTop: number) {}
 
-  state(time: number, mode: ChaseMode, aspect: number): CameraStateOut {
+  state(time: number, mode: ChaseMode, aspect: number, gameAspect = 16 / 9): CameraStateOut {
     const at = Math.max(0, Math.min(this.track.duration, time));
     const scaled = at * CAMERA_HZ;
     const first = Math.floor(scaled);
@@ -45,7 +45,7 @@ export class ChaseCameraTimeline {
     const a = history.states[first];
     const b = history.states[second];
     const fraction = scaled - first;
-    return { ...a, aspect, fovYRad: horizontalFovToVertical(70, aspect),
+    return { ...a, aspect, fovYRad: saChaseFovY(aspect, gameAspect),
       eye: mixVec(a.eye, b.eye, fraction), target: mixVec(a.target, b.target, fraction) };
   }
 }

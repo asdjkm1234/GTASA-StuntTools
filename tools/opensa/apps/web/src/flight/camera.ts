@@ -16,6 +16,8 @@ export interface CameraStateOut {
 
 export interface CameraFrame {
   aspect: number;
+  /** Aspect of the GTA display whose camera projection is being reproduced. */
+  gameAspect?: number;
   cockpitPosition?: Vec3;
   dt: number;
   forward: Vec3;
@@ -31,6 +33,14 @@ export interface CameraFrame {
 }
 
 const WORLD_UP: Vec3 = [0, 1, 0];
+// GTASA.WidescreenFix (DontTouchFOV=0) expands SA's 4:3 horizontal FOV to the
+// game display aspect. The CCam trace still says 70 degrees before this fix.
+// Use the display's corrected horizontal angle when projecting onto the browser
+// viewport, whose height may differ from the full-screen game recording.
+export function saChaseFovY(viewAspect: number, gameAspect = 16 / 9): number {
+  const halfHorizontalTan = Math.tan((70 * Math.PI) / 360) * Math.max(0.1, gameAspect) / (4 / 3);
+  return 2 * Math.atan(halfHorizontalTan / Math.max(0.1, viewAspect));
+}
 // SA's plane entries in the vehicle camera zoom/alpha tables, recovered by the SACarCam port.
 const PLANE_ZOOM: Record<'chase-near' | 'chase-mid' | 'chase-far', { alpha: number; zoom: number }> = {
   'chase-near': { alpha: 0.08, zoom: 0.05 },
@@ -184,8 +194,7 @@ export class ReplayCamera {
     const eye = subtractScaled(target, directionFromAngles(this.beta, this.alpha), this.distance);
     this.historyEye = subtractScaled(target, directionFromAngles(this.beta, desiredAlpha + alphaOffset),
       Math.max(this.distance, PLANE.minHistoryDistance));
-    // SA's CCam FOV is horizontal; OpenSA's renderer expects a vertical FOV.
-    return { aspect, eye, far: 12000, fovYRad: horizontalFovToVertical(70, aspect), near: 0.5, target, up: WORLD_UP };
+    return { aspect, eye, far: 12000, fovYRad: saChaseFovY(aspect, frame.gameAspect), near: 0.5, target, up: WORLD_UP };
   }
 
   private pose: null | {

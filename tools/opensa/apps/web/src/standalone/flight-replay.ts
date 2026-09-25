@@ -283,17 +283,18 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   const dt = Math.min(0.1, Math.max(0.0001, (performance.now() - lastFrame) / 1000));
   const velocity = gtaDirToEngine(pose.velocity);
   const aspect = canvas.width / Math.max(1, canvas.height);
+  const gameAspect = window.screen.width / Math.max(1, window.screen.height);
   const cameraState = isChaseMode(cameraMode)
-    ? timelineFor(track).state(elapsed, cameraMode, aspect)
+    ? timelineFor(track).state(elapsed, cameraMode, aspect, gameAspect)
     : camera.state({
-      aspect, cockpitPosition, dt, firstPersonPosition, forward,
+      aspect, gameAspect, cockpitPosition, dt, firstPersonPosition, forward,
       model: pose.row.model, modelLength, modelTop,
       position: posEngine, snap: forceSnap || snapCamera, up, velocity,
     });
   if (chaseTransition && isChaseMode(cameraMode)) {
     const blend = Math.min(1, (performance.now() - chaseTransition.started) / 250);
     if (blend < 1) {
-      const previous = timelineFor(track).state(elapsed, chaseTransition.from, aspect);
+      const previous = timelineFor(track).state(elapsed, chaseTransition.from, aspect, gameAspect);
       cameraState.eye = [0, 1, 2].map((axis) => previous.eye[axis] + (cameraState.eye[axis] - previous.eye[axis]) * blend) as Vec3;
     } else {
       chaseTransition = null;
