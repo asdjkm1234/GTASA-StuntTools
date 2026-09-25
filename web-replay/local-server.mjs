@@ -109,6 +109,11 @@ const server = http.createServer(async (req, res) => {
       let body = "";
       for await (const chunk of req) body += chunk;
       await fs.writeFile(path.join(process.cwd(), "webgpu-report.json"), body).catch(() => {});
+      // Keep the full boot/reload sequence; the single latest report cannot explain intermittent device loss.
+      let event;
+      try { event = JSON.parse(body); } catch { event = { invalidReport: body }; }
+      await fs.appendFile(path.join(process.cwd(), "webgpu-events.jsonl"),
+        `${JSON.stringify({ ...event, recordedAt: new Date().toISOString() })}\n`).catch(() => {});
       console.log(`[webgpu-report] ${body}`);
       return send(res, 200, "ok");
     }

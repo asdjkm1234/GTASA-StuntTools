@@ -13,6 +13,7 @@ recorder/build/
 **/install.log
 **/install.err.log
 web-replay/webgpu-report.json
+web-replay/webgpu-events.jsonl
 web-replay/backups/
 recorder/backups/
 

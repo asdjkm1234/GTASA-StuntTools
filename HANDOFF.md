@@ -224,3 +224,17 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
   刷新率改变跟随结果。调好后此段位置误差中位数约 0.08 米、方向误差中位数约 0.21°；近地面碰撞
   仍有偏差。原版 70° FOV 按水平方向使用，回放第三人称转换成引擎需要的垂直 FOV；画面里的
   飞机因此比旧版更大，尚需与游戏实画面直观对照。第一人称、近档和远档尚无原版镜头样本，不能声称已校准。
+
+## 12. 2026-09-25 启动黑屏复现
+
+- 冷启动复现 Chrome/Dawn `DXGI_ERROR_DEVICE_HUNG`。同一页面启动记录显示：98 组 pak 纹理已排队，
+  渲染 29 帧后 WebGPU `device-lost`，当时纹理尚未就绪、地块数为 0。因此这次黑屏发生在纹理上传期，
+  与录像 CSV 和地图地块加载无关。
+- 旧的 6ms CPU 上传预算不能限制 GPU 队列积压。`PakWorld.pump()` 现在每批使用 1ms CPU 预算，
+  并等 `GPUQueue.onSubmittedWorkDone()` 确认显卡完成上一批后再提交下一批；仍只用
+  `beginLoad()` + `drainUploads()`，且不替换常驻纹理数组。
+- `web-replay/local-server.mjs` 现在把带时间的启动阶段和设备丢失记录追加到 gitignored 的
+  `web-replay/webgpu-events.jsonl`；每个页面启动有独立 `bootId`，丢失事件含纹理/地块进度。
+  已有 4173 服务必须退出后重新运行启动脚本，才会加载新的服务端日志代码。
+- 修复后两次全新 Chrome 启动（其中一次完整切换视角和拖动进度）无设备丢失、截图正常。
+  间歇性问题不能由两次成功证明彻底消失；若用户仍遇到黑屏，先读事件日志按 `bootId` 对照阶段。

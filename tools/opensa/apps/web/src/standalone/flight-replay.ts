@@ -474,11 +474,15 @@ async function loadLatest(): Promise<void> {
 let map!: Awaited<ReturnType<typeof loadMapSource>>;
 
 async function boot(): Promise<void> {
+  const bootId = crypto.randomUUID();
+  let bootStage = 'engine-init';
+  let pakDownloads = 0;
   const report = async (payload: Record<string, unknown>): Promise<void> => {
     // Best-effort boot traceback: if the local server exposes /webgpu-report it records one line, which is
     // how a remote run is told apart from "the page never started".
     try {
-      await fetch('/webgpu-report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'flight-replay', ...payload }) });
+      await fetch('/webgpu-report', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'flight-replay', bootId, stage: bootStage, ...payload }) });
     } catch { /* no report route, or offline — not fatal */ }
   };
   if (!('gpu' in navigator)) {
@@ -510,7 +514,10 @@ async function boot(): Promise<void> {
     .then((info) => {
       debug.phase = 'device-lost';
       debug.error = `device-lost:${info.reason}`;
-      void report({ gpu: debug.gpu, phase: 'device-lost', reason: info.reason });
+      void report({ gpu: debug.gpu, phase: 'device-lost', reason: info.reason,
+        pakDownloads, uploadedArrays: pakWorld?.uploadedArrays ?? 0,
+        pakReady: pakWorld?.isReady ?? false, loadedCells: pakWorld?.loadedCells ?? 0,
+        renders: debug.renders, canvas: `${canvas.width}x${canvas.height}` });
       // The Intel Arc driver occasionally resets under load; that shows as a black canvas with the DOM
       // still alive. Recover automatically (once per minute) instead of leaving the user on a dead canvas.
       const key = 'gtasaGpuReloadAt';
@@ -531,11 +538,13 @@ async function boot(): Promise<void> {
   camera = new ReplayCamera();
   camera.mode = cameraMode;
   setStatus('正在读取本地 GTA 安装并建立世界索引…');
+  bootStage = 'map-source';
   map = await loadMapSource({ base: SRC, kind: 'http-dir' });
   timecycText = map.fs.getText('data/timecyc.dat') ?? '';
   debug.cells = map.grid.size;
   installWater(engine, map);
   // Route A only: a baked pak is required. If it is missing, say so instead of rendering an empty world.
+  bootStage = 'pak-check';
   if (!(await PakWorld.probe(MAP_PAK_BASE))) {
     mapLoading.hidden = false;
     mapLoadingText.textContent = '未找到预烘焙地图（/map-pak/index.json）。请先运行：cd tools\\opensa && npx tsx scripts\\bake-map.mts map-pak';
@@ -547,9 +556,12 @@ async function boot(): Promise<void> {
   const pak = new PakWorld(engine, MAP_PAK_BASE);
   mapLoading.hidden = false;
   mapLoadingText.textContent = '读取预烘焙地图索引…';
+  bootStage = 'pak-textures';
   await pak.load((done, total) => {
+    pakDownloads = done;
     mapLoadingText.textContent = `读取预烘焙纹理 ${done}/${total}…`;
   });
+  bootStage = 'render-loop';
   pakWorld = pak;
   debug.worldReady = true;
   for (const node of document.querySelectorAll<HTMLElement>('.raw-only')) {
@@ -578,7 +590,7 @@ function loop(): void {
   // Pak texture arrays upload a slice per frame (a single synchronous burst is what TDRs).
   if (pakWorld) {
     if (!pakWorld.isReady) {
-      pakWorld.pump(6);
+      pakWorld.pump(1);
       mapLoading.hidden = false;
       mapLoadingText.textContent = '上传预烘焙纹理数组…';
     } else {

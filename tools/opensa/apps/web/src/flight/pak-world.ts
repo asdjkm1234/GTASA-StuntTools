@@ -30,6 +30,7 @@ export class PakWorld {
   private readonly resident = new Set<string>();
   private readonly refs: number[] = [];
   private ready = false;
+  private waitingForGpu = false;
 
   constructor(
     private readonly engine: Engine,
@@ -65,16 +66,28 @@ export class PakWorld {
 
   /** Advance this frame's slice of the array uploads; flips `isReady` once every array is resident. */
   pump(budgetMs: number): void {
-    if (this.ready) return;
-    this.engine.textures.drainUploads(budgetMs);
+    if (this.ready || this.waitingForGpu) return;
     if (this.refs.length > 0 && this.refs.every((ref) => this.engine.textures.has(ref))) {
       this.arrays = this.refs.length;
       this.ready = true;
+      return;
     }
+    this.engine.textures.drainUploads(budgetMs);
+    // A CPU time budget limits how fast writes are queued, not how fast the GPU executes them.
+    // Wait for this batch before queuing the next one so the Arc driver is not buried in uploads.
+    this.waitingForGpu = true;
+    void this.engine.device.queue.onSubmittedWorkDone().then(
+      () => { this.waitingForGpu = false; },
+      () => { this.waitingForGpu = false; },
+    );
   }
 
   get isReady(): boolean {
     return this.ready;
+  }
+
+  get uploadedArrays(): number {
+    return this.refs.filter((ref) => this.engine.textures.has(ref)).length;
   }
 
   get loadedCells(): number {
