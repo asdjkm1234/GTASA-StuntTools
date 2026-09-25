@@ -229,7 +229,7 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
 ## 11. 2026-09-26：回放脱离游戏安装
 
 - 同一次 `bake-map.mts` 烘焙写入完整地图、碰撞、纹理、`data/{timecyc.dat,water.dat,vehicles.ide,carcols.dat}`
-  和 `aircraft/{hydra,rustler}.{dff,txd}`，`index.json` 用 `replayAssets.version=1` 标识。只打包 520/476；
+  和 `aircraft/{hydra,rustler}.{dff,txd}`、共享 `aircraft/vehicle.txd`，`index.json` 用 `replayAssets.version=2` 标识。只打包 520/476；
   录制器的 `isTrackedModel` 也只接受 520/476，其他载具不会生成录像。
 - 回放 app 用 `PakResources` 读取上述小文件和飞机；不再调用 `loadMapSource`。服务只在烘焙器请求
   `/game-src/*` 时建立 GTA 文件索引。没有 GTA 安装时，服务仍能从 pak 加载地图和两架飞机。
@@ -237,6 +237,18 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
   用 `RECORDINGS_ROOT` 指向已有 CSV，运行 `scripts/test-standalone-pak.mjs <Hydra CSV>`。该脚本在临时 Chrome
   profile 中分别载入真实 Hydra CSV 与把模型 ID 临时改为 476 的测试数据，检查两架飞机可渲染、无游戏目录请求，
   并输出两张截图到 `captures/`。Rustler 的真实飞行/动画仍需真实 476 录像核对。
+
+### Hydra/Rustler 贴图与重叠修复
+
+- 原因一：`engine.createVehicle()` 默认把所有子网格设为可见；Hydra 有 4 片、Rustler 有 5 片
+  `chassis_vlo` 远景简化模型，同时压在精细机身和活动舵面上。回放创建飞机和从第一人称返回时，
+  只显示 `kind=body` 的精细子网格；隐藏 `lod`/`dam`。
+- 原因二：两机 DFF 都引用 `vehiclegeneric256`，Rustler 还引用 `vehicletyres128`；这些贴图在
+  `models/generic/vehicle.txd` 而不在各自的 TXD。新版 pak 一并烘焙共享 TXD，加载飞机时按
+  “飞机 TXD 优先、共享 TXD 补缺”的顺序构造 `VehicleTextures`。旧 pak 必须重新烘焙。
+- 用 Hydra 真实录像 `flight_20260925_232431_484_m520_002.csv` 的 00:58.817 截图检查近景；
+  第一人称切回第三人称后仍保持精细模型。Rustler 用同一 CSV 临时改模型 ID 做模型/贴图冒烟测试，
+  不等同于真实 Rustler 动画核对。
 
 ## 11. 镜头对照调试（临时）
 

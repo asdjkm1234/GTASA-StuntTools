@@ -53,13 +53,25 @@ export async function loadAircraft(engine: Engine, resources: PakResources, mode
     throw new Error(`缺少 ${name}.dff`);
   }
   const txd = await resources.readRaw(`${name}.txd`);
+  const genericTxd = await resources.readRaw('vehicle.txd');
+  if (!txd || !genericTxd) {
+    throw new Error(`预烘焙地图缺少 ${name}.txd 或共享 vehicle.txd，请重新烘焙`);
+  }
   const clump = parseDff(new Uint8Array(dff).buffer);
-  const data = buildVehicleModel(clump, new VehicleTextures(txd ? [new Uint8Array(txd).buffer] : []), {
+  const data = buildVehicleModel(clump, new VehicleTextures([
+    new Uint8Array(txd).buffer,
+    new Uint8Array(genericTxd).buffer,
+  ]), {
     wheelScale: wheelScaleFor(resources, name),
   });
   const modelId = engine.createVehicleModel(toRigidModelInit(data));
   const instance = engine.createVehicle(modelId);
   let isVisible = true;
+  // A raw engine instance starts with EVERY submesh visible. The DFF also contains a simplified `_vlo`
+  // shell for distant rendering; drawing it over the HD body covers moving control surfaces and z-fights
+  // across the wings. The replay camera is always near enough to use the intact HD mesh.
+  const hdVisible = data.submeshes.map((submesh) => submesh.kind === 'body');
+  hdVisible.forEach((visible, submesh) => instance.setSubmeshVisible(submesh, visible));
 
   // Bind rotation of each named node, so a recorded ABSOLUTE local rotation can be turned into the
   // animation delta `setPartRotation` expects (bind × anim).
@@ -202,7 +214,7 @@ export async function loadAircraft(engine: Engine, resources: PakResources, mode
     setVisible(visible): void {
       if (visible === isVisible) return;
       for (let submesh = 0; submesh < data.submeshes.length; submesh += 1) {
-        instance.setSubmeshVisible(submesh, visible);
+        instance.setSubmeshVisible(submesh, visible && hdVisible[submesh]);
       }
       isVisible = visible;
     },

@@ -6,7 +6,7 @@
 
 回放页是 OpenSA 的 WebGPU 引擎（源码在 `../tools/opensa`，构建产物发布到 `dist/opensa/`）。
 它从本机的 `../tools/opensa/map-pak` 读取地图、Hydra/Rustler、天气等数据；运行回放不需要游戏安装。
-首次使用或游戏素材变更后，在 `tools/opensa` 执行 `npx tsx scripts/bake-map.mts map-pak`，烘焙时才读取游戏目录。
+首次使用、游戏素材变更或从旧版 pak 升级后，在 `tools/opensa` 执行 `npx tsx scripts/bake-map.mts map-pak`，烘焙时才读取游戏目录。
 pak 由用户在本机生成，不上传或分发游戏资源。
 
 ## 用法

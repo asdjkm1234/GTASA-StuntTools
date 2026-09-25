@@ -36,7 +36,8 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
   + `apps/web/src/flight/`: `pak-world.ts` (stream the pak), `pak-resources.ts` (aircraft/data),
   `camera.ts`, `csv.ts`, `aircraft.ts`, `math.ts`. `map-source.ts` and `asset-store.ts` serve the baker.
 - Baker: `tools/opensa/scripts/bake-map.mts` → `map-pak/{index.json,cells,collision,textures,data,aircraft}`;
-  `aircraft` contains only 520/476. Re-bake older pak files before replay.
+  `aircraft` contains only 520/476 plus their shared `vehicle.txd`. `replayAssets.version=2` is required;
+  re-bake older pak files before replay.
 - Server: `web-replay/local-server.mjs` (`/map-pak`, `/local-recording/latest.csv`, `/webgpu-report`);
   `/game-src` is indexed lazily for baking only. `RECORDINGS_ROOT` can point to CSV files outside the game folder.
 - Self-tests (self-close their Chrome): `tools/opensa/scripts/{capture-replay,test-multitrack,test-scrub,soak-replay,test-hud,test-standalone-pak}.mjs`, `smoke-map.mts`.

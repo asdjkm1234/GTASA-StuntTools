@@ -12,6 +12,8 @@ const original = readFileSync(recording, 'utf8');
 const rustler = original.replace(/(^[^#\r\n][^,\r\n]*,)520,/gm, (_match, prefix) => `${prefix}476,`);
 if (rustler === original) throw new Error('the CSV has no Hydra rows to use for the Rustler asset check');
 const replayUrl = process.env.REPLAY_URL ?? 'http://127.0.0.1:4173/opensa/flight-replay.html';
+const seek = Number(process.env.REPLAY_SEEK ?? 0);
+if (!Number.isFinite(seek) || seek < 0) throw new Error('REPLAY_SEEK must be a nonnegative number');
 const output = join(process.cwd(), 'captures');
 mkdirSync(output, { recursive: true });
 const profile = join(tmpdir(), `opensa-standalone-pak-${Date.now()}`);
@@ -43,6 +45,13 @@ try {
     for (const [model, csv] of [['hydra', original], ['rustler', rustler]]) {
       await page.setInputFiles('#picker', { name: `${model}-asset-check.csv`, mimeType: 'text/csv', buffer: Buffer.from(csv) });
       await page.waitForFunction((name) => globalThis.__flight?.aircraft?.includes(name), model, { timeout: 60000 });
+      if (seek > 0) {
+        await page.evaluate((at) => {
+          const scrub = document.getElementById('scrub');
+          scrub.value = String(at);
+          scrub.dispatchEvent(new Event('input', { bubbles: true }));
+        }, seek);
+      }
       await page.waitForTimeout(3500);
       const shot = join(output, `standalone-pak-${model}-${basename(recording, '.csv')}.png`);
       await page.screenshot({ path: shot });
@@ -52,6 +61,26 @@ try {
       console.log(JSON.stringify({ model, shot, state }));
       if (state.error || !state.worldReady || state.renders < 1 || state.cells < 1) {
         throw new Error(`${model} replay failed`);
+      }
+      if (process.env.REPLAY_CLOSEUP === '1') {
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          if (await page.evaluate(() => globalThis.__flight?.cameraMode === 'chase-near')) break;
+          await page.click('#follow');
+          await page.waitForTimeout(100);
+        }
+        await page.waitForFunction(() => globalThis.__flight?.cameraMode === 'chase-near');
+        await page.waitForTimeout(1200);
+        const nearShot = join(output, `standalone-pak-${model}-near-${basename(recording, '.csv')}.png`);
+        await page.screenshot({ path: nearShot });
+        console.log(JSON.stringify({ model, nearShot }));
+        for (let i = 0; i < 3; i += 1) await page.click('#follow');
+        await page.waitForFunction(() => globalThis.__flight?.cameraMode === 'first-person');
+        for (let i = 0; i < 2; i += 1) await page.click('#follow');
+        await page.waitForFunction(() => globalThis.__flight?.cameraMode === 'chase-near');
+        await page.waitForTimeout(500);
+        const returnedShot = join(output, `standalone-pak-${model}-near-return-${basename(recording, '.csv')}.png`);
+        await page.screenshot({ path: returnedShot });
+        console.log(JSON.stringify({ model, returnedShot }));
       }
     }
     if (errors.length) throw new Error(`page errors: ${errors.join('; ')}`);

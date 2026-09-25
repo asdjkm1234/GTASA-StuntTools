@@ -60,6 +60,11 @@ for (const name of replayDataFiles) {
   await fs.writeFile(path.join(outDir, 'data', name), text);
 }
 const replayAircraft: Record<number, string> = {};
+// SA vehicle models inherit generic materials (including tyres and trim) from this shared dictionary.
+// Without it the builder silently substitutes white texels for those model faces.
+const genericTxdResponse = await fetch(`${base.replace(/\/$/, '')}/models/generic/vehicle.txd`);
+if (!genericTxdResponse.ok) throw new Error('GTA install is missing models/generic/vehicle.txd');
+await fs.writeFile(path.join(outDir, 'aircraft', 'vehicle.txd'), new Uint8Array(await genericTxdResponse.arrayBuffer()));
 for (const [id, candidates] of [[520, ['hydra']], [476, ['rustler', 'stuntplane']]] as const) {
   let found = false;
   for (const name of candidates) {
@@ -137,7 +142,7 @@ await fs.writeFile(
     cells: written,
     collisionCellSize: GAME_CELL_SIZE,
     collisionCells,
-    replayAssets: { version: 1, aircraft: replayAircraft, data: replayDataFiles },
+    replayAssets: { version: 2, aircraft: replayAircraft, data: replayDataFiles, sharedTextures: ['vehicle.txd'] },
     generated: new Date().toISOString(),
     source: base,
   }),
