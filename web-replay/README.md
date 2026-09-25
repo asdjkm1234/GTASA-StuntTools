@@ -26,6 +26,9 @@ pak 由用户在本机生成，不上传或分发游戏资源。
 - `/route-bake`、`/route-bake/<id>`：从当前 CSV 启动烘焙并查询进度；`/route-pak/<id>/*` 提供生成的航迹包。
 - `/game-src/*`：仅供本地烘焙器使用，首次请求时才读取游戏目录。
 - `/local-recording/latest.csv`：`flight_recordings/` 中最新的一份 CSV；可用 `RECORDINGS_ROOT` 指向其他 CSV 文件夹。
+- `/video-export`（仅监听本机）：`POST {csv, filename?, pakBase?}` 启动 1920×1080 30fps 的 H.264/AAC 视频导出；
+  `/video-export/<id>` 查询进度，`/<id>/cancel` 取消，`/<id>/download` 下载 MP4。需要 Chrome/Edge、`tools/opensa` 里的
+  Playwright 以及 PATH 上的 FFmpeg（可用 `FFMPEG_PATH` 指定）。若 `recordingsRoot` 下存在同名 `.wav`，会一并混入音轨。
 
 端口 4173 已被占用时不会抛 `EADDRINUSE`：服务会提示“已在运行”，并打开已有页面。
 

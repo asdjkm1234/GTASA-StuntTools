@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { createReadStream, existsSync, mkdirSync, readdirSync, rmSync, promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { createVideoExporter } from "./video-export.mjs";
 
 const gameRoot = path.resolve(process.env.GAME_ROOT || process.argv[2] || "../GTA San Andreas");
 const siteRoot = path.resolve("dist");
@@ -16,6 +17,15 @@ const routePakRoot = path.join(opensaRoot, "map-pak-routes");
 const port = Number(process.env.PORT || 4173);
 const bakeJobs = new Map();
 let baking = false;
+const chromeCandidates = [
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  path.join(process.env.LOCALAPPDATA ?? "", "Google", "Chrome", "Application", "chrome.exe"),
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+];
+const chromium = chromeCandidates.find((candidate) => candidate && existsSync(candidate));
+const videoExporter = createVideoExporter({ origin: `http://127.0.0.1:${port}`, recordingsRoot,
+  opensaRoot, chromiumPath: chromium, ffmpegExecutable: process.env.FFMPEG_PATH || "ffmpeg" });
 
 // The original-install routes are used by the offline baker only. Index lazily so replay can start
 // with no GTA installation present; the browser runtime requests only /map-pak and recordings.
@@ -132,6 +142,7 @@ async function chooseSettledRecording(dated) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`); const pathname = decodeURIComponent(url.pathname);
   try {
+    if (await videoExporter.handle(req, res, pathname)) return;
     // Only this loopback page may request a bake. The browser sends the selected recording, so
     // drag-and-drop files work without exposing arbitrary local paths to the server.
     if (pathname === "/route-bake" && req.method === "POST") {
@@ -310,13 +321,6 @@ const url = `http://127.0.0.1:${port}/`;
  * profile returns the Arc D3D12 adapter), and a force-killed Chrome can poison a REUSED profile. A new profile
  * per run makes the replay immune to both. The default browser is used when no Chromium is found.
  */
-const chromeCandidates = [
-  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-  path.join(process.env.LOCALAPPDATA ?? "", "Google", "Chrome", "Application", "chrome.exe"),
-  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-];
-const chromium = chromeCandidates.find((candidate) => candidate && existsSync(candidate));
 const profileRoot = path.join(process.env.LOCALAPPDATA ?? tmpdir(), "GTASA-StuntTools", "chrome-profiles");
 const openBrowser = (target) => {
   if (process.env.NO_OPEN) return;
