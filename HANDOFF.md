@@ -140,6 +140,18 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
     - 修法：`preloadTargets()` 中 `syncTextures()` 返回 changed 时调用 `recreateResident()`（从缓存重建全部常驻 cell）。
     - 复现/验证脚本：`node scripts/test-multitrack.mjs`（导入 3 个 CSV 后逐个切换并截图）。
     - 相关：切换时会显示预焊进度覆盖层（大航迹可能数百个 cell，几十秒）；这属正常，不是卡死。
+14. **Hydra 回放轮子偏大 + 收起起落架时轮子不跟随 = 两处配置/关系丢失**（2026-09-25）：
+    - 现象：回放轮子比原版明显大；`landing_gear_status` 从 0→1 时 `gear_l/gear_r`（真实节点四元数，绕 X 约 −90°）已正确收起，但主轮仍停在原位。
+    - 根因一：`apps/web/src/flight/aircraft.ts` 写死 `wheelScale: [1, 1]`，而本机 `vehicles.ide` 中 Hydra(520) 是 `0.7, 0.3`（前/后直径，米）。`buildVehicleModel` 的 `wheelFit()` 把 `wheelScale` 当作“轮子直径（米）”去归一化真实网格（见 `build-vehicle-model.ts` 注释），于是 `[1,1]` 把网格放大成半径 0.5 m 而非 0.15/0.35 m，视觉偏大。
+    - 根因二：引擎（`RigidEntity`）每帧把每个 part 扁平化为 `root × T × R × S`，父子关系在 GPU 上丢失（截面/仓门/起落架都是“扁平 + 相对绑定旋转”的补偿）。Hydra 的主轮挂在起落架支架下（`wheel_rb_dummy → gear_r`、`wheel_lf_dummy → misc_b`、`wheel_rf_dummy → misc_a`），支架收起时轮子不会跟着动。
+    - 修法：`aircraft.ts` 用 `parseVehicleDefs` 读 `data/vehicles.ide` 取该模型的 `wheelScale`；`buildVehicleModel` 在 `VehicleModelPart` 上记录 `parent`（最近祖先 part），`aircraft.ts` 在 `applyNodes` 里对该 part 的子树做刚性携带（把已用于门成员的数学推广到任意孩子，`world` 逐层下传）。父级动画 = `q ⊗ anim ⊗ q⁻¹`，子级 = `conj(childQ) ⊗ world ⊗ childQ` + 绕父 pivot 的平移修正。
+    - 注意：`wheel_lm_dummy`/`wheel_rm_dummy` 是**带网格的 dummy 帧**（不是轮子），也未被动画，故不应被携带——`parent` 只记录“最近祖先 part”，不受同帧多 part 影响。
+    - 验证：同一录像 `flight_20260925_170435_271_m520_001.csv`（Hydra，前 1.7 s 收放起落架），对照原版 MP4 逐帧截图；`debug.parts` 显示 20 个 part，`wheel_rb/wheel_lb → gear`、`wheel_lf → misc_b`、`wheel_rf → misc_a`；`tsc` 0 错误，`capture-replay` 20 s 无 TDR。
+15. **边玩边回放时 `?local=latest` 失败 = 服务端读到正在写入的最新录像**（2026-09-25）：
+    - 现象：页面先正常，几秒后 `启动失败：Failed to fetch`（控制台 `ERR_CONTENT_LENGTH_MISMATCH`）。
+    - 根因：`web-replay/local-server.mjs` 的 `/local-recording/latest.csv` 永远返回 mtime 最新的文件；玩家在游戏里录制时该文件仍在追加，`createReadStream` 读到一半长度变了，浏览器按 Content-Length 校验中断。
+    - 修法：`chooseSettledRecording()`——间隔 120 ms 两次 stat，若最新文件大小在变（仍在写入）就回退到**最新一个已写完的**录像；全部都在写才退回最新。无需手动选文件。
+    - 验证：一边向最新 CSV 追加、一边请求该路由，返回的是已写完的旧录像（不含追加内容），`?local=latest` 30 s 正常载入。
 
 ## 6. 数据格式（CSV）
 

@@ -9,13 +9,15 @@ import type { VehicleModelData } from '@opensa/renderware';
 
 import { toRigidModelInit } from '@opensa/game/adapters/vehicle-model-init';
 import { parseDff } from '@opensa/renderware/parsers/binary/dff';
+import { parseVehicleDefs } from '@opensa/renderware/parsers/text/vehicle-defs.parser';
 import { buildVehicleModel } from '@opensa/renderware/vehicle/build-vehicle-model';
 import { VehicleTextures } from '@opensa/renderware/vehicle/textures';
 
 import type { LoadedMap } from './map-source';
-import type { Quat } from './math';
+import type { Quat, Vec3 } from './math';
 
 import { NODE_NAMES, relativeNodeRotation } from './csv';
+import { conjugate, quatMultiply, rotateVec } from './math';
 
 /** Model id → DFF/TXD base name; `stuntplane` is accepted as the server name for the Rustler. */
 const MODEL_NAMES: Record<number, string[]> = {
@@ -24,30 +26,23 @@ const MODEL_NAMES: Record<number, string[]> = {
 };
 
 export interface AircraftHandle {
+  /** Apply recorded/inferred animated node rotations. `nodes` follows {@link NODE_NAMES}. */
+  applyNodes(
+    nodes: readonly (null | Quat)[],
+    gearStatus: number,
+    inferred: { pitch: number; roll: number; yaw: number },
+  ): void;
+  applyPaint(colors: readonly (null | number)[]): void;
+  /** Apply a pose: model root in engine space from GTA position + orientation quaternion. */
+  applyPose(positionGta: readonly [number, number, number], orientation: Quat): void;
   data: VehicleModelData;
+  dispose(): void;
   instance: VehicleInstance;
   modelId: VehicleModelId;
   /** DFF base name that actually loaded (for the readout). */
   name: string;
-  /** Apply a pose: model root in engine space from GTA position + orientation quaternion. */
-  applyPose(positionGta: readonly [number, number, number], orientation: Quat): void;
-  /** Apply recorded/inferred animated node rotations. `nodes` follows {@link NODE_NAMES}. */
-  applyNodes(nodes: readonly (Quat | null)[], gearStatus: number, inferred: { roll: number; pitch: number; yaw: number }): void;
-  applyPaint(colors: readonly (number | null)[]): void;
   /** Hide the whole aircraft while the camera is inside the original first-person seat. */
   setVisible(visible: boolean): void;
-  dispose(): void;
-}
-
-/** Resolve the model id to a DFF base name that exists in the install. */
-async function resolveName(map: LoadedMap, model: number): Promise<string> {
-  for (const candidate of MODEL_NAMES[model] ?? []) {
-    const dff = await map.assets.readRaw(`${candidate}.dff`);
-    if (dff) {
-      return candidate;
-    }
-  }
-  throw new Error(`本地安装中找不到模型 ${model} 的 DFF`);
 }
 
 /** Load and upload the aircraft. Throws when the DFF or its TXD is missing. */
@@ -60,7 +55,7 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
   const txd = await map.assets.readRaw(`${name}.txd`);
   const clump = parseDff(new Uint8Array(dff).buffer);
   const data = buildVehicleModel(clump, new VehicleTextures(txd ? [new Uint8Array(txd).buffer] : []), {
-    wheelScale: [1, 1],
+    wheelScale: wheelScaleFor(map, name),
   });
   const modelId = engine.createVehicleModel(toRigidModelInit(data));
   const instance = engine.createVehicle(modelId);
@@ -68,8 +63,8 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
 
   // Bind rotation of each named node, so a recorded ABSOLUTE local rotation can be turned into the
   // animation delta `setPartRotation` expects (bind × anim).
-  const partFor: (number | null)[] = NODE_NAMES.map((node) => findPart(instance, data.parts, node));
-  const bindFor: (Quat | null)[] = partFor.map((part) => {
+  const partFor: (null | number)[] = NODE_NAMES.map((node) => findPart(instance, data.parts, node));
+  const bindFor: (null | Quat)[] = partFor.map((part) => {
     if (part === null) {
       return null;
     }
@@ -77,6 +72,49 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
 
     return [rotation[0], rotation[1], rotation[2], rotation[3]];
   });
+
+  // A wheel authored under a gear strut is a CHILD of that strut's part. The engine flattens every part
+  // independently, so the relation is composed here when a node rotates and a retracting gear carries its
+  // wheels. `childrenOf` is that tree inverted once from the `parent` link the builder now records.
+  const childrenOf: number[][] = data.parts.map(() => []);
+  data.parts.forEach((part, index) => {
+    if (part.parent !== undefined) {
+      childrenOf[part.parent].push(index);
+    }
+  });
+
+  // Carry a subtree rigidly with its parent's rotation delta `world` (the child's bind-relative transform).
+  // This is the door-member math generalised: a grandchild's delta equals its parent's, so `world` is passed
+  // down unchanged while each level corrects its own translation about the immediate parent's pivot.
+  function carryToChildren(parent: number, world: Quat): void {
+    const parentTranslation = data.parts[parent].localTranslation;
+    for (const child of childrenOf[parent]) {
+      const part = data.parts[child];
+      instance.entity.setPartRotation(
+        child,
+        quatMultiply(quatMultiply(conjugate(part.localRotation), world), part.localRotation),
+      );
+      const toParent: Vec3 = [
+        parentTranslation[0] - part.localTranslation[0],
+        parentTranslation[1] - part.localTranslation[1],
+        parentTranslation[2] - part.localTranslation[2],
+      ];
+      const moved = rotateVec(world, toParent);
+      instance.entity.setPartTranslation(child, [
+        toParent[0] - moved[0],
+        toParent[1] - moved[1],
+        toParent[2] - moved[2],
+      ]);
+      carryToChildren(child, world);
+    }
+  }
+
+  /** Set a node's animation rotation and bring its whole child subtree along. */
+  function applyRotation(index: number, anim: Quat): void {
+    instance.entity.setPartRotation(index, anim);
+    const quat = data.parts[index].localRotation;
+    carryToChildren(index, quatMultiply(quatMultiply(quat, anim), conjugate(quat)));
+  }
 
   return {
     applyNodes(nodes, gearStatus, inferred): void {
@@ -87,7 +125,7 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
           return;
         }
         if (recorded) {
-          instance.entity.setPartRotation(part, relativeNodeRotation(bind, recorded));
+          applyRotation(part, relativeNodeRotation(bind, recorded));
 
           return;
         }
@@ -97,7 +135,7 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
         if (isGear) {
           const progress = Math.min(1, Math.abs(gearStatus));
           const half = (progress * Math.PI) / 2 / 2;
-          instance.entity.setPartRotation(part, [0, Math.sin(half) * (index === 5 ? 1 : -1), 0, Math.cos(half)]);
+          applyRotation(part, [0, Math.sin(half) * (index === 5 ? 1 : -1), 0, Math.cos(half)]);
 
           return;
         }
@@ -108,21 +146,19 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
               ? [Math.sin(inferred.pitch / 2), 0, 0, Math.cos(inferred.pitch / 2)] // elevator
               : [0, 0, Math.sin(inferred.roll / 2), Math.cos(inferred.roll / 2)]; // aileron
         const side = index === 1 || index === 3 ? 1 : -1;
-        instance.entity.setPartRotation(part, [axisAngle[0] * side, axisAngle[1] * side, axisAngle[2] * side, axisAngle[3]]);
+        applyRotation(part, [axisAngle[0] * side, axisAngle[1] * side, axisAngle[2] * side, axisAngle[3]]);
       });
     },
     applyPaint(colors): void {
       const rgb = resolvePaint(map, colors);
       if (rgb) {
-        instance.setPaint({ primary: rgb.primary, quaternary: rgb.tertiary, secondary: rgb.secondary, tertiary: rgb.quaternary });
+        instance.setPaint({
+          primary: rgb.primary,
+          quaternary: rgb.tertiary,
+          secondary: rgb.secondary,
+          tertiary: rgb.quaternary,
+        });
       }
-    },
-    setVisible(visible): void {
-      if (visible === isVisible) return;
-      for (let submesh = 0; submesh < data.submeshes.length; submesh += 1) {
-        instance.setSubmeshVisible(submesh, visible);
-      }
-      isVisible = visible;
     },
     applyPose(positionGta, orientation): void {
       // `orientation` maps the model's native axes (X=right, Y=forward, Z=up) to engine world, and for the
@@ -143,19 +179,14 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
     instance,
     modelId,
     name,
+    setVisible(visible): void {
+      if (visible === isVisible) return;
+      for (let submesh = 0; submesh < data.submeshes.length; submesh += 1) {
+        instance.setSubmeshVisible(submesh, visible);
+      }
+      isVisible = visible;
+    },
   };
-}
-
-/** Find a DFF part for a recorder node name (exact, then case-insensitive substring). */
-function findPart(instance: VehicleInstance, parts: VehicleModelData['parts'], node: string): number | null {
-  const exact = instance.entity.partIndex(node);
-  if (exact >= 0) {
-    return exact;
-  }
-  const lower = node.toLowerCase();
-  const index = parts.findIndex((part) => part.name.toLowerCase().includes(lower));
-
-  return index >= 0 ? index : null;
 }
 
 /** Column-major matrix from a quaternion (xyzw). */
@@ -174,6 +205,44 @@ export function quatToMatrix(q: Quat): Float32Array {
   out[15] = 1;
 
   return out;
+}
+
+/** Find a DFF part for a recorder node name (exact, then case-insensitive substring). */
+function findPart(instance: VehicleInstance, parts: VehicleModelData['parts'], node: string): null | number {
+  const exact = instance.entity.partIndex(node);
+  if (exact >= 0) {
+    return exact;
+  }
+  const lower = node.toLowerCase();
+  const index = parts.findIndex((part) => part.name.toLowerCase().includes(lower));
+
+  return index >= 0 ? index : null;
+}
+
+/** Resolve the model id to a DFF base name that exists in the install. */
+async function resolveName(map: LoadedMap, model: number): Promise<string> {
+  for (const candidate of MODEL_NAMES[model] ?? []) {
+    const dff = await map.assets.readRaw(`${candidate}.dff`);
+    if (dff) {
+      return candidate;
+    }
+  }
+  throw new Error(`本地安装中找不到模型 ${model} 的 DFF`);
+}
+
+/**
+ * `vehicles.ide`'s wheelScale ([front, rear] diameters in metres) for the model, or [1, 1] when the row is
+ * absent or unreadable. The Hydra's axles are authored separately (0.7 / 0.3) and the plane's landing gear
+ * is sized by them; a hardcoded [1, 1] fitted every wheel to a 1 m tyre and read oversized.
+ */
+function wheelScaleFor(map: LoadedMap, name: string): [number, number] {
+  const text = map.fs.getText('data/vehicles.ide');
+  const scale = text ? parseVehicleDefs(text).get(name)?.wheelScale : undefined;
+  if (!scale || !Number.isFinite(scale[0]) || !Number.isFinite(scale[1])) {
+    return [1, 1];
+  }
+
+  return [scale[0], scale[1]];
 }
 
 let carcolsCache: [number, number, number][] | null = null;
@@ -199,7 +268,10 @@ function carcols(map: LoadedMap): [number, number, number][] {
       if (!inColours || !line || line.startsWith('#')) {
         continue;
       }
-      const rgb = line.split('#')[0].split(',').map((value) => Number(value.trim()));
+      const rgb = line
+        .split('#')[0]
+        .split(',')
+        .map((value) => Number(value.trim()));
       if (rgb.length >= 3 && rgb.slice(0, 3).every(Number.isFinite)) {
         result.push([rgb[0], rgb[1], rgb[2]]);
       }
@@ -210,7 +282,10 @@ function carcols(map: LoadedMap): [number, number, number][] {
   return result;
 }
 
-function resolvePaint(map: LoadedMap, colors: readonly (number | null)[]): null | {
+function resolvePaint(
+  map: LoadedMap,
+  colors: readonly (null | number)[],
+): null | {
   primary: [number, number, number];
   quaternary: [number, number, number];
   secondary: [number, number, number];

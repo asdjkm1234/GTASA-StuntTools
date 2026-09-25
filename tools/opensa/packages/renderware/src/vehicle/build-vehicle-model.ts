@@ -126,6 +126,9 @@ export function buildVehicleModel(
   // Per-part SOURCE frame (body atomics only — wheels are instanced and never door members) and per-door
   // hinge frame, so door membership can be derived from the frame tree after every atomic is placed.
   const partFrames: number[] = [];
+  // Frame index → the part built from it, so a later part (a wheel under a gear strut) can name the part
+  // its frame tree hangs under — the parent link the flattened engine would otherwise lose.
+  const framePart = new Map<number, number>();
   const doorHinges: number[] = [];
   const damGeometry = collectDamGeometry(clump);
   const containerFrames = collectContainerFrames(clump);
@@ -161,6 +164,7 @@ export function buildVehicleModel(
     const before = scratch.submeshes.length;
     addBodyAtomic(scratch, clump, atomic.geometryIndex, name, atomic.frameIndex, textures, damGeometry, doors, {
       doorHinges,
+      framePart,
       partFrames,
     });
     tagAlternatives(scratch, before, EXTRA_RE.test(name) ? name : null, variants.optionOfFrame.get(atomic.frameIndex));
@@ -182,7 +186,11 @@ export function buildVehicleModel(
     }
   });
 
-  const wheels = addWheels(scratch, clump, textures, wheelScale, { containerWheels, cornerWheels, sharedWheel });
+  const wheels = addWheels(scratch, clump, textures, wheelScale, framePart, {
+    containerWheels,
+    cornerWheels,
+    sharedWheel,
+  });
   // Self-occlusion rides in the NIGHT set's alpha, which the builder had been filling with a constant 255:
   // the shader already reads that stream per vertex, so a car carries its own AO with no new buffer, no
   // `.osm` version bump and no second upload. See `sky-occlusion.ts` for why it is computed here.
@@ -237,12 +245,12 @@ function addBodyAtomic(
   textures: VehicleTextures,
   damGeometry: Map<string, RWGeometry>,
   doors: VehicleDoor[],
-  frameTracking: { doorHinges: number[]; partFrames: number[] },
+  frameTracking: { doorHinges: number[]; framePart: Map<number, number>; partFrames: number[] },
 ): void {
   const lod = name.endsWith('_vlo');
   const door = DOOR_RE.exec(name);
   const placement = componentFrame(clump, frameIndex, name);
-  const part = addPart(scratch, clump, placement, door ? `door_${door[1]}` : name);
+  const part = addPart(scratch, clump, placement, door ? `door_${door[1]}` : name, frameTracking.framePart);
   frameTracking.partFrames[part] = frameIndex;
   if (door) {
     doors.push({ name: `door_${door[1]}`, part, side: door[1] });
@@ -266,15 +274,29 @@ function addBodyAtomic(
   }
 }
 
-function addPart(scratch: Scratch, clump: RWClump, frameIndex: number, name: string, scale?: number): number {
+function addPart(
+  scratch: Scratch,
+  clump: RWClump,
+  frameIndex: number,
+  name: string,
+  framePart: Map<number, number>,
+  scale?: number,
+): number {
   const world = frameWorldTransform(clump.frames, frameIndex);
   const part = scratch.parts.length;
+  const parent = nearestPartAncestor(clump, frameIndex, framePart);
   scratch.parts.push({
     localRotation: world ? rotationToQuat(world.rot) : [0, 0, 0, 1],
     localTranslation: world ? world.pos : [0, 0, 0],
     name: name || `part${part}`,
+    ...(parent === undefined ? {} : { parent }),
     ...(scale === undefined ? {} : { scale }),
   });
+  // A frame holds at most one body part; a wheel dummy that ALSO carries a mesh keeps its body part as the
+  // ancestor later parts resolve against (`lm`/`rm` on the Hydra are exactly that shape).
+  if (!framePart.has(frameIndex)) {
+    framePart.set(frameIndex, part);
+  }
 
   return part;
 }
@@ -289,6 +311,7 @@ function addWheels(
   clump: RWClump,
   textures: VehicleTextures,
   wheelScale: readonly [number, number],
+  framePart: Map<number, number>,
   source: {
     containerWheels: readonly WheelMesh[];
     cornerWheels: readonly { frameIndex: number; front: boolean; geometryIndex: number; right: boolean }[];
@@ -307,6 +330,7 @@ function addWheels(
       textures,
       wheelScale,
       lone.frameIndex,
+      framePart,
     );
   }
   if (cornerWheels.length > 0) {
@@ -316,7 +340,7 @@ function addWheels(
 
     return cornerWheels.map((wheel) => {
       const fit = wheelFit(wheelScale, wheel.front, [clump.geometries[wheel.geometryIndex]]);
-      const part = addPart(scratch, clump, wheel.frameIndex, frameName(clump, wheel.frameIndex), fit.scale);
+      const part = addPart(scratch, clump, wheel.frameIndex, frameName(clump, wheel.frameIndex), framePart, fit.scale);
       if (wheel.right !== authoredRight) {
         scratch.parts[part].localRotation = flipWheelSide(scratch.parts[part].localRotation);
       }
@@ -341,10 +365,11 @@ function addWheels(
       textures,
       wheelScale,
       sharedWheel.frameIndex,
+      framePart,
     );
   }
   if (containerWheels.length > 0 && dummies) {
-    return instanceWheels(scratch, clump, containerWheels, textures, wheelScale);
+    return instanceWheels(scratch, clump, containerWheels, textures, wheelScale, undefined, framePart);
   }
 
   return [];
@@ -759,7 +784,8 @@ function instanceWheels(
   meshes: readonly WheelMesh[],
   textures: VehicleTextures,
   wheelScale: readonly [number, number],
-  sourceFrame?: number,
+  sourceFrame: number | undefined,
+  framePart: ReadonlyMap<number, number>,
 ): VehicleWheel[] {
   const wheels: VehicleWheel[] = [];
   const geometries = meshes.map((mesh) => mesh.geometry);
@@ -775,10 +801,12 @@ function instanceWheels(
     const right = match[1] === 'r';
     const mounted: [number, number, number, number] = world ? rotationToQuat(world.rot) : [0, 0, 0, 1];
     const part = scratch.parts.length;
+    const parent = nearestPartAncestor(clump, frameIndex, framePart);
     scratch.parts.push({
       localRotation: right === authoredRight ? mounted : flipWheelSide(mounted),
       localTranslation: world ? world.pos : [0, 0, 0],
       name: frame.name.trim().toLowerCase(),
+      ...(parent === undefined ? {} : { parent }),
       scale: fit.scale,
     });
     for (const mesh of meshes) {
@@ -893,11 +921,6 @@ function materialSurface(
   };
 }
 
-/**
- * SA shows at most ONE `extraN` component — they are mutually-exclusive alternatives modelled at the same
- * spot (the Benson's swappable ad boards). Rendering them all overlaps into a jumble.
- */
-
 /** Mean vertex normal over a part's SHOWN faces, or only its head-lamp ones. Null when it has none. */
 function meanNormal(scratch: Scratch, part: number, headOnly: boolean): [number, number, number] | null {
   const sum: [number, number, number] = [0, 0, 0];
@@ -922,9 +945,35 @@ function meanNormal(scratch: Scratch, part: number, headOnly: boolean): [number,
   return count === 0 || length === 0 ? null : [sum[0] / length, sum[1] / length, sum[2] / length];
 }
 
+/**
+ * SA shows at most ONE `extraN` component — they are mutually-exclusive alternatives modelled at the same
+ * spot (the Benson's swappable ad boards). Rendering them all overlaps into a jumble.
+ */
+
 /** One channel of a material colour, modulated by a prelit set when the geometry carries one. */
 function modulate(channel: number, prelit: null | Uint8Array, vertex: number, offset: number): number {
   return prelit ? Math.round((channel * prelit[vertex * 4 + offset]) / 255) : channel;
+}
+
+/** The part built from the nearest ANCESTOR frame (never the part's own frame), or undefined at top level. */
+function nearestPartAncestor(
+  clump: RWClump,
+  frameIndex: number,
+  framePart: ReadonlyMap<number, number>,
+): number | undefined {
+  let at = clump.frames[frameIndex]?.parentIndex ?? -1;
+  for (let hops = 0; at >= 0 && at < clump.frames.length && hops <= clump.frames.length; hops += 1) {
+    const part = framePart.get(at);
+    if (part !== undefined) {
+      return part;
+    }
+    if (clump.frames[at].parentIndex === at) {
+      break;
+    }
+    at = clump.frames[at].parentIndex;
+  }
+
+  return undefined;
 }
 
 function paintSlot(material: RWMaterial): number {

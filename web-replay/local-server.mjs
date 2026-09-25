@@ -102,6 +102,25 @@ const binaryIpls = [...archiveEntries.keys()].filter(name => {
   return (streamed && mapBases.has(streamed[1].toLowerCase())) || name === "truthsfarm.ipl";
 });
 
+/**
+ * Pick the newest recording file that is NOT growing, so the replay never streams a file the recorder is
+ * still appending to. `dated` is newest-first; if the newest is still being written, walk back. When every
+ * candidate looks busy (a very fast recorder) the newest is returned anyway rather than failing.
+ */
+async function chooseSettledRecording(dated) {
+  const sizeNow = new Map();
+  await Promise.all(dated.map(async entry => {
+    sizeNow.set(entry.name, (await fs.stat(path.join(recordingsRoot, entry.name))).size);
+  }));
+  await new Promise(resolve => setTimeout(resolve, 120));
+  const settled = [];
+  for (const entry of dated) {
+    const size = (await fs.stat(path.join(recordingsRoot, entry.name))).size;
+    settled.push({ ...entry, growing: size !== sizeNow.get(entry.name) });
+  }
+  return settled.find(entry => !entry.growing) ?? settled[0];
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`); const pathname = decodeURIComponent(url.pathname);
   try {
@@ -186,7 +205,12 @@ const server = http.createServer(async (req, res) => {
       if (!files.length) return send(res, 404, "No local flight recordings");
       const dated = await Promise.all(files.map(async entry => ({ name: entry.name, stat: await fs.stat(path.join(recordingsRoot, entry.name)) })));
       dated.sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
-      return createReadStream(path.join(recordingsRoot, dated[0].name)).on("error", () => send(res, 404, "Recording unavailable")).pipe(res);
+      // The recorder APPENDS to the newest file while the player is in the game, so serving it streams a
+      // moving target and the browser aborts with ERR_CONTENT_LENGTH_MISMATCH (field 2026-09-25). A growing
+      // file is detected structurally: its size changes between two stats a moment apart. When the newest
+      // file is still being written, fall back to the newest one that is NOT.
+      const chosen = await chooseSettledRecording(dated);
+      return createReadStream(path.join(recordingsRoot, chosen.name)).on("error", () => send(res, 404, "Recording unavailable")).pipe(res);
     }
     // The replay page is the OpenSA WebGPU build; `/` forwards to it with the query intact so
     // `http://127.0.0.1:4173/?local=latest` (and `?src=`) works unchanged.

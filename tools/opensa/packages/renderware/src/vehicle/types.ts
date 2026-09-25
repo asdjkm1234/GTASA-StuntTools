@@ -182,6 +182,13 @@ export interface VehicleModelPart {
   name: string;
   /** Column-major mat4 — the mesh relative to the pivot. Doors only (the pivot is their hinge frame). */
   offset?: number[];
+  /**
+   * The part this one's frame hangs under, when that ancestor is itself a model part — a wheel under a
+   * retractable gear strut, a tab under the control surface it trims. The mesh still CARRIES its bind
+   * world transform (the engine flattens every part independently), so a runtime that animates the parent
+   * composes this relation to bring the child along. Absent = top level.
+   */
+  parent?: number;
   scale?: number;
 }
 
