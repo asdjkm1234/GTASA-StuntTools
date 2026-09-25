@@ -116,6 +116,23 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
     carryToChildren(index, quatMultiply(quatMultiply(quat, anim), conjugate(quat)));
   }
 
+  // The Hydra's two centreline wheels belong to misc_a/misc_b, not gear_l/gear_r. The v6 CSV records
+  // landing_gear_status but not those two frame rotations. Fold their authored struts about their X pivots
+  // and carry the wheel children with them; otherwise both wheels stay exposed after the main gear retracts.
+  function applyHydraCenterGear(gearStatus: number): void {
+    if (model !== 520) return;
+    const progress = Math.min(1, Math.abs(gearStatus));
+    for (const [name, wheel, angle] of [
+      ['misc_a', 'wheel_rf_dummy', -Math.PI / 2],
+      ['misc_b', 'wheel_lf_dummy', -Math.PI],
+    ] as const) {
+      const part = instance.entity.partIndex(name);
+      if (part < 0 || !childrenOf[part].some((child) => data.parts[child].name === wheel)) continue;
+      const half = (angle * progress) / 2;
+      applyRotation(part, [Math.sin(half), 0, 0, Math.cos(half)]);
+    }
+  }
+
   return {
     applyNodes(nodes, gearStatus, inferred): void {
       nodes.forEach((recorded, index) => {
@@ -148,6 +165,7 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
         const side = index === 1 || index === 3 ? 1 : -1;
         applyRotation(part, [axisAngle[0] * side, axisAngle[1] * side, axisAngle[2] * side, axisAngle[3]]);
       });
+      applyHydraCenterGear(gearStatus);
     },
     applyPaint(colors): void {
       const rgb = resolvePaint(map, colors);
