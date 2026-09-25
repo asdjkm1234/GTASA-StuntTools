@@ -226,7 +226,7 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
 ## 11. 镜头对照调试（临时）
 
 - 三档跟随镜头现参考 SACarCam 的飞机参数和有状态的目标/视点历史、水平/垂直角平滑；第一人称和机舱镜头保持独立。
-- 录制器仍是 v6 飞行格式，调试构建在 CSV 表尾追加 `camera_*` 列，文件头标记 `camera_debug=1`。
+- v6/v7 历史调试录像在 CSV 中带有 `camera_*` 列，文件头标记 `camera_debug=1`；V1.1 新录像已暂时关闭相机调试列（`camera_debug=0`）。录制器源码保留在 `FLIGHT_RECORDER_CAMERA_DEBUG` 编译开关后。
   `camera_valid` 对应活动 CCam；`camera_matrix_valid` 对应最终 CCamera 矩阵。两者按现有飞机采样节奏
   约 25 Hz 同步读取，不要把它误认为每一渲染帧的精确镜头轨迹。
 - 用户会在不动鼠标的情况下录制几段第一人称和第三人称飞行。取得新 CSV 后先确认 valid 值和
@@ -262,3 +262,9 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
   已有 4173 服务必须退出后重新运行启动脚本，才会加载新的服务端日志代码。
 - 修复后两次全新 Chrome 启动（其中一次完整切换视角和拖动进度）无设备丢失、截图正常。
   间歇性问题不能由两次成功证明彻底消失；若用户仍遇到黑屏，先读事件日志按 `bootId` 对照阶段。
+
+## 13. V1.1 发布
+
+- 版本主题：修复第三人称视角和 Hydra 起落架。第三人称有近、中、远三档；机身中线起落架在 v7 CSV 中使用 `misc_a`/`misc_b` 的实测四元数，旧 CSV 使用原版收放录像量得的 −80°/+130° 补全。
+- 录制器仍为 v7 格式，但 V1.1 暂时不采集或写出相机调试数据。文件头为 `camera_debug=0`，没有 `camera_*` 列，起落架和其他飞行列继续保留。要恢复相机调试，把 `recorder/src/FlightRecorderASI.cpp` 中的 `FLIGHT_RECORDER_CAMERA_DEBUG` 改为 1 后重新构建、安装。
+- V1.1 发布标签使用大写 `V1.1`；历史 v1.0 标签保持原样。

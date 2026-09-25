@@ -6,6 +6,9 @@
 #include <cstring>
 #include <cstdint>
 
+// Temporarily disabled for V1.1. Set to 1 to resume recording the original camera trace.
+#define FLIGHT_RECORDER_CAMERA_DEBUG 0
+
 // GTA SA 1.0 US recorder ASI.  Standalone (no CLEO / no SCM opcode), because
 // SA-MP 0.3.7-R5 rejects the CLEO-opcode path.  Only Hydra (520) and Rustler /
 // "Stuntplane" (476) are recorded, at the game's native ~25 Hz cadence.
@@ -17,6 +20,7 @@
 namespace {
 constexpr uintptr_t kGameProcessCall = 0x53E981;
 constexpr uintptr_t kFindPlayerVehicle = 0x56E0D0;
+#if FLIGHT_RECORDER_CAMERA_DEBUG
 // GTA SA 1.0 US CCamera/CCam layout (Plugin-SDK). Read only, for temporary comparison traces.
 constexpr uintptr_t kTheCamera = 0xB6F028;
 constexpr size_t kCamActive = 0x59;
@@ -32,6 +36,7 @@ constexpr size_t kCamFront = 0x190;
 constexpr size_t kCamSource = 0x19C;
 constexpr size_t kCamUp = 0x1B4;
 constexpr size_t kCameraMatrix = 0x974;
+#endif
 constexpr float kQuickhomeDistanceMetres = 120.0f;
 constexpr auto kSamplePeriod = std::chrono::milliseconds(40); // GTA SA's native ~25 Hz logic cadence
 
@@ -40,6 +45,7 @@ struct Vec3 { float x, y, z; };
 // (called `at`/`forward` in those headers).  Keep the semantic names here.
 struct Matrix { Vec3 right; float padRight; Vec3 forward; float padForward; Vec3 up; float padUp; Vec3 position; float padPosition; };
 
+#if FLIGHT_RECORDER_CAMERA_DEBUG
 struct CameraDebug {
     int valid = 0;
     int matrixValid = 0;
@@ -51,6 +57,7 @@ struct CameraDebug {
     Vec3 source{}, front{}, up{};
     Matrix finalMatrix{};
 };
+#endif
 
 // Verified against GTA SA 1.0 US Plugin-SDK layouts.
 constexpr size_t kVehicleMatrix = 0x14;
@@ -121,7 +128,9 @@ struct Sample {
     unsigned centerGearStatus; // bit i set => misc node rotation and position readable
     float centerGearQuat[kCenterGearCount][4];
     Vec3 centerGearPosition[kCenterGearCount];
+#if FLIGHT_RECORDER_CAMERA_DEBUG
     CameraDebug camera;
+#endif
 };
 
 FILE* gFile = nullptr;
@@ -270,13 +279,20 @@ void startSession(const Sample& s) {
     gFile = std::fopen(path, "wb");
     if (!gFile) return;
     char now[32]; timestamp(now, sizeof(now));
-    std::fprintf(gFile, "# gtasa_flight_recorder,version=7,sample_hz=25,camera_debug=1,center_gear_debug=1\n");
+    std::fprintf(gFile, "# gtasa_flight_recorder,version=7,sample_hz=25,camera_debug=%d,center_gear_debug=1\n",
+        FLIGHT_RECORDER_CAMERA_DEBUG);
     std::fprintf(gFile, "# node_columns=rudder,elevator_l,elevator_r,aileron_l,aileron_r,gear_l,gear_r\n");
     std::fprintf(gFile, "# center_gear_columns=misc_a,misc_b; local frame rotation and position; status bits 0,1\n");
     std::fprintf(gFile, "# surface_source: real=read from CPlane node frames, partial=some nodes, inferred=not available (keys only)\n");
+#if FLIGHT_RECORDER_CAMERA_DEBUG
     std::fprintf(gFile, "# camera_debug: active CCam and final CCamera matrix, sampled with aircraft; temporary reference data\n");
+#endif
     std::fprintf(gFile, "# session_start,%s,reason=vehicle_entered,model=%d\n", now, s.model);
-    std::fprintf(gFile, "local_timestamp,model,health,x,y,z,heading_deg,right_x,right_y,right_z,up_x,up_y,up_z,forward_x,forward_y,forward_z,vx,vy,vz,ax,ay,az,steer,throttle,brake,color_primary,color_secondary,color_tertiary,color_quaternary,landing_gear_status,key_q,key_a,key_e,key_d,key_up,key_down,game_hour,game_minute,game_second,weather_new,weather_old,weather_forced,node_status,surface_source,rudder_qx,rudder_qy,rudder_qz,rudder_qw,elevator_l_qx,elevator_l_qy,elevator_l_qz,elevator_l_qw,elevator_r_qx,elevator_r_qy,elevator_r_qz,elevator_r_qw,aileron_l_qx,aileron_l_qy,aileron_l_qz,aileron_l_qw,aileron_r_qx,aileron_r_qy,aileron_r_qz,aileron_r_qw,gear_l_qx,gear_l_qy,gear_l_qz,gear_l_qw,gear_r_qx,gear_r_qy,gear_r_qz,gear_r_qw,camera_valid,camera_matrix_valid,camera_active,camera_mode,camera_zoom,camera_zoom_smoothed,camera_alpha,camera_beta,camera_fov,camera_source_x,camera_source_y,camera_source_z,camera_front_x,camera_front_y,camera_front_z,camera_up_x,camera_up_y,camera_up_z,camera_matrix_x,camera_matrix_y,camera_matrix_z,camera_matrix_right_x,camera_matrix_right_y,camera_matrix_right_z,camera_matrix_forward_x,camera_matrix_forward_y,camera_matrix_forward_z,camera_matrix_up_x,camera_matrix_up_y,camera_matrix_up_z,center_gear_status,misc_a_qx,misc_a_qy,misc_a_qz,misc_a_qw,misc_a_x,misc_a_y,misc_a_z,misc_b_qx,misc_b_qy,misc_b_qz,misc_b_qw,misc_b_x,misc_b_y,misc_b_z\n");
+    std::fprintf(gFile, "local_timestamp,model,health,x,y,z,heading_deg,right_x,right_y,right_z,up_x,up_y,up_z,forward_x,forward_y,forward_z,vx,vy,vz,ax,ay,az,steer,throttle,brake,color_primary,color_secondary,color_tertiary,color_quaternary,landing_gear_status,key_q,key_a,key_e,key_d,key_up,key_down,game_hour,game_minute,game_second,weather_new,weather_old,weather_forced,node_status,surface_source,rudder_qx,rudder_qy,rudder_qz,rudder_qw,elevator_l_qx,elevator_l_qy,elevator_l_qz,elevator_l_qw,elevator_r_qx,elevator_r_qy,elevator_r_qz,elevator_r_qw,aileron_l_qx,aileron_l_qy,aileron_l_qz,aileron_l_qw,aileron_r_qx,aileron_r_qy,aileron_r_qz,aileron_r_qw,gear_l_qx,gear_l_qy,gear_l_qz,gear_l_qw,gear_r_qx,gear_r_qy,gear_r_qz,gear_r_qw");
+#if FLIGHT_RECORDER_CAMERA_DEBUG
+    std::fprintf(gFile, ",camera_valid,camera_matrix_valid,camera_active,camera_mode,camera_zoom,camera_zoom_smoothed,camera_alpha,camera_beta,camera_fov,camera_source_x,camera_source_y,camera_source_z,camera_front_x,camera_front_y,camera_front_z,camera_up_x,camera_up_y,camera_up_z,camera_matrix_x,camera_matrix_y,camera_matrix_z,camera_matrix_right_x,camera_matrix_right_y,camera_matrix_right_z,camera_matrix_forward_x,camera_matrix_forward_y,camera_matrix_forward_z,camera_matrix_up_x,camera_matrix_up_y,camera_matrix_up_z");
+#endif
+    std::fprintf(gFile, ",center_gear_status,misc_a_qx,misc_a_qy,misc_a_qz,misc_a_qw,misc_a_x,misc_a_y,misc_a_z,misc_b_qx,misc_b_qy,misc_b_qz,misc_b_qw,misc_b_x,misc_b_y,misc_b_z\n");
     gVehicle = s.vehicle;
 }
 
@@ -311,6 +327,7 @@ void writeSample(const Sample& s, std::chrono::steady_clock::time_point sampleTi
         writeQuat(s.nodeQuat[i], (s.nodeStatus >> i) & 1u, buffer, sizeof(buffer));
         std::fprintf(gFile, ",%s", buffer);
     }
+#if FLIGHT_RECORDER_CAMERA_DEBUG
     const CameraDebug& c = s.camera;
     std::fprintf(gFile, ",%d,%d,%d,%d,%u,%.6f,%.6f,%.6f,%.6f"
         ",%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f"
@@ -321,6 +338,7 @@ void writeSample(const Sample& s, std::chrono::steady_clock::time_point sampleTi
         c.finalMatrix.right.x, c.finalMatrix.right.y, c.finalMatrix.right.z,
         c.finalMatrix.forward.x, c.finalMatrix.forward.y, c.finalMatrix.forward.z,
         c.finalMatrix.up.x, c.finalMatrix.up.y, c.finalMatrix.up.z);
+#endif
     std::fprintf(gFile, ",%u", s.centerGearStatus);
     for (int i = 0; i < kCenterGearCount; i++) {
         const bool valid = ((s.centerGearStatus >> i) & 1u) != 0;
@@ -359,6 +377,7 @@ void readWeather(Sample& s) {
     s.weather_forced = (readAt(reinterpret_cast<const void*>(kWeatherForced), 0, value), static_cast<int>(value));
 }
 
+#if FLIGHT_RECORDER_CAMERA_DEBUG
 bool finiteVec(const Vec3& v) {
     return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
 }
@@ -403,6 +422,7 @@ void readCameraDebug(Sample& s) {
         c.matrixValid = 1;
     }
 }
+#endif
 
 bool captureSample(Sample& s) {
     const auto findVehicle = reinterpret_cast<FindPlayerVehicleFn>(kFindPlayerVehicle);
@@ -456,7 +476,9 @@ bool captureSample(Sample& s) {
     }
     readGameClock(s);
     readWeather(s);
+#if FLIGHT_RECORDER_CAMERA_DEBUG
     readCameraDebug(s);
+#endif
     return true;
 }
 

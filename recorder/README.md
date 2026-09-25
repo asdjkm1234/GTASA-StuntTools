@@ -31,10 +31,12 @@ v6 新增：
   `surface_source` 为 `real`（5 个舵面全读到）/`partial`/`inferred`（读不到，回放端只能按键推测）。
   **按键推测值永远写在按键列，不写进真实节点列。**
 
-从 v6 调试版起，CSV 带有 `camera_*` 列，并在文件头标记 `camera_debug=1`。每次飞机采样时同时读取
+v6/v7 调试版的 CSV 带有 `camera_*` 列，并在文件头标记 `camera_debug=1`。每次飞机采样时同时读取
 游戏活动镜头的档位、缩放、位置、朝向、仰角和视野，以及最终相机矩阵。`camera_valid` 和
 `camera_matrix_valid` 为 0 时，对应的镜头数据不可用于对照。采样仍为约 25 Hz；这些列仅用于比较
-原版与网页回放的镜头，后续调试完成会移除。缺少这些列的旧 CSV 仍可照常回放。
+原版与网页回放的镜头。V1.1 暂时关闭该功能：新 CSV 标记 `camera_debug=0`，不写 `camera_*`
+列；源码保留在 `FLIGHT_RECORDER_CAMERA_DEBUG` 编译开关后，后续可重新启用。缺少这些列的 CSV
+仍可照常回放。
 
 v7 在表尾新增起落架调试列：`center_gear_status` 的 bit 0/1 分别表示 `misc_a`/`misc_b`
 节点是否可读；随后各记录局部四元数 `qx/qy/qz/qw` 和局部位置 `x/y/z`。无效时写 `nan`。

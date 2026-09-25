@@ -13,7 +13,7 @@
 GTASA-StuntTools/
   GTA San Andreas/                       游戏安装（录制器与 flight_recordings/ 在这里）
   recorder/                              独立 ASI 录制器（C++，25 Hz，无 CLEO opcode）
-    src/FlightRecorderASI.cpp            v6 录制源（真实节点状态 + 游戏时钟/天气）
+    src/FlightRecorderASI.cpp            v7 录制源（真实节点、起落架、游戏时钟/天气）
     build.ps1 / install.ps1              zig 编译、安装到游戏目录（覆盖前自动备份）
   web-replay/                            本地回放服务
     local-server.mjs                     静态页 + /game-src（Range）+ /local-recording/latest.csv
@@ -72,7 +72,7 @@ cd web-replay
 
 - 拖入一个或多个 CSV，或点击选择文件；多文件以各自起点对齐，点击列表切换跟随对象。
 - 播放 / 暂停 / 重新开始 / 逐帧 / 时间轴拖动 / 0.25×–4×。
-- **V** 切换「GTA 风格延迟跟随」与「机舱第一人称」；重置视角回到默认跟随。
+- **V** 依次切换第三人称近、中、远、原版第一人称和机舱第一人称；重置视角回到默认跟随。
 - 实时显示时间、坐标、航向、速度、血量、模型、颜色、姿态、起落架原始值、按键，以及动画节点来源。
 
 ### 地图与姿态
@@ -87,7 +87,7 @@ cd web-replay
 
 ## 三、CSV 数据格式
 
-按列名读取，**兼容 v4/v5**（缺列为 `null`）。v6 表头：
+按列名读取，**兼容 v4/v5/v6/v7**（缺列为 `null`）。以下是 v6 起保留的基础列：
 
 ```
 local_timestamp,model,health,x,y,z,heading_deg,
@@ -105,6 +105,9 @@ aileron_r_qx,aileron_r_qy,aileron_r_qz,aileron_r_qw,
 gear_l_qx,gear_l_qy,gear_l_qz,gear_l_qw,
 gear_r_qx,gear_r_qy,gear_r_qz,gear_r_qw
 ```
+
+v7 还记录 Hydra 机身中线起落架 `misc_a`、`misc_b` 的实际角度和位置。V1.1 新录像不再写入
+`camera_*` 相机调试列；旧录像仍可正常读取。
 
 - 坐标为 GTA 世界坐标（Z 向上）；`right/up/forward` 为整车单位正交基。
 - `node_status` 位：0 rudder、1 elevator_l、2 elevator_r、3 aileron_l、4 aileron_r、5 gear_l、6 gear_r；

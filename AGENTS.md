@@ -1,11 +1,12 @@
-# AGENTS — start here (project v1.0)
+# AGENTS — start here (project V1.1)
 
 Local **GTA:SA stunt-flight recorder + WebGPU replay**. Full detail in **[`HANDOFF.md`](HANDOFF.md)**; this
 file is the fast onboarding for a new AI session. Do not distribute game assets; OpenSA is AGPL-3.0.
 
 ## What it is
 - **Recorder**: standalone ASI `recorder/src/FlightRecorderASI.cpp` — records Hydra(520)/Rustler(476) to CSV at
-  25 Hz (v7: full pose basis, real control-surface quaternions, Hydra center gear node poses, game clock/weather).
+  25 Hz (v7: full pose basis, real control-surface quaternions, Hydra center gear node poses, game clock/weather;
+  camera debug capture is temporarily disabled in V1.1).
 - **Replay**: OpenSA WebGPU engine in the browser, streaming a **locally baked map pak** (Route A). The
   raw-install live-welding path was removed (HANDOFF §8) — a pak is required.
 - Everything runs on this machine; the browser reads the user's own install only.
@@ -30,7 +31,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-## Architecture (v1.0)
+## Architecture (V1.1)
 - App entry: `tools/opensa/apps/web/src/standalone/flight-replay.ts`
   + `apps/web/src/flight/`: `pak-world.ts` (stream the pak), `camera.ts`, `csv.ts`, `aircraft.ts`, `math.ts`,
   `map-source.ts`, `asset-store.ts` (data files + aircraft only).
