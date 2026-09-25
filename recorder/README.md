@@ -15,7 +15,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1     # 需要 tools/zig/zig-
 powershell -ExecutionPolicy Bypass -File .\install.ps1   # 覆盖游戏目录前自动备份到 backups/
 ```
 
-## 字段（v6）
+## 字段（v7）
 
 基础列与 v5 相同：`local_timestamp`（电脑本地毫秒时间）、`model`、`health`、`x/y/z`、`heading_deg`、
 完整姿态基 `right_* / up_* / forward_*`、`vx/vy/vz` 与由相邻采样时长计算的 `ax/ay/az`、`steer/throttle/brake`、
@@ -31,10 +31,14 @@ v6 新增：
   `surface_source` 为 `real`（5 个舵面全读到）/`partial`/`inferred`（读不到，回放端只能按键推测）。
   **按键推测值永远写在按键列，不写进真实节点列。**
 
-当前调试版本在 v6 表尾临时追加 `camera_*` 列，并在文件头标记 `camera_debug=1`。每次飞机采样时同时读取
+从 v6 调试版起，CSV 带有 `camera_*` 列，并在文件头标记 `camera_debug=1`。每次飞机采样时同时读取
 游戏活动镜头的档位、缩放、位置、朝向、仰角和视野，以及最终相机矩阵。`camera_valid` 和
 `camera_matrix_valid` 为 0 时，对应的镜头数据不可用于对照。采样仍为约 25 Hz；这些列仅用于比较
-原版与网页回放的镜头，后续调试完成会移除。旧 v6 CSV 无这些列，仍可照常回放。
+原版与网页回放的镜头，后续调试完成会移除。缺少这些列的旧 CSV 仍可照常回放。
+
+v7 在表尾新增起落架调试列：`center_gear_status` 的 bit 0/1 分别表示 `misc_a`/`misc_b`
+节点是否可读；随后各记录局部四元数 `qx/qy/qz/qw` 和局部位置 `x/y/z`。无效时写 `nan`。
+这些列用于确认 Hydra 机身中线起落架在原版中的实际动作；旧录像和现有回放仍可读取。
 
 ## 自动切档
 

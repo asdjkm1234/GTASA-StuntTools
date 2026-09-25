@@ -82,6 +82,8 @@ constexpr NodeSpec kPlaneNodes[] = {
 };
 constexpr int kPlaneNodeSpecCount = static_cast<int>(sizeof(kPlaneNodes) / sizeof(kPlaneNodes[0]));
 constexpr int kSurfaceCount = 5; // first five entries are the aerodynamic surfaces
+constexpr int kCenterGearNodes[] = { 23, 24 }; // PLANE_MISC_A / PLANE_MISC_B
+constexpr int kCenterGearCount = 2;
 
 // GTA SA 1.0 US globals.
 constexpr uintptr_t kGameClockHours = 0xB70153;
@@ -116,6 +118,9 @@ struct Sample {
     unsigned nodeStatus;         // bit i set => node i frame readable
     float nodeQuat[kPlaneNodeSpecCount][4]; // local modelling rotation per node
     int nodesReadable;
+    unsigned centerGearStatus; // bit i set => misc node rotation and position readable
+    float centerGearQuat[kCenterGearCount][4];
+    Vec3 centerGearPosition[kCenterGearCount];
     CameraDebug camera;
 };
 
@@ -233,6 +238,14 @@ bool readNodeQuat(const void* vehicle, int nodeIndex, float q[4]) {
     return true;
 }
 
+bool readNodePose(const void* vehicle, int nodeIndex, float q[4], Vec3& position) {
+    if (!readNodeQuat(vehicle, nodeIndex, q)) return false;
+    void* frame = nullptr;
+    if (!readAt(vehicle, kVehicleCarNodes + nodeIndex * sizeof(void*), frame)) return false;
+    if (!readAt(frame, kRwFrameModelling + 3 * 16, position)) return false;
+    return std::isfinite(position.x) && std::isfinite(position.y) && std::isfinite(position.z);
+}
+
 void closeSession(const char* reason) {
     if (!gFile) return;
     char now[32]; timestamp(now, sizeof(now));
@@ -257,12 +270,13 @@ void startSession(const Sample& s) {
     gFile = std::fopen(path, "wb");
     if (!gFile) return;
     char now[32]; timestamp(now, sizeof(now));
-    std::fprintf(gFile, "# gtasa_flight_recorder,version=6,sample_hz=25,camera_debug=1\n");
+    std::fprintf(gFile, "# gtasa_flight_recorder,version=7,sample_hz=25,camera_debug=1,center_gear_debug=1\n");
     std::fprintf(gFile, "# node_columns=rudder,elevator_l,elevator_r,aileron_l,aileron_r,gear_l,gear_r\n");
+    std::fprintf(gFile, "# center_gear_columns=misc_a,misc_b; local frame rotation and position; status bits 0,1\n");
     std::fprintf(gFile, "# surface_source: real=read from CPlane node frames, partial=some nodes, inferred=not available (keys only)\n");
     std::fprintf(gFile, "# camera_debug: active CCam and final CCamera matrix, sampled with aircraft; temporary reference data\n");
     std::fprintf(gFile, "# session_start,%s,reason=vehicle_entered,model=%d\n", now, s.model);
-    std::fprintf(gFile, "local_timestamp,model,health,x,y,z,heading_deg,right_x,right_y,right_z,up_x,up_y,up_z,forward_x,forward_y,forward_z,vx,vy,vz,ax,ay,az,steer,throttle,brake,color_primary,color_secondary,color_tertiary,color_quaternary,landing_gear_status,key_q,key_a,key_e,key_d,key_up,key_down,game_hour,game_minute,game_second,weather_new,weather_old,weather_forced,node_status,surface_source,rudder_qx,rudder_qy,rudder_qz,rudder_qw,elevator_l_qx,elevator_l_qy,elevator_l_qz,elevator_l_qw,elevator_r_qx,elevator_r_qy,elevator_r_qz,elevator_r_qw,aileron_l_qx,aileron_l_qy,aileron_l_qz,aileron_l_qw,aileron_r_qx,aileron_r_qy,aileron_r_qz,aileron_r_qw,gear_l_qx,gear_l_qy,gear_l_qz,gear_l_qw,gear_r_qx,gear_r_qy,gear_r_qz,gear_r_qw,camera_valid,camera_matrix_valid,camera_active,camera_mode,camera_zoom,camera_zoom_smoothed,camera_alpha,camera_beta,camera_fov,camera_source_x,camera_source_y,camera_source_z,camera_front_x,camera_front_y,camera_front_z,camera_up_x,camera_up_y,camera_up_z,camera_matrix_x,camera_matrix_y,camera_matrix_z,camera_matrix_right_x,camera_matrix_right_y,camera_matrix_right_z,camera_matrix_forward_x,camera_matrix_forward_y,camera_matrix_forward_z,camera_matrix_up_x,camera_matrix_up_y,camera_matrix_up_z\n");
+    std::fprintf(gFile, "local_timestamp,model,health,x,y,z,heading_deg,right_x,right_y,right_z,up_x,up_y,up_z,forward_x,forward_y,forward_z,vx,vy,vz,ax,ay,az,steer,throttle,brake,color_primary,color_secondary,color_tertiary,color_quaternary,landing_gear_status,key_q,key_a,key_e,key_d,key_up,key_down,game_hour,game_minute,game_second,weather_new,weather_old,weather_forced,node_status,surface_source,rudder_qx,rudder_qy,rudder_qz,rudder_qw,elevator_l_qx,elevator_l_qy,elevator_l_qz,elevator_l_qw,elevator_r_qx,elevator_r_qy,elevator_r_qz,elevator_r_qw,aileron_l_qx,aileron_l_qy,aileron_l_qz,aileron_l_qw,aileron_r_qx,aileron_r_qy,aileron_r_qz,aileron_r_qw,gear_l_qx,gear_l_qy,gear_l_qz,gear_l_qw,gear_r_qx,gear_r_qy,gear_r_qz,gear_r_qw,camera_valid,camera_matrix_valid,camera_active,camera_mode,camera_zoom,camera_zoom_smoothed,camera_alpha,camera_beta,camera_fov,camera_source_x,camera_source_y,camera_source_z,camera_front_x,camera_front_y,camera_front_z,camera_up_x,camera_up_y,camera_up_z,camera_matrix_x,camera_matrix_y,camera_matrix_z,camera_matrix_right_x,camera_matrix_right_y,camera_matrix_right_z,camera_matrix_forward_x,camera_matrix_forward_y,camera_matrix_forward_z,camera_matrix_up_x,camera_matrix_up_y,camera_matrix_up_z,center_gear_status,misc_a_qx,misc_a_qy,misc_a_qz,misc_a_qw,misc_a_x,misc_a_y,misc_a_z,misc_b_qx,misc_b_qy,misc_b_qz,misc_b_qw,misc_b_x,misc_b_y,misc_b_z\n");
     gVehicle = s.vehicle;
 }
 
@@ -307,6 +321,19 @@ void writeSample(const Sample& s, std::chrono::steady_clock::time_point sampleTi
         c.finalMatrix.right.x, c.finalMatrix.right.y, c.finalMatrix.right.z,
         c.finalMatrix.forward.x, c.finalMatrix.forward.y, c.finalMatrix.forward.z,
         c.finalMatrix.up.x, c.finalMatrix.up.y, c.finalMatrix.up.z);
+    std::fprintf(gFile, ",%u", s.centerGearStatus);
+    for (int i = 0; i < kCenterGearCount; i++) {
+        const bool valid = ((s.centerGearStatus >> i) & 1u) != 0;
+        char buffer[96];
+        writeQuat(s.centerGearQuat[i], valid, buffer, sizeof(buffer));
+        std::fprintf(gFile, ",%s", buffer);
+        if (valid) {
+            const Vec3& p = s.centerGearPosition[i];
+            std::fprintf(gFile, ",%.6f,%.6f,%.6f", p.x, p.y, p.z);
+        } else {
+            std::fprintf(gFile, ",nan,nan,nan");
+        }
+    }
     std::fprintf(gFile, "\n");
     std::fflush(gFile);
     gPrevious = s; gPreviousSampleTime = sampleTime; gHasPrevious = true;
@@ -417,6 +444,14 @@ bool captureSample(Sample& s) {
         if (readNodeQuat(vehicle, kPlaneNodes[i].index, s.nodeQuat[i])) {
             s.nodeStatus |= (1u << i);
             s.nodesReadable += 1;
+        }
+    }
+    s.centerGearStatus = 0;
+    if (s.model == 520) {
+        for (int i = 0; i < kCenterGearCount; i++) {
+            if (readNodePose(vehicle, kCenterGearNodes[i], s.centerGearQuat[i], s.centerGearPosition[i])) {
+                s.centerGearStatus |= (1u << i);
+            }
         }
     }
     readGameClock(s);
