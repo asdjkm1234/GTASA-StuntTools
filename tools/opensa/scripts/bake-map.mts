@@ -14,6 +14,7 @@
  * source). Textures stay BC-compressed (`.ostex`), so size and look match the original data.
  *
  *   npx tsx scripts/bake-map.mts <outDir> [minCx maxCx minCy maxCy] [base]
+ *   npx tsx scripts/bake-map.mts <outDir> --recording <csv> [base]
  *
  * With no rect, the WHOLE exterior map is baked; a rect (cell coordinates) bakes just that window.
  */
@@ -32,8 +33,48 @@ import { loadMapSource } from '../apps/web/src/flight/map-source';
 import { bakeCellCollision, collisionCellRect } from '../tools/opensa-pack/src/pack-collision';
 
 const outDir = path.resolve(process.argv[2] ?? 'map-pak');
-const rect = process.argv.length >= 7 ? process.argv.slice(3, 7).map(Number) : null;
-const base = process.env.GAME_SOURCE_BASE ?? process.argv[7] ?? 'http://127.0.0.1:4173/game-src';
+const routeFlag = process.argv[3] === '--recording';
+const routeFile = routeFlag ? path.resolve(process.argv[4] ?? '') : null;
+const rect = !routeFlag && process.argv.length >= 7 ? process.argv.slice(3, 7).map(Number) : null;
+const base = process.env.GAME_SOURCE_BASE ?? process.argv[routeFlag ? 5 : 7] ?? 'http://127.0.0.1:4173/game-src';
+// A route pak trades the 3000-unit skyline for a 1200-unit horizon. Keep its cells through
+// the edge of that horizon; the regular whole-map pak retains the original draw distances.
+const routeRadius = 1200;
+const routePoints: [number, number][] = [];
+if (routeFile) {
+  const lines = (await fs.readFile(routeFile, 'utf8')).split(/\r?\n/);
+  const header = lines.findIndex((line) => line.startsWith('local_timestamp,'));
+  if (header < 0) throw new Error('Recording is missing the FlightRecorder CSV header');
+  const columns = lines[header].split(',');
+  const xIndex = columns.indexOf('x');
+  const yIndex = columns.indexOf('y');
+  if (xIndex < 0 || yIndex < 0) throw new Error('Recording is missing x/y coordinates');
+  for (const line of lines.slice(header + 1)) {
+    if (!line || line.startsWith('#')) continue;
+    const values = line.split(',');
+    if (!values[xIndex] || !values[yIndex]) continue;
+    const x = Number(values[xIndex]);
+    const y = Number(values[yIndex]);
+    if (Number.isFinite(x) && Number.isFinite(y)) routePoints.push([x, y]);
+  }
+  if (routePoints.length < 2) throw new Error('Recording has fewer than two valid positions');
+}
+if (rect && (rect.some((value) => !Number.isInteger(value)) || rect[0] > rect[1] || rect[2] > rect[3])) {
+  throw new Error('Invalid cell rectangle');
+}
+
+function distanceToRoute(x: number, y: number): number {
+  let best = Infinity;
+  for (let i = 0; i < routePoints.length; i += 1) {
+    const [ax, ay] = routePoints[i];
+    const [bx, by] = routePoints[Math.min(i + 1, routePoints.length - 1)];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    best = Math.min(best, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+  }
+  return best;
+}
 
 const started = performance.now();
 console.log(`loading map source ${base} …`);
@@ -41,10 +82,14 @@ const map = await loadMapSource({ base, kind: 'http-dir' });
 console.log(`  cells ${map.grid.size}, instances ${map.defs.instances.length}, models ${map.defs.catalog.size}`);
 
 const all = [...map.grid.values()];
-const cells = rect
-  ? all.filter((cell) => cell.cx >= rect[0] && cell.cx <= rect[1] && cell.cy >= rect[2] && cell.cy <= rect[3])
-  : all;
-console.log(`baking ${cells.length} cell(s)${rect ? ` in rect ${rect.join(',')}` : ' (whole map)'} → ${outDir}`);
+const cells = routeFile
+  ? all.filter((cell) => distanceToRoute((cell.cx + 0.5) * CELL_SIZE, (cell.cy + 0.5) * CELL_SIZE)
+      <= routeRadius + CELL_SIZE * Math.SQRT2 / 2)
+  : rect
+    ? all.filter((cell) => cell.cx >= rect[0] && cell.cx <= rect[1] && cell.cy >= rect[2] && cell.cy <= rect[3])
+    : all;
+if (!cells.length) throw new Error('No map cells intersect the recording route');
+console.log(`baking ${cells.length} cell(s)${routeFile ? ` around ${routePoints.length} positions` : rect ? ` in rect ${rect.join(',')}` : ' (whole map)'} → ${outDir}`);
 
 await fs.mkdir(path.join(outDir, 'cells'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'textures'), { recursive: true });
@@ -127,6 +172,8 @@ for (const cell of collisionGrid.values()) {
   const { cx, cy } = cell;
   if (collisionRect && (cx < collisionRect[0] || cx > collisionRect[2]
     || cy < collisionRect[1] || cy > collisionRect[3])) continue;
+  if (routeFile && distanceToRoute((cx + 0.5) * GAME_CELL_SIZE, (cy + 0.5) * GAME_CELL_SIZE)
+    > routeRadius + GAME_CELL_SIZE * Math.SQRT2 / 2) continue;
   const regions = buildCellColliders(collisionIndex, map.defs, collisionGrid, cx, cy);
   if (regions.length === 0) continue;
   const bytes = encodeOscol(bakeCellCollision(regions, () => false));
@@ -143,6 +190,7 @@ await fs.writeFile(
     collisionCellSize: GAME_CELL_SIZE,
     collisionCells,
     replayAssets: { version: 2, aircraft: replayAircraft, data: replayDataFiles, sharedTextures: ['vehicle.txd'] },
+    ...(routeFile ? { renderRadius: { hd: routeRadius, lod: routeRadius } } : {}),
     generated: new Date().toISOString(),
     source: base,
   }),

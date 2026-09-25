@@ -295,3 +295,9 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
 - 版本主题：修复第三人称视角和 Hydra 起落架。第三人称有近、中、远三档；机身中线起落架在 v7 CSV 中使用 `misc_a`/`misc_b` 的实测四元数，旧 CSV 使用原版收放录像量得的 −80°/+130° 补全。
 - 录制器仍为 v7 格式，但 V1.1 暂时不采集或写出相机调试数据。文件头为 `camera_debug=0`，没有 `camera_*` 列，起落架和其他飞行列继续保留。要恢复相机调试，把 `recorder/src/FlightRecorderASI.cpp` 中的 `FLIGHT_RECORDER_CAMERA_DEBUG` 改为 1 后重新构建、安装。
 - V1.1 发布标签使用大写 `V1.1`；历史 v1.0 标签保持原样。
+
+## 14. 航迹 pak（2026-09-26）
+
+- HUD“烘焙当前航迹”把选中的 CSV 发给仅监听本机的服务；服务调用 `bake-map.mts --recording <csv>`，按航迹线段附近 1200 单位筛选地图和相机碰撞 cell，重新规划纹理数组，完成后自动切换到独立 pak 和该 CSV。整图 `map-pak/` 不变；航迹包保存在 gitignored 的 `tools/opensa/map-pak-routes/<id>/`。
+- 航迹包在索引中记录 `renderRadius.hd/lod=1200`；整图包仍使用 1200/3000。短录像 `flight_20260926_044304_980_m520_050.csv` 实测地图 93 个不同 cell，包约 106 MB（整图约 790 MB）。大小随航迹跨度和共用纹理变化，长途录像可能接近整图大小。
+- 已用 `scripts/test-route-bake.mjs` 点击 HUD 按钮、等待自动切包、检查 Hydra 回放和截图；后续 app 改动仍须运行类型检查、发布及截图自测。Rustler 真实飞行仍待实际 476 录像。

@@ -70,8 +70,6 @@ function drawAxes(p: Vec3, forward: Vec3, right: Vec3, up: Vec3): void {
 }
 
 const params = new URLSearchParams(location.search);
-const HD_RADIUS = 1200;
-const LOD_RADIUS = 3000;
 // `?axes=1` draws the aircraft's recorded forward (green) / up (blue) / right (red) as world-space lines.
 // If green does not run along the model's nose, the model orientation is wrong — a pixel fact, not a guess.
 let SHOW_AXES = params.get('axes') === '1';
@@ -120,6 +118,8 @@ const modeChip = el<HTMLElement>('mode');
 const segmentChip = el<HTMLElement>('segment');
 
 const plays: FlightTrack[] = [];
+const trackSources = new WeakMap<FlightTrack, string>();
+let routeBakeRunning = false;
 let active = 0;
 let playing = false;
 let elapsed = 0;
@@ -326,7 +326,7 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   modeChip.textContent = `${CAMERA_LABELS[cameraMode]}（${playing ? '播放中' : '暂停'}）`;
   el('follow').textContent = `视角：${CAMERA_LABELS[cameraMode]}`;
   if (pakWorld?.isReady) {
-    pakWorld.update(pose.pos[0], pose.pos[1], HD_RADIUS, LOD_RADIUS);
+    pakWorld.update(pose.pos[0], pose.pos[1], pakWorld.renderRadius.hd, pakWorld.renderRadius.lod);
     const busy = pakWorld.loadedCells === 0 && pakWorld.isLoading;
     mapLoading.hidden = !busy;
     if (busy) mapLoadingText.textContent = '载入预烘焙地图…';
@@ -344,6 +344,7 @@ async function selectTrack(index: number): Promise<void> {
 }
 
 function renderTrackList(): void {
+  el<HTMLButtonElement>('bakeRoute').disabled = !activeTrack() || routeBakeRunning;
   tracksEl.innerHTML = plays.map((track, index) => (
     `<div class="track ${index === active ? 'active' : ''}" data-i="${index}">` +
     `<span class="track-name">${track.name}</span><span class="badge">${track.rows.length}</span>` +
@@ -446,7 +447,10 @@ function frameOnce(): void {
 async function addFiles(files: File[]): Promise<void> {
   for (const file of files) {
     try {
-      plays.push(parseFlightCsv(await file.text(), file.name));
+      const csv = await file.text();
+      const track = parseFlightCsv(csv, file.name);
+      trackSources.set(track, csv);
+      plays.push(track);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : String(error));
     }
@@ -460,16 +464,56 @@ async function addFiles(files: File[]): Promise<void> {
 
 async function loadLatest(): Promise<void> {
   try {
-    const response = await fetch('/local-recording/latest.csv');
+    const recording = params.get('recording') ?? '/local-recording/latest.csv';
+    const response = await fetch(recording);
     if (!response.ok) {
       throw new Error('没有找到本地录制文件');
     }
-    plays.push(parseFlightCsv(await response.text(), '最新本地记录.csv'));
+    const csv = await response.text();
+    const track = parseFlightCsv(csv, recording === '/local-recording/latest.csv' ? '最新本地记录.csv' : '航迹包录像.csv');
+    trackSources.set(track, csv);
+    plays.push(track);
     renderTrackList();
     await ensureAircraft();
     await selectTrack(plays.length - 1);
   } catch (error) {
     setStatus(`本地记录载入失败：${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function bakeActiveRoute(): Promise<void> {
+  const track = activeTrack();
+  const csv = track && trackSources.get(track);
+  if (!csv) return;
+  const button = el<HTMLButtonElement>('bakeRoute');
+  const note = el<HTMLSpanElement>('bakeStatus');
+  routeBakeRunning = true;
+  button.disabled = true;
+  note.textContent = '正在烘焙航迹附近地图…';
+  try {
+    const response = await fetch('/route-bake', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csv }) });
+    if (!response.ok) throw new Error(await response.text());
+    const { id } = await response.json() as { id: string };
+    for (;;) {
+      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      const progress = await fetch(`/route-bake/${id}`);
+      if (!progress.ok) throw new Error('烘焙状态不可用');
+      const job = await progress.json() as { state: string; message: string };
+      note.textContent = job.message;
+      if (job.state === 'failed') throw new Error(job.message);
+      if (job.state === 'ready') {
+        const url = new URL(location.href);
+        url.searchParams.set('pak', `/route-pak/${id}`);
+        url.searchParams.set('recording', `/route-pak/${id}/recording.csv`);
+        location.assign(url.href);
+        return;
+      }
+    }
+  } catch (error) {
+    note.textContent = `航迹烘焙失败：${error instanceof Error ? error.message : String(error)}`;
+    routeBakeRunning = false;
+    button.disabled = false;
   }
 }
 
@@ -648,6 +692,9 @@ function cycleCamera(): void {
 }
 
 function bindUi(): void {
+  if (MAP_PAK_BASE.startsWith('/route-pak/')) {
+    el('bakeStatus').textContent = '当前使用航迹包；远景范围为 1200 单位。';
+  }
   const drop = el<HTMLDivElement>('drop');
   const picker = el<HTMLInputElement>('picker');
   drop.onclick = () => picker.click();
@@ -671,6 +718,7 @@ function bindUi(): void {
   picker.onchange = () => {
     void addFiles([...picker.files ?? []]);
   };
+  el<HTMLButtonElement>('bakeRoute').onclick = () => { void bakeActiveRoute(); };
   playButton.onclick = () => {
     if (!activeTrack()) {
       return;

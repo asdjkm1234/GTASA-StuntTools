@@ -58,7 +58,9 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
   minute). It is NOT a data bug.
 
 ## Next steps (see HANDOFF §10)
-1. Bake only the recording route's cells → small pak + HUD "bake" button.
-2. Graphics master switch (bloom/godrays/clouds off) to reduce driver resets.
-3. Route B (optional): engine in-place texture append for true dynamic streaming.
-4. Compatibility: SA-MP `SAMP.img/custom.img` override baking; Rustler(476) cockpit anchor.
+1. Graphics master switch (bloom/godrays/clouds off) to reduce driver resets.
+2. Route B (optional): engine in-place texture append for true dynamic streaming.
+3. Compatibility: SA-MP `SAMP.img/custom.img` override baking; Rustler(476) cockpit anchor.
+
+Route pak baking and its HUD button are implemented; see HANDOFF §14. Route pak has a shorter 1200-unit
+far horizon, and its size varies with the recording path.

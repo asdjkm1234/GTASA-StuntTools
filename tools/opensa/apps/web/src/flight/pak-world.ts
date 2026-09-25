@@ -19,6 +19,7 @@ interface PakIndex {
   cells: { cx: number; cy: number; lod: boolean }[];
   collisionCellSize?: number;
   collisionCells?: { cx: number; cy: number }[];
+  renderRadius?: { hd: number; lod: number };
   generated?: string;
   source?: string;
 }
@@ -39,6 +40,7 @@ export class PakWorld {
   private ready = false;
   private waitingForGpu = false;
   private cameraCollision: CameraCollisionWorld | null = null;
+  private radius = { hd: 1200, lod: 3000 };
 
   constructor(
     private readonly engine: Engine,
@@ -59,6 +61,9 @@ export class PakWorld {
     const index = (await (await fetch(`${this.base}/index.json`)).json()) as PakIndex;
     this.cells = index.cells;
     this.cellSize = index.cellSize || 300;
+    if (index.renderRadius && Number.isFinite(index.renderRadius.hd) && Number.isFinite(index.renderRadius.lod)) {
+      this.radius = index.renderRadius;
+    }
     const collisionReady = index.collisionCellSize && index.collisionCells?.length
       ? CameraCollisionWorld.create(this.base, index.collisionCellSize, index.collisionCells)
       : Promise.resolve(null);
@@ -108,6 +113,10 @@ export class PakWorld {
 
   get indexedCells(): number {
     return new Set(this.cells.map((cell) => `${cell.cx},${cell.cy}`)).size;
+  }
+
+  get renderRadius(): { hd: number; lod: number } {
+    return this.radius;
   }
 
   get isLoading(): boolean {
