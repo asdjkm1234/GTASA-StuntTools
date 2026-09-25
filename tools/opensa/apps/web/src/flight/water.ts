@@ -1,17 +1,13 @@
 /**
- * The sea, from `data/water.dat` (adapted from sa-map-viewer phase 7). `data/water.dat` is already in the VFS
- * (it rides in with gta.dat and the IDE/IPLs), so installing the sea costs one parse and one upload.
+ * The sea, from `data/water.dat` baked into the local pak (adapted from sa-map-viewer phase 7).
  */
 import type { Engine } from '@opensa/engine';
 
 import { flatWaterMesh, WATER_VERTEX_FLOATS } from '@opensa/renderware/map/water-mesh';
 import { parseWater } from '@opensa/renderware/parsers/text/water.parser';
 
-import type { LoadedMap } from './map-source';
-
 /** Install the sea. Returns how many triangles it welded (0 when the tree carries no `water.dat`). */
-export function installWater(engine: Engine, map: LoadedMap): number {
-  const text = map.fs.getText('data/water.dat');
+export function installWater(engine: Engine, text: string | null): number {
   if (text === null) {
     return 0;
   }

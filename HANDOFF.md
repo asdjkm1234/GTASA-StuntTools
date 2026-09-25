@@ -6,7 +6,8 @@
 ## 0. 一句话
 
 在 GTA SA / SA-MP 里常驻录制 Hydra(520)/Rustler(476) 的飞行数据成 CSV，再用 **OpenSA 的 WebGPU 引擎**
-读取**用户自己的 GTA 安装**在浏览器里 3D 回放。全部本地运行，不分发任何游戏资源。
+读取本地预烘焙 pak 在浏览器里 3D 回放。烘焙时读取用户自己的 GTA 安装；回放时只需 pak 和 CSV。
+全部本地运行，不分发任何游戏资源。
 
 ## 1. 环境与路径（本机事实）
 
@@ -74,7 +75,10 @@ cd tools\opensa
 npx tsx scripts\bake-map.mts map-pak                 # 整图 → map-pak\（约 40s，~760MB）
 npx tsx scripts\bake-map.mts map-pak -4 2 1 7        # 只烘一个 cell 矩形
 ```
-烘焙产物由本地服务以 `/map-pak/*` 提供（`MAP_PAK_ROOT` 可覆盖，默认 `../tools/opensa/map-pak`）；回放页启动时若探测到 `/map-pak/index.json` 就自动用 pak，否则回退原始安装实时焊接。**装了地图 mod 后需重新烘焙。**
+烘焙产物由本地服务以 `/map-pak/*` 提供（`MAP_PAK_ROOT` 可覆盖，默认 `../tools/opensa/map-pak`）。
+pak 包含地图、Hydra(520)/Rustler(476) 模型和贴图，以及 `timecyc.dat`、`water.dat`、`vehicles.ide`、`carcols.dat`；
+回放必须有新版 pak，运行时不读取 GTA 安装。旧版 pak、地图或飞机 mod 更新后需重新烘焙。
+游戏安装只在烘焙时读取，`/game-src` 首次被烘焙器请求时才建立索引。录像不在游戏目录时可用 `RECORDINGS_ROOT` 指定 CSV 文件夹，也可直接拖入 CSV。
 
 ```powershell
 node scripts\smoke-map.mts            # tsx 跑；GPU 无关，验证 IMG/IDE/IPL/DFF/TXD→cell 焊接
@@ -94,7 +98,7 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
 - 地图流送半径固定为高清 1200、远景 3000；回放使用原生渲染比例 `engine.renderScale=1`。
 - `调试轴`：显示飞机 forward/up/right 三色世界线（绿/蓝/红），用于判定模型朝向。
 
-脚本测试仍可用可选 URL 覆盖：`?src=/game-src`、`?axes=1`、`?weather=`/`?hour=`。
+脚本测试仍可用可选 URL 覆盖：`?axes=1`、`?weather=`/`?hour=`。旧 `?src=` 已不再使用。
 
 **天气/时间 HUD**：播放条下方有两根滑块（天气 0–22、时间 0–24，步进 0.25）与 `跟随录制` 勾选框。滑块即时生效（天气变化会重建环境驱动）；取消“跟随录制”会**冻结在当前值**再交给滑块。实时数据里的 `环境(显示)` 行显示生效值及来源。状态探针：`debug.envHud`（`hud/force/rec/eff`）。实现见 `applyEnvironment()` 与 `syncEnvControls()`。
 
@@ -104,10 +108,10 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
   - `game_hour/minute/second`（`CClock`）与 `weather_new/old/forced`（`CWeather`）；
   - **真实动画节点四元数**（`CPlane::m_aCarNodes` 的 `RwFrame` 局部建模矩阵，7 个：rudder/elevator_l,elevator_r,aileron_l,aileron_r,gear_l,gear_r），用 `node_status` 位掩码 + `surface_source=real|partial|inferred` 标注。
   - **诚实规则**：Q/A/E/D/上下键是输入列；真实节点读不到就写 `nan` 且标 `inferred`，绝不把按键伪装成舵面。
-- **地图流送**（`apps/web/src/flight/`）：OpenSA `loadMapSource` 读 `gta.dat` 全部 IDE/IPL + IMG 二进制 `*_streamN.ipl`；按 300m cell 用 `weldCell` 焊接，HD 近 + LOD 远。实测：**562 cells / 50849 instances / 14098 models**，中心 cell 焊出 17770 顶点/13189 三角。
+- **地图烘焙与流送**（`apps/web/src/flight/`）：烘焙器用 `loadMapSource` 读 `gta.dat` 全部 IDE/IPL + IMG 二进制 `*_streamN.ipl`，按 300m cell 用 `weldCell` 焊接；回放只流送 pak 中的 HD 近 + LOD 远。实测：**562 cells / 50849 instances / 14098 models**，中心 cell 焊出 17770 顶点/13189 三角。
 - **姿态**：从 CSV 的 right/up/forward 正交基构造四元数并 SLERP；GTA→引擎换轴只在 `flight/math.ts:gtaToEngine` 一处。
 - **环境**：`water.dat` + `timecyc.dat`，时间取 CSV 游戏时钟、天气取 `weather_*`（v5 旧文件无这些字段→回退参数化晴天中午，界面显示 `—:00`）。
-- **飞机**：真实 `hydra.dff`/`rustler.dff` + TXD，经 OpenSA `buildVehicleModel` 上传；颜色取 `carcols.dat`。
+- **飞机**：pak 内的真实 `hydra.dff`/`rustler.dff` + TXD，经 OpenSA `buildVehicleModel` 上传；颜色取 pak 内 `carcols.dat`。
 
 ## 5. 已踩的坑与根因（务必不要重犯）
 
@@ -180,8 +184,8 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
   `requestStream/drainStream/buildCellTargets`、后台准备泵（`pumpPrepare/buildRouteTargets/prepareState`）、
   `DYNAMIC_LOAD/PREPARE_*`，以及 HUD 的 `动态加载(实验)/后台准备/每批/间隔` 与 `航迹准备` 行。
 - 启动时若 `/map-pak/index.json` 不存在 → 直接提示并停止（显示烘焙命令），不再回退。
-- 仍需读安装的小文件：`data/timecyc.dat`、`data/water.dat`、`data/carcols.dat`、飞机 DFF/TXD（经 `loadMapSource`），
-  这不属于“地图流送”，保留。
+- 2026-09-26 后，小文件 `timecyc.dat`、`water.dat`、`vehicles.ide`、`carcols.dat` 和两架飞机 DFF/TXD
+  也在一次烘焙中写入 pak；回放不再执行 `loadMapSource` 或建立游戏目录索引。
 
 保留的关键修复：`PakWorld` 用 `engine.textures.beginLoad()` + 每帧 `drainUploads(budget)`（分帧上传、**零数组替换**）、
 每帧地块创建并发 `MAX_PARALLEL_LOADS=2`、`device.lost` 监听（自动重启渲染 + 每分钟一次上限）。
@@ -197,7 +201,7 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
 
 **版本状态**：路线 A（仅 pak）完成并通过本机验证。配置全部走 HUD，不再依赖 URL 参数；回放**必须**有预烘焙 pak。
 
-数据路径：`npx tsx scripts/bake-map.mts map-pak` → `map-pak/` →`local-server.mjs` 的 `/map-pak/*` → `PakWorld`（分帧上传、零数组替换）。
+数据路径：`npx tsx scripts/bake-map.mts map-pak` → `map-pak/` →`local-server.mjs` 的 `/map-pak/*` → `PakWorld` + `PakResources`（分帧上传、零数组替换）。
 
 **已实测通过**：`tsc --noEmit` 0 错误；pak 模式单文件 / 多文件切换 / 大文件拖动 / 60s@4× 均**无 DXGI**；
 播放/暂停/重启/逐帧/拖动/速度、延迟跟随↔机舱、天气/时间/调试轴 HUD 均正常；服务接口正常。当前回放固定原生分辨率。
@@ -206,22 +210,33 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
 
 ### 下一对话/下一个 AI 的入口
 - 录制器：`recorder/src/FlightRecorderASI.cpp`（`build.ps1`/`install.ps1`，用 `tools/zig`）。
-- 回放 app：`tools/opensa/apps/web/src/standalone/flight-replay.ts` + `apps/web/src/flight/{pak-world,camera,csv,aircraft,math,map-source,asset-store}.ts`。
+- 回放 app：`tools/opensa/apps/web/src/standalone/flight-replay.ts` + `apps/web/src/flight/{pak-world,pak-resources,camera,csv,aircraft,math}.ts`。`map-source`/`asset-store` 仅供烘焙器用。
 - 烘焙器：`tools/opensa/scripts/bake-map.mts`。
 - 服务：`web-replay/local-server.mjs`（`/map-pak`、`/game-src`、`/local-recording/latest.csv`、`/webgpu-report`）。
 - 启动：双击 `start-replay.cmd` → `http://127.0.0.1:4173/`（无参数自动载入最新录像）。
-- 自测：`tools/opensa/scripts/{bake-map.mts, smoke-map.mts, capture-replay, test-multitrack, test-scrub, soak-replay, test-hud}`。
+- 自测：`tools/opensa/scripts/{bake-map.mts, smoke-map.mts, capture-replay, test-multitrack, test-scrub, soak-replay, test-hud, test-standalone-pak}`。
 
 ### 建议的下一步（按优先级）
 1. **烘焙瘦身**：只烘“录像航迹附近”的 cell（按 CSV 轨迹包围盒）→ pak 从 ~760MB 降到几十 MB；可加 HUD“一键烘焙”。
-2. **彻底脱离安装**：把 `timecyc.dat`/`water.dat`/`carcols.dat` + 飞机 DFF/TXD 也烘进 pak，启动更快。
-3. **画质总开关**：一键关 bloom/godrays/云层，进一步降低驱动重置概率。
-4. **Route B（可选）**：给引擎加“就地追加层”，以支持真正无需预烘焙的动态流送。
-5. **兼容性**：SA-MP `SAMP.img/custom.img` 覆盖模型的烘焙；Rustler(476) 的座舱锚点与节点数。
+2. **画质总开关**：一键关 bloom/godrays/云层，进一步降低驱动重置概率。
+3. **Route B（可选）**：给引擎加“就地追加层”，以支持真正无需预烘焙的动态流送。
+4. **兼容性**：SA-MP `SAMP.img/custom.img` 覆盖模型的烘焙；Rustler(476) 的座舱锚点与节点数。
 
 ### 硬性约束（务必遵守）
 见 `AGENTS.md` 与 §5。每次改完必须：`npx tsc --noEmit -p tsconfig.json`（0 错误）→ `build-flight-replay.ps1` 发布 →
 跑对应 `scripts/*` 自测并看截图。纹理上传只能走 `beginLoad`+`drainUploads`；`.cmd/.ps1` 只写 ASCII。
+
+## 11. 2026-09-26：回放脱离游戏安装
+
+- 同一次 `bake-map.mts` 烘焙写入完整地图、碰撞、纹理、`data/{timecyc.dat,water.dat,vehicles.ide,carcols.dat}`
+  和 `aircraft/{hydra,rustler}.{dff,txd}`，`index.json` 用 `replayAssets.version=1` 标识。只打包 520/476；
+  录制器的 `isTrackedModel` 也只接受 520/476，其他载具不会生成录像。
+- 回放 app 用 `PakResources` 读取上述小文件和飞机；不再调用 `loadMapSource`。服务只在烘焙器请求
+  `/game-src/*` 时建立 GTA 文件索引。没有 GTA 安装时，服务仍能从 pak 加载地图和两架飞机。
+- 重新烘焙后 pak 大小约 828 MB（本机整图）。验证方式：将测试服务的 `GAME_ROOT` 指向不存在的目录，
+  用 `RECORDINGS_ROOT` 指向已有 CSV，运行 `scripts/test-standalone-pak.mjs <Hydra CSV>`。该脚本在临时 Chrome
+  profile 中分别载入真实 Hydra CSV 与把模型 ID 临时改为 476 的测试数据，检查两架飞机可渲染、无游戏目录请求，
+  并输出两张截图到 `captures/`。Rustler 的真实飞行/动画仍需真实 476 录像核对。
 
 ## 11. 镜头对照调试（临时）
 

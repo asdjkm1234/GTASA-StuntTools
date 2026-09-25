@@ -6,6 +6,8 @@
  *   <out>/cells/<cx>_<cy>[_lod].bin   the `.oscell` bytes, loaded with `engine.cells.load`
  *   <out>/textures/<ref>.ostex        arrays uploaded with `beginLoad` + per-frame `drainUploads`
  *   <out>/collision/<cx>_<cy>.oscol   GTA COL shapes on the 256-unit game grid
+ *   <out>/aircraft/*.{dff,txd}        only Hydra (520) and Rustler (476)
+ *   <out>/data/*                      replay weather, water, vehicle scale and paint tables
  *
  * Because ONE planner produced every cell, layer indices are globally consistent and the arrays are complete
  * up front: the replay uploads them once and NEVER grows/replaces an array at runtime (the black-screen/TDR
@@ -31,7 +33,7 @@ import { bakeCellCollision, collisionCellRect } from '../tools/opensa-pack/src/p
 
 const outDir = path.resolve(process.argv[2] ?? 'map-pak');
 const rect = process.argv.length >= 7 ? process.argv.slice(3, 7).map(Number) : null;
-const base = process.argv[7] ?? 'http://127.0.0.1:4173/game-src';
+const base = process.env.GAME_SOURCE_BASE ?? process.argv[7] ?? 'http://127.0.0.1:4173/game-src';
 
 const started = performance.now();
 console.log(`loading map source ${base} …`);
@@ -47,6 +49,32 @@ console.log(`baking ${cells.length} cell(s)${rect ? ` in rect ${rect.join(',')}`
 await fs.mkdir(path.join(outDir, 'cells'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'textures'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'collision'), { recursive: true });
+await fs.mkdir(path.join(outDir, 'aircraft'), { recursive: true });
+await fs.mkdir(path.join(outDir, 'data'), { recursive: true });
+
+// Bake the only two aircraft the recorder supports, plus the small text tables used at replay time.
+const replayDataFiles = ['timecyc.dat', 'water.dat', 'vehicles.ide', 'carcols.dat'];
+for (const name of replayDataFiles) {
+  const text = map.fs.getText(`data/${name}`);
+  if (text === null) throw new Error(`GTA install is missing data/${name}`);
+  await fs.writeFile(path.join(outDir, 'data', name), text);
+}
+const replayAircraft: Record<number, string> = {};
+for (const [id, candidates] of [[520, ['hydra']], [476, ['rustler', 'stuntplane']]] as const) {
+  let found = false;
+  for (const name of candidates) {
+    const dff = await map.assets.readRaw(`${name}.dff`);
+    const txd = await map.assets.readRaw(`${name}.txd`);
+    if (!dff || !txd) continue;
+    await fs.writeFile(path.join(outDir, 'aircraft', `${name}.dff`), dff);
+    await fs.writeFile(path.join(outDir, 'aircraft', `${name}.txd`), txd);
+    replayAircraft[id] = name;
+    found = true;
+    break;
+  }
+  if (!found) throw new Error(`GTA install is missing DFF/TXD for model ${id}`);
+}
+console.log(`  replay aircraft ${Object.entries(replayAircraft).map(([id, name]) => `${id}:${name}`).join(', ')}`);
 
 const planner = new TexturePlanner(map.fs, map.defs.txdParents ?? new Map<string, string>());
 const written: { cx: number; cy: number; lod: boolean }[] = [];
@@ -109,6 +137,7 @@ await fs.writeFile(
     cells: written,
     collisionCellSize: GAME_CELL_SIZE,
     collisionCells,
+    replayAssets: { version: 1, aircraft: replayAircraft, data: replayDataFiles },
     generated: new Date().toISOString(),
     source: base,
   }),

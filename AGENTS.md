@@ -9,7 +9,7 @@ file is the fast onboarding for a new AI session. Do not distribute game assets;
   camera debug capture is temporarily disabled in V1.1).
 - **Replay**: OpenSA WebGPU engine in the browser, streaming a **locally baked map pak** (Route A). The
   raw-install live-welding path was removed (HANDOFF §8) — a pak is required.
-- Everything runs on this machine; the browser reads the user's own install only.
+- Everything runs on this machine. Baking reads the user's own install; replay reads the baked pak and CSV only.
 
 ## Run / build / test (this machine)
 ```powershell
@@ -33,11 +33,13 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ## Architecture (V1.1)
 - App entry: `tools/opensa/apps/web/src/standalone/flight-replay.ts`
-  + `apps/web/src/flight/`: `pak-world.ts` (stream the pak), `camera.ts`, `csv.ts`, `aircraft.ts`, `math.ts`,
-  `map-source.ts`, `asset-store.ts` (data files + aircraft only).
-- Baker: `tools/opensa/scripts/bake-map.mts` → `map-pak/{index.json, cells/*.bin, textures/*.ostex}`.
-- Server: `web-replay/local-server.mjs` (`/map-pak`, `/game-src`, `/local-recording/latest.csv`, `/webgpu-report`).
-- Self-tests (self-close their Chrome): `tools/opensa/scripts/{capture-replay,test-multitrack,test-scrub,soak-replay,test-hud}.mjs`, `smoke-map.mts`.
+  + `apps/web/src/flight/`: `pak-world.ts` (stream the pak), `pak-resources.ts` (aircraft/data),
+  `camera.ts`, `csv.ts`, `aircraft.ts`, `math.ts`. `map-source.ts` and `asset-store.ts` serve the baker.
+- Baker: `tools/opensa/scripts/bake-map.mts` → `map-pak/{index.json,cells,collision,textures,data,aircraft}`;
+  `aircraft` contains only 520/476. Re-bake older pak files before replay.
+- Server: `web-replay/local-server.mjs` (`/map-pak`, `/local-recording/latest.csv`, `/webgpu-report`);
+  `/game-src` is indexed lazily for baking only. `RECORDINGS_ROOT` can point to CSV files outside the game folder.
+- Self-tests (self-close their Chrome): `tools/opensa/scripts/{capture-replay,test-multitrack,test-scrub,soak-replay,test-hud,test-standalone-pak}.mjs`, `smoke-map.mts`.
 
 ## Hard rules (violating these caused real regressions)
 1. `tsc --noEmit` must be 0; rebuild with `build-flight-replay.ps1`; verify with a `scripts/*` screenshot run.
@@ -56,7 +58,6 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ## Next steps (see HANDOFF §10)
 1. Bake only the recording route's cells → small pak + HUD "bake" button.
-2. Bake `timecyc/water/carcols` + aircraft into the pak to drop the raw install entirely.
-3. Graphics master switch (bloom/godrays/clouds off) to reduce driver resets.
-4. Route B (optional): engine in-place texture append for true dynamic streaming.
-5. Compatibility: SA-MP `SAMP.img/custom.img` override baking; Rustler(476) cockpit anchor.
+2. Graphics master switch (bloom/godrays/clouds off) to reduce driver resets.
+3. Route B (optional): engine in-place texture append for true dynamic streaming.
+4. Compatibility: SA-MP `SAMP.img/custom.img` override baking; Rustler(476) cockpit anchor.

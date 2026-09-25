@@ -1,7 +1,6 @@
 /**
- * GTASA flight replay — the OpenSA WebGPU engine rendering the user's own GTA SA install, driven by the
- * recorder's CSV. Boot: `?src=/game-src` (default) points the raw-install loader at the local server, and
- * `?local=latest` loads the newest recording from `flight_recordings/`. Everything runs on this machine.
+ * GTASA flight replay — OpenSA renders the user's locally baked pak, driven by recorder CSV files.
+ * `?local=latest` loads the newest local recording. The GTA install is needed to bake, not to replay.
  */
 import { Engine } from '@opensa/engine';
 import type { DebugLineSetId } from '@opensa/engine';
@@ -17,7 +16,7 @@ import { ChaseCameraTimeline, isChaseMode, type ChaseMode } from '../flight/came
 import { PakWorld } from '../flight/pak-world';
 import { NODE_NAMES, parseFlightCsv, sampleTrack } from '../flight/csv';
 import { gtaDirToEngine, rotateVec, type Vec3 } from '../flight/math';
-import { loadMapSource } from '../flight/map-source';
+import { PakResources } from '../flight/pak-resources';
 import { installWater } from '../flight/water';
 
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -73,7 +72,6 @@ function drawAxes(p: Vec3, forward: Vec3, right: Vec3, up: Vec3): void {
 const params = new URLSearchParams(location.search);
 const HD_RADIUS = 1200;
 const LOD_RADIUS = 3000;
-const SRC = params.get('src') ?? '/game-src';
 // `?axes=1` draws the aircraft's recorded forward (green) / up (blue) / right (red) as world-space lines.
 // If green does not run along the model's nose, the model orientation is wrong — a pixel fact, not a guess.
 let SHOW_AXES = params.get('axes') === '1';
@@ -373,7 +371,7 @@ async function ensureAircraft(): Promise<void> {
   debug.seatSource = 'none';
   aircraftModel = track.model;
   try {
-    aircraft = await loadAircraft(engine, map, track.model);
+    aircraft = await loadAircraft(engine, resources, track.model);
     cockpitPart = aircraft.data.parts.findIndex((part) => part.name === 'door_lf');
     if (cockpitPart < 0) {
       cockpitPart = aircraft.data.parts.findIndex((part) => part.name === 'chassis');
@@ -475,7 +473,7 @@ async function loadLatest(): Promise<void> {
   }
 }
 
-let map!: Awaited<ReturnType<typeof loadMapSource>>;
+let resources!: PakResources;
 
 async function boot(): Promise<void> {
   const bootId = crypto.randomUUID();
@@ -541,13 +539,8 @@ async function boot(): Promise<void> {
   engine.waterEnabled = true;
   camera = new ReplayCamera();
   camera.mode = cameraMode;
-  setStatus('正在读取本地 GTA 安装并建立世界索引…');
-  bootStage = 'map-source';
-  map = await loadMapSource({ base: SRC, kind: 'http-dir' });
-  timecycText = map.fs.getText('data/timecyc.dat') ?? '';
-  debug.cells = map.grid.size;
-  installWater(engine, map);
-  // Route A only: a baked pak is required. If it is missing, say so instead of rendering an empty world.
+  setStatus('正在读取预烘焙回放包…');
+  // The pak holds both map cells and the two supported aircraft. No GTA install scan happens at replay time.
   bootStage = 'pak-check';
   if (!(await PakWorld.probe(MAP_PAK_BASE))) {
     mapLoading.hidden = false;
@@ -557,6 +550,10 @@ async function boot(): Promise<void> {
 
     return;
   }
+  bootStage = 'pak-resources';
+  resources = await PakResources.load(MAP_PAK_BASE);
+  timecycText = resources.getText('data/timecyc.dat') ?? '';
+  installWater(engine, resources.getText('data/water.dat'));
   const pak = new PakWorld(engine, MAP_PAK_BASE);
   mapLoading.hidden = false;
   mapLoadingText.textContent = '读取预烘焙地图索引…';
@@ -565,14 +562,15 @@ async function boot(): Promise<void> {
     pakDownloads = done;
     mapLoadingText.textContent = `读取预烘焙纹理 ${done}/${total}…`;
   });
+  debug.cells = pak.indexedCells;
   bootStage = 'render-loop';
   pakWorld = pak;
   debug.worldReady = true;
   for (const node of document.querySelectorAll<HTMLElement>('.raw-only')) {
     node.style.display = 'none';
   }
-  setStatus(`预烘焙地图就绪：${map.grid.size} 个单元`);
-  void report({ cells: map.grid.size, phase: 'world-indexed' });
+  setStatus(`预烘焙地图就绪：${pak.indexedCells} 个单元`);
+  void report({ cells: pak.indexedCells, phase: 'world-indexed' });
   // No URL parameters required: with nothing loaded, pull the newest local recording automatically.
   if (plays.length === 0) {
     await loadLatest();

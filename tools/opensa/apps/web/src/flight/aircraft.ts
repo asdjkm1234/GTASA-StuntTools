@@ -1,6 +1,6 @@
 /**
- * The real Hydra / Rustler aircraft, read from the user's own install (DFF + TXD from the IMG archive via
- * {@link AssetStore.readRaw}) and uploaded through the engine's rigid path. Nothing simplifying stands in
+ * The real Hydra / Rustler aircraft, baked locally from the owner's install (DFF + TXD), then uploaded
+ * through the engine's rigid path. Nothing simplifying stands in
  * for the game model: the same `buildVehicleModel` the game uses keeps the full part hierarchy, materials
  * and collision, and the engine uploads it as a rigid model with per-part rotation.
  */
@@ -13,8 +13,8 @@ import { parseVehicleDefs } from '@opensa/renderware/parsers/text/vehicle-defs.p
 import { buildVehicleModel } from '@opensa/renderware/vehicle/build-vehicle-model';
 import { VehicleTextures } from '@opensa/renderware/vehicle/textures';
 
-import type { LoadedMap } from './map-source';
 import type { Quat, Vec3 } from './math';
+import type { PakResources } from './pak-resources';
 
 import { NODE_NAMES, relativeNodeRotation } from './csv';
 import { conjugate, quatMultiply, rotateVec } from './math';
@@ -46,16 +46,16 @@ export interface AircraftHandle {
 }
 
 /** Load and upload the aircraft. Throws when the DFF or its TXD is missing. */
-export async function loadAircraft(engine: Engine, map: LoadedMap, model: number): Promise<AircraftHandle> {
-  const name = await resolveName(map, model);
-  const dff = await map.assets.readRaw(`${name}.dff`);
+export async function loadAircraft(engine: Engine, resources: PakResources, model: number): Promise<AircraftHandle> {
+  const name = await resolveName(resources, model);
+  const dff = await resources.readRaw(`${name}.dff`);
   if (!dff) {
     throw new Error(`缺少 ${name}.dff`);
   }
-  const txd = await map.assets.readRaw(`${name}.txd`);
+  const txd = await resources.readRaw(`${name}.txd`);
   const clump = parseDff(new Uint8Array(dff).buffer);
   const data = buildVehicleModel(clump, new VehicleTextures(txd ? [new Uint8Array(txd).buffer] : []), {
-    wheelScale: wheelScaleFor(map, name),
+    wheelScale: wheelScaleFor(resources, name),
   });
   const modelId = engine.createVehicleModel(toRigidModelInit(data));
   const instance = engine.createVehicle(modelId);
@@ -170,7 +170,7 @@ export async function loadAircraft(engine: Engine, map: LoadedMap, model: number
       applyHydraCenterGear(gearStatus, nodes);
     },
     applyPaint(colors): void {
-      const rgb = resolvePaint(map, colors);
+      const rgb = resolvePaint(resources, colors);
       if (rgb) {
         instance.setPaint({
           primary: rgb.primary,
@@ -240,14 +240,14 @@ function findPart(instance: VehicleInstance, parts: VehicleModelData['parts'], n
 }
 
 /** Resolve the model id to a DFF base name that exists in the install. */
-async function resolveName(map: LoadedMap, model: number): Promise<string> {
+async function resolveName(resources: PakResources, model: number): Promise<string> {
   for (const candidate of MODEL_NAMES[model] ?? []) {
-    const dff = await map.assets.readRaw(`${candidate}.dff`);
+    const dff = await resources.readRaw(`${candidate}.dff`);
     if (dff) {
       return candidate;
     }
   }
-  throw new Error(`本地安装中找不到模型 ${model} 的 DFF`);
+  throw new Error(`预烘焙地图中找不到模型 ${model} 的 DFF，请重新烘焙`);
 }
 
 /**
@@ -255,8 +255,8 @@ async function resolveName(map: LoadedMap, model: number): Promise<string> {
  * absent or unreadable. The Hydra's axles are authored separately (0.7 / 0.3) and the plane's landing gear
  * is sized by them; a hardcoded [1, 1] fitted every wheel to a 1 m tyre and read oversized.
  */
-function wheelScaleFor(map: LoadedMap, name: string): [number, number] {
-  const text = map.fs.getText('data/vehicles.ide');
+function wheelScaleFor(resources: PakResources, name: string): [number, number] {
+  const text = resources.getText('data/vehicles.ide');
   const scale = text ? parseVehicleDefs(text).get(name)?.wheelScale : undefined;
   if (!scale || !Number.isFinite(scale[0]) || !Number.isFinite(scale[1])) {
     return [1, 1];
@@ -268,12 +268,12 @@ function wheelScaleFor(map: LoadedMap, name: string): [number, number] {
 let carcolsCache: [number, number, number][] | null = null;
 
 /** Parse `data/carcols.dat`'s `col` section once. */
-function carcols(map: LoadedMap): [number, number, number][] {
+function carcols(resources: PakResources): [number, number, number][] {
   if (carcolsCache) {
     return carcolsCache;
   }
   const result: [number, number, number][] = [];
-  const text = map.fs.getText('data/carcols.dat');
+  const text = resources.getText('data/carcols.dat');
   if (text) {
     let inColours = false;
     for (const raw of text.split(/\r?\n/)) {
@@ -303,7 +303,7 @@ function carcols(map: LoadedMap): [number, number, number][] {
 }
 
 function resolvePaint(
-  map: LoadedMap,
+  resources: PakResources,
   colors: readonly (null | number)[],
 ): null | {
   primary: [number, number, number];
@@ -311,7 +311,7 @@ function resolvePaint(
   secondary: [number, number, number];
   tertiary: [number, number, number];
 } {
-  const table = carcols(map);
+  const table = carcols(resources);
   const at = (index: number): [number, number, number] | null => {
     const id = colors[index];
     if (id === null || id === undefined || !table[id]) {

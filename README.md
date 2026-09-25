@@ -3,7 +3,8 @@
 > 工程/交接说明见 **[`HANDOFF.md`](HANDOFF.md)**（环境、构建运行自测、根因与坑）；AI 请先读它。
 
 本项目在**当前目录**自包含运行：`GTA San Andreas/` 是你自己的游戏安装，`tools/` 放引擎与编译器，
-`recorder/` 是游戏内录制器，`web-replay/` 是本地回放服务。全部本地完成，不复制/上传/分发任何游戏资源。
+`recorder/` 是游戏内录制器，`web-replay/` 是本地回放服务。一次烘焙后，回放只读取本地 pak 和 CSV；
+游戏安装只在录制和重新烘焙时需要。全部本地完成，不上传或分发游戏资源。
 
 > 前作 `GTASA-FlightTools`（旧实现）已于 2026-09-20 删除，本目录是重新搭建的干净实现。
 
@@ -51,6 +52,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1   # 覆盖前自动备份
 ```powershell
 cd tools\opensa
 npm install --ignore-scripts --no-audit --no-fund
+npx tsx scripts\bake-map.mts map-pak          # 一次烘焙地图、Hydra/Rustler 与环境数据
 powershell -ExecutionPolicy Bypass -File .\build-flight-replay.ps1
 ```
 
@@ -64,7 +66,7 @@ cd web-replay
 自动打开 `http://127.0.0.1:4173/`。常用：
 
 - 最新本地记录：`http://127.0.0.1:4173/?local=latest`
-- 指定游戏源（默认 `/game-src`）：`http://127.0.0.1:4173/opensa/flight-replay.html?src=/game-src`
+- 地图和 Hydra/Rustler 资源从 `tools/opensa/map-pak` 读取；旧 pak 需重新烘焙。
 
 端口被占用时不会抛 `EADDRINUSE`：提示“已在运行”并打开已有页面。
 
@@ -77,10 +79,10 @@ cd web-replay
 
 ### 地图与姿态
 
-- 读取 `gta.dat` 的全部 IDE/IPL 与 IMG 内二进制 `*_streamN.ipl`；按 300 m cell 在浏览器内 `weldCell`：
+- 烘焙器读取 `gta.dat` 的全部 IDE/IPL 与 IMG 内二进制 `*_streamN.ipl`，按 300 m cell 焊接进 pak；浏览器流送已烘焙地块：
   飞机附近 **HD**、外圈 **LOD 底图**，两者互斥，避免重叠与露洞。
 - DFF/TXD 材质、TXD 父级继承、透明/双面、植被裁剪由 OpenSA 管线处理。
-- 水面来自 `data/water.dat`；天空/太阳/雾/水色由 `data/timecyc.dat` + CSV 的**游戏时钟与天气**驱动
+- 水面来自 pak 中的 `data/water.dat`；天空/太阳/雾/水色由 pak 中的 `data/timecyc.dat` + CSV 的**游戏时钟与天气**驱动
   （旧文件无这些字段时回退到参数化晴天中午，绝不用电脑本地时间冒充游戏时间）。
 - 姿态从 CSV 的 right/up/forward 正交基构造四元数并 **SLERP**；GTA→浏览器换轴只在
   `apps/web/src/flight/math.ts:gtaToEngine` 一处完成。

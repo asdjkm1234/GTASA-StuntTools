@@ -106,6 +106,10 @@ export class PakWorld {
     return this.loaded;
   }
 
+  get indexedCells(): number {
+    return new Set(this.cells.map((cell) => `${cell.cx},${cell.cy}`)).size;
+  }
+
   get isLoading(): boolean {
     return this.pending.size > 0;
   }
