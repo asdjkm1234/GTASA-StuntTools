@@ -49,7 +49,7 @@ const SMOKE_PER_TICK = 2;
 /** Rebuild only particles that might still be alive. */
 const FX_WINDOW = 4;
 /** Particles per explosion layer for one recorded explosion. */
-const EXPLOSION_PER_LAYER = 14;
+const EXPLOSION_PER_LAYER = 8;
 
 /**
  * The systems preloaded into the lane. `alias` registers the same `effects.fxp` system under a second name
@@ -64,9 +64,9 @@ const FLIGHT_SYSTEMS: readonly {
   tint?: [number, number, number];
 }[] = [
   { alias: 'engine-smoke', name: 'smoke30m' },
-  { alias: 'hydra-jet', name: 'jetthrust' },
-  { alias: 'explosion-fire', name: 'fire' },
-  { alias: 'explosion-smoke', name: 'smoke30m', sizeScale: 1.6, tint: [0.42, 0.4, 0.38] },
+  { alias: 'hydra-jet', name: 'jetthrust', sizeScale: 1.5 },
+  { alias: 'aircraft-explosion', name: 'explosion_large' },
+  { alias: 'explosion-flash', name: 'explosion_fuel_car', sizeScale: 2 },
 ];
 
 /** One baked emitter of one aliased system, with the lane index it spawns against. */
@@ -117,9 +117,11 @@ function createDriver(engine: Engine, index: Map<string, FxEntry[]>): FlightEffe
   ): void => {
     for (const entry of entries) {
       sampleFxParticle(entry.baked, random, scratch, 0);
-      const life = scratch[3] * lifeScale;
+      const life = Math.min(FX_WINDOW, scratch[3] * lifeScale);
       if (bornAt + life <= elapsed) continue;
-      const speed = Math.max(1, Math.hypot(scratch[0], scratch[1], scratch[2]));
+      // The original jetthrust emitter is authored around 1 unit/s. Replay extends that visual vector so
+      // the recorded swivel is legible from the analysis camera, while keeping the original sprite/lifetime.
+      const speed = Math.max(1, Math.hypot(scratch[0], scratch[1], scratch[2])) * (direction ? 4 : 1);
       const vx = direction ? direction[0] * speed + (random() - 0.5) * 0.6 : scratch[0];
       const vy = direction ? direction[1] * speed + (random() - 0.5) * 0.6 : scratch[1];
       const vz = direction ? direction[2] * speed + (random() - 0.5) * 0.6 : scratch[2];
@@ -153,11 +155,11 @@ function createDriver(engine: Engine, index: Map<string, FxEntry[]>): FlightEffe
         const position = explosionPosition(event);
         if (!position) return;
         const random = mulberry32(0x9e3779b9 ^ (eventIndex + 1));
-        const fire = index.get('explosion-fire') ?? [];
-        const smoke = index.get('explosion-smoke') ?? [];
+        const explosion = index.get('aircraft-explosion') ?? [];
+        const flash = index.get('explosion-flash') ?? [];
         for (let n = 0; n < EXPLOSION_PER_LAYER; n += 1) {
-          spawn(fire, position, random, event.s, elapsed, 1, 1.4);
-          spawn(smoke, position, random, event.s, elapsed, 0.8, 1.4);
+          spawn(explosion, position, random, event.s, elapsed);
+          spawn(flash, position, random, event.s, elapsed);
         }
       });
 
@@ -178,7 +180,7 @@ function createDriver(engine: Engine, index: Map<string, FxEntry[]>): FlightEffe
         if (track.model === 520 && pose.row.health > 0 && hasNozzleRotation(nozzleRotation)) {
           const angle = deriveNozzleAngle(nozzleRotation);
           const direction = rotateVec(pose.orientation, [0, -Math.cos(angle), -Math.sin(angle)]);
-          const alpha = Math.min(1, Math.max(0.35, Math.abs(pose.row.throttle)));
+          const alpha = Math.min(1, Math.max(0.8, Math.abs(pose.row.throttle)));
           const entries = index.get('hydra-jet') ?? [];
           for (let side = 0; side < 2; side += 1) {
             const position = jetPosition(pose, aircraft, side === 1);

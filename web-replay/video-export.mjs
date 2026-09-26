@@ -1,24 +1,36 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
-import { existsSync, createReadStream, promises as fs } from "node:fs";
+import { existsSync, createReadStream, createWriteStream, promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 const WIDTH = 1920;
 const HEIGHT = 1080;
 const FPS = 30;
 const MAX_CSV_BYTES = 16 * 1024 * 1024;
+const MAX_WAV_BYTES = 1024 * 1024 * 1024;
 const MAX_SECONDS = 2 * 60 * 60;
 const JOB_TTL_MS = 60 * 60 * 1000;
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const CSV_NAME = /^flight_[A-Za-z0-9._-]+\.csv$/i;
+const CAMERA_MODES = new Set(["chase-near", "chase-mid", "chase-far", "first-person", "cockpit"]);
 const jobRoute = new RegExp(`^/video-export/(${UUID})(?:/(cancel|download))?$`);
 const sourceRoute = new RegExp(`^/video-export/source/(${UUID})\\.csv$`);
 
 /** Recorder filenames only: a flat `flight_*.csv` basename, no separators or Windows stream syntax. */
 function validCsvName(value) {
   return typeof value === "string" && CSV_NAME.test(value) && path.basename(value) === value;
+}
+
+function validView(value) {
+  if (!value || typeof value !== "object") return false;
+  if (CAMERA_MODES.has(value.mode)) return true;
+  return value.mode === "free" && Array.isArray(value.position) && value.position.length === 3 &&
+    value.position.every(number => Number.isFinite(number) && Math.abs(number) < 100000) &&
+    Number.isFinite(value.yaw) && Number.isFinite(value.pitch) && Math.abs(value.yaw) < 100000 && Math.abs(value.pitch) <= 1.56;
 }
 
 /** The optional voice-over is a WAV beside the recording with the same basename, never outside recordingsRoot. */
@@ -164,7 +176,16 @@ export function createVideoExporter({ origin, recordingsRoot, opensaRoot, chromi
   ffmpegExecutable = "ffmpeg", outputRoot = path.join(tmpdir(), "GTASA-StuntTools-video-exports"),
   rendererFactory = openReplayRenderer }) {
   const jobs = new Map();
+  const uploads = new Map();
   let running = null;
+
+  async function pruneUploads() {
+    for (const [token, item] of uploads) {
+      if (Date.now() - item.createdAt < JOB_TTL_MS) continue;
+      uploads.delete(token);
+      await fs.rm(item.path, { force: true }).catch(() => {});
+    }
+  }
 
   async function run(job) {
     let renderer;
@@ -172,7 +193,8 @@ export function createVideoExporter({ origin, recordingsRoot, opensaRoot, chromi
     const output = path.join(outputRoot, `${job.id}.mp4`);
     try {
       const recording = `/video-export/source/${job.id}.csv`;
-      const sourceUrl = `${origin}/opensa/flight-replay.html?recording=${encodeURIComponent(recording)}&pak=${encodeURIComponent(job.pakBase)}&videoExport=1`;
+      const viewQuery = job.view ? `&exportView=${encodeURIComponent(JSON.stringify(job.view))}` : "";
+      const sourceUrl = `${origin}/opensa/flight-replay.html?recording=${encodeURIComponent(recording)}&pak=${encodeURIComponent(job.pakBase)}&videoExport=1${viewQuery}`;
       renderer = await rendererFactory({ sourceUrl, executablePath: chromiumPath, opensaRoot, signal: job.controller.signal });
       assertActive(job.controller.signal);
       const duration = Number(renderer.duration);
@@ -181,8 +203,8 @@ export function createVideoExporter({ origin, recordingsRoot, opensaRoot, chromi
       job.state = "rendering";
       job.message = "Rendering replay frames";
       await fs.mkdir(outputRoot, { recursive: true });
-      let wavPath = null;
-      const candidate = sameBasenameWav(job.filename, recordingsRoot);
+      let wavPath = job.uploadedWav;
+      const candidate = wavPath ? null : sameBasenameWav(job.filename, recordingsRoot);
       if (candidate) {
         const info = await fs.lstat(candidate).catch(() => null);
         if (info?.isFile()) wavPath = candidate;
@@ -216,6 +238,7 @@ export function createVideoExporter({ origin, recordingsRoot, opensaRoot, chromi
       job.message = job.state === "cancelled" ? "Export cancelled" : (error instanceof Error ? error.message : String(error));
     } finally {
       if (renderer) await renderer.close().catch(() => {});
+      if (job.uploadedWav) await fs.rm(job.uploadedWav, { force: true }).catch(() => {});
       job.finishedAt = Date.now();
       if (running === job.id) running = null;
     }
@@ -238,6 +261,34 @@ export function createVideoExporter({ origin, recordingsRoot, opensaRoot, chromi
     if (req.method === "POST" && req.headers.origin !== origin) {
       reject(403, { error: "Forbidden" }); return true;
     }
+    if (pathname === "/video-export/audio") {
+      if (req.method !== "POST") { reject(405, { error: "Method not allowed" }); return true; }
+      await pruneUploads();
+      const announced = Number(req.headers["content-length"] ?? 0);
+      if (announced > MAX_WAV_BYTES) { reject(413, { error: "WAV is too large" }); return true; }
+      const token = randomUUID();
+      const wavPath = path.join(outputRoot, `${token}.wav`);
+      let bytes = 0;
+      try {
+        await fs.mkdir(outputRoot, { recursive: true });
+        const limit = new Transform({ transform(chunk, _encoding, callback) {
+          bytes += chunk.length;
+          callback(bytes > MAX_WAV_BYTES ? new Error("WAV is too large") : null, chunk);
+        } });
+        await pipeline(req, limit, createWriteStream(wavPath, { flags: "wx" }));
+        const file = await fs.open(wavPath, "r");
+        const header = Buffer.alloc(12);
+        try { await file.read(header, 0, 12, 0); } finally { await file.close(); }
+        if (bytes < 44 || header.toString("ascii", 0, 4) !== "RIFF" ||
+          header.toString("ascii", 8, 12) !== "WAVE") throw new Error("Invalid WAV file");
+        uploads.set(token, { path: wavPath, createdAt: Date.now() });
+        respond(res, 201, { token });
+      } catch (error) {
+        await fs.rm(wavPath, { force: true }).catch(() => {});
+        respond(res, bytes > MAX_WAV_BYTES ? 413 : 400, { error: error.message });
+      }
+      return true;
+    }
     if (pathname === "/video-export") {
       if (req.method !== "POST") { reject(405, { error: "Method not allowed" }); return true; }
       if (running) { reject(409, { error: "An export is already running" }); return true; }
@@ -253,9 +304,20 @@ export function createVideoExporter({ origin, recordingsRoot, opensaRoot, chromi
       if (pakBase !== "/map-pak" && !new RegExp(`^/route-pak/${UUID}$`).test(pakBase)) {
         respond(res, 400, { error: "Invalid map pak" }); return true;
       }
+      if (input.view !== undefined && !validView(input.view)) {
+        respond(res, 400, { error: "Invalid camera view" }); return true;
+      }
+      if (input.audioToken !== undefined &&
+        (typeof input.audioToken !== "string" || !new RegExp(`^${UUID}$`).test(input.audioToken) ||
+          !uploads.has(input.audioToken))) {
+        respond(res, 400, { error: "Invalid uploaded WAV" }); return true;
+      }
       const id = randomUUID();
       await pruneFinishedJobs();
-      const job = { id, csv: input.csv, filename: input.filename ?? null, pakBase,
+      const uploadedWav = input.audioToken ? uploads.get(input.audioToken).path : null;
+      if (input.audioToken) uploads.delete(input.audioToken);
+      const job = { id, csv: input.csv, filename: input.filename ?? null, pakBase, view: input.view ?? null,
+        uploadedWav,
         state: "starting", message: "Starting video export", progress: 0, frame: 0, totalFrames: 0,
         audio: false, output: null, finishedAt: null, controller: new AbortController() };
       jobs.set(id, job);

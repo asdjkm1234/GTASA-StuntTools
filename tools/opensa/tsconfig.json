@@ -18,6 +18,10 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolvePackageJsonExports": true,
+    "paths": {
+      "@opensa/engine": ["./packages/engine/src/index.ts"],
+      "@opensa/engine/*": ["./packages/engine/src/*"]
+    },
     "types": ["node", "@webgpu/types"]
   },
   "exclude": ["./game-src", "./NO_COMMIT"]

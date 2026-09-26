@@ -40,6 +40,12 @@ export interface FlightRow {
   weatherOld: number | null;
   weatherForced: number | null;
   nodeStatus: number;
+  /** Hydra's game nozzle rotation value (0..5000); absent in older CSVs. */
+  nozzleRotation: number | null;
+  nozzleRotationPrevious: number | null;
+  /** Raw CPlane prop slots 12..15, kept for validating model-specific animation. */
+  propNodes: (Quat | null)[];
+  smokeActive: boolean | null;
   /** Real local rotation per {@link NODE_NAMES}, or null when the recorder could not read that node. */
   nodes: (Quat | null)[];
   /** Orientation quaternion in engine space, precomputed once. */
@@ -51,9 +57,16 @@ export interface FlightTrack {
   version: number;
   model: number;
   rows: FlightRow[];
+  events: FlightEvent[];
   duration: number;
   hasRealNodes: boolean;
   axesNote: string;
+}
+
+export interface FlightEvent {
+  s: number;
+  kind: 'explosion';
+  pos: Vec3;
 }
 
 export interface SampledPose {
@@ -100,11 +113,23 @@ export function parseFlightCsv(text: string, name: string): FlightTrack {
   const legacyAxes = version <= 4;
 
   const rawRows = lines.slice(headerIndex + 1).filter((line) => line && !line.startsWith('#'));
+  const events: FlightEvent[] = [];
+  for (const line of meta) {
+    if (!line.startsWith('# event,')) continue;
+    const [, seconds, kind, x, y, z] = line.split(',').map((cell) => cell.trim());
+    const s = Number(seconds);
+    const pos = [Number(x), Number(y), Number(z)] as Vec3;
+    if (kind === 'explosion' && Number.isFinite(s) && s >= 0 && pos.every(Number.isFinite)) {
+      events.push({ s, kind, pos });
+    }
+  }
+  events.sort((a, b) => a.s - b.s);
   const rows: FlightRow[] = [];
   let baseTime = Number.NaN;
   for (const line of rawRows) {
     const cells = line.split(',');
     const timeMs = Date.parse(cells[map.get('local_timestamp') ?? 0]);
+    const captureElapsed = num(cells[map.get('capture_elapsed_s') ?? -1]);
     const x = num(cells[map.get('x') ?? -1]);
     const y = num(cells[map.get('y') ?? -1]);
     const z = num(cells[map.get('z') ?? -1]);
@@ -118,10 +143,15 @@ export function parseFlightCsv(text: string, name: string): FlightTrack {
     const up: Vec3 = [num(cells[map.get('up_x') ?? -1]) ?? 0, num(cells[map.get('up_y') ?? -1]) ?? 0, num(cells[map.get('up_z') ?? -1]) ?? 1];
     const forward: Vec3 = [num(cells[map.get('forward_x') ?? -1]) ?? 0, num(cells[map.get('forward_y') ?? -1]) ?? 1, num(cells[map.get('forward_z') ?? -1]) ?? 0];
     const nodes = NODE_NAMES.map((node) => quatColumns(map, cells, node));
+    const propNodes = [12, 13, 14, 15].map((index) => quatColumns(map, cells, `prop_${index}`));
+    const nozzleRaw = num(cells[map.get('nozzle_rotation') ?? -1]);
+    const nozzlePreviousRaw = num(cells[map.get('nozzle_rotation_previous') ?? -1]);
+    const smokeRaw = num(cells[map.get('smoke_active') ?? -1]);
     const nodeStatus = num(cells[map.get('node_status') ?? -1]) ?? (nodes.some((q) => q) ? 0x7f : 0);
     const fallbackTime = rows.length === 0 ? 0 : rows[rows.length - 1].s + 0.04;
     rows.push({
-      s: Number.isNaN(timeMs) || Number.isNaN(baseTime) ? fallbackTime : (timeMs - baseTime) / 1000,
+      s: captureElapsed !== null && captureElapsed >= 0 ? captureElapsed
+        : Number.isNaN(timeMs) || Number.isNaN(baseTime) ? fallbackTime : (timeMs - baseTime) / 1000,
       timeMs: Number.isNaN(timeMs) ? 0 : timeMs,
       model: num(cells[map.get('model') ?? -1]) ?? 0,
       health: num(cells[map.get('health') ?? -1]) ?? 0,
@@ -147,6 +177,10 @@ export function parseFlightCsv(text: string, name: string): FlightTrack {
       weatherOld: num(cells[map.get('weather_old') ?? -1]),
       weatherForced: num(cells[map.get('weather_forced') ?? -1]),
       nodeStatus,
+      nozzleRotation: nozzleRaw !== null && nozzleRaw >= 0 ? nozzleRaw : null,
+      nozzleRotationPrevious: nozzlePreviousRaw !== null && nozzlePreviousRaw >= 0 ? nozzlePreviousRaw : null,
+      propNodes,
+      smokeActive: smokeRaw !== null && smokeRaw >= 0 ? smokeRaw !== 0 : null,
       nodes,
       orientation: orientationFromGta(
         legacyAxes ? up : right,
@@ -158,7 +192,7 @@ export function parseFlightCsv(text: string, name: string): FlightTrack {
   if (rows.length < 2) {
     throw new Error(`${name} 没有足够的采样`);
   }
-  // Non-monotonic timestamps (a clock step) would break the binary search; force ordering.
+  // Older CSVs have only wall-clock timestamps. A clock step must not break binary search.
   for (let i = 1; i < rows.length; i++) {
     if (rows[i].s < rows[i - 1].s) {
       rows[i].s = rows[i - 1].s + 0.001;
@@ -172,6 +206,7 @@ export function parseFlightCsv(text: string, name: string): FlightTrack {
     model: rows[0].model,
     name,
     rows,
+    events,
     version,
   };
 }
@@ -217,6 +252,10 @@ export function sampleTrack(track: FlightTrack, s: number): SampledPose {
 
     return slerp(qa, qb, t);
   });
+  const propNodes = a.propNodes.map((qa, index) => {
+    const qb = b.propNodes[index];
+    return qa && qb ? slerp(qa, qb, t) : qa ?? qb;
+  });
   const row: FlightRow = {
     ...a,
     pos: lerpVec(a.pos, b.pos, t),
@@ -230,6 +269,11 @@ export function sampleTrack(track: FlightTrack, s: number): SampledPose {
     weatherOld: a.weatherOld ?? b.weatherOld,
     nodeStatus: a.nodeStatus,
     nodes,
+    propNodes,
+    nozzleRotation: a.nozzleRotation !== null && b.nozzleRotation !== null
+      ? lerp(a.nozzleRotation, b.nozzleRotation, t) : a.nozzleRotation ?? b.nozzleRotation,
+    nozzleRotationPrevious: a.nozzleRotationPrevious,
+    smokeActive: a.smokeActive,
   };
 
   return buildPose(row, orientation, nodes);

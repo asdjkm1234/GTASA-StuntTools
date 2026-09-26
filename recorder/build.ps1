@@ -15,3 +15,5 @@ $pe = [BitConverter]::ToInt32($bytes, 0x3C)
 $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
 if ($machine -ne 0x14C) { throw ("expected i386 PE, got 0x{0:X4}" -f $machine) }
 Write-Host ("built {0} ({1} bytes, i386)" -f $out, $bytes.Length)
+
+& (Join-Path $PSScriptRoot 'audio-capture\build.ps1')

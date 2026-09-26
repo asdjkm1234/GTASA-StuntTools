@@ -6,6 +6,12 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   base: './',
+  resolve: {
+    alias: [
+      { find: /^@opensa\/engine$/, replacement: resolve(__dirname, 'packages/engine/src/index.ts') },
+      { find: /^@opensa\/engine\/(.*)$/, replacement: resolve(__dirname, 'packages/engine/src/$1.ts') },
+    ],
+  },
   build: {
     emptyOutDir: true,
     outDir: 'dist-flight',

@@ -11,15 +11,21 @@ import type { AircraftHandle } from '../flight/aircraft';
 import type { FlightTrack } from '../flight/csv';
 
 import { loadAircraft } from '../flight/aircraft';
-import { ReplayCamera, type CameraMode } from '../flight/camera';
+import { FlightAnalysisOverlay } from '../flight/analysis-overlay';
+import { setupFlightEffects, type FlightEffects } from '../flight/fx';
+import { ReplayCamera, type CameraMode, type CameraStateOut } from '../flight/camera';
 import { ChaseCameraTimeline, isChaseMode, type ChaseMode } from '../flight/camera-track';
 import { PakWorld } from '../flight/pak-world';
 import { NODE_NAMES, parseFlightCsv, sampleTrack } from '../flight/csv';
 import { gtaDirToEngine, rotateVec, type Vec3 } from '../flight/math';
 import { PakResources } from '../flight/pak-resources';
+import { ReplayAudio } from '../flight/replay-audio';
 import { installWater } from '../flight/water';
 
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (character) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+})[character] ?? character);
 
 /** Live diagnostic state, readable from a CDP/automation session (`window.__flight`). */
 interface FlightDebug {
@@ -70,6 +76,7 @@ function drawAxes(p: Vec3, forward: Vec3, right: Vec3, up: Vec3): void {
 }
 
 const params = new URLSearchParams(location.search);
+const VIDEO_EXPORT = params.get('videoExport') === '1';
 // `?axes=1` draws the aircraft's recorded forward (green) / up (blue) / right (red) as world-space lines.
 // If green does not run along the model's nose, the model orientation is wrong — a pixel fact, not a guess.
 let SHOW_AXES = params.get('axes') === '1';
@@ -119,6 +126,24 @@ const segmentChip = el<HTMLElement>('segment');
 
 const plays: FlightTrack[] = [];
 const trackSources = new WeakMap<FlightTrack, string>();
+const trackFilenames = new WeakMap<FlightTrack, string>();
+const trackAudioFiles = new WeakMap<FlightTrack, File>();
+const replayAudio = new ReplayAudio();
+const audioObjectUrls: string[] = [];
+const analysis = new FlightAnalysisOverlay({
+  onEndpointFocus: (endpoint) => {
+    active = endpoint.index;
+    elapsed = endpoint.time;
+    playing = false;
+    playButton.textContent = '▶';
+    replayAudio.select(endpoint.track, elapsed);
+    analysis.setTrack(endpoint.track);
+    analysis.heatmap.setActive(active);
+    renderTrackList();
+    void ensureAircraft();
+    frameOnce();
+  },
+});
 let routeBakeRunning = false;
 let active = 0;
 let playing = false;
@@ -133,6 +158,17 @@ const CAMERA_LABELS: Record<CameraMode, string> = {
   cockpit: '机舱第一人称',
 };
 let cameraMode: CameraMode = 'chase-mid';
+type ExportView = { mode: CameraMode | 'free'; position?: Vec3; yaw?: number; pitch?: number };
+let exportView: ExportView | null = null;
+if (VIDEO_EXPORT && params.has('exportView')) {
+  try {
+    const view = JSON.parse(params.get('exportView') ?? '') as ExportView;
+    if (view && (view.mode === 'free' || CAMERA_MODES.includes(view.mode))) {
+      exportView = view;
+      if (view.mode !== 'free') cameraMode = view.mode;
+    }
+  } catch { /* malformed export view falls back to chase camera */ }
+}
 let aircraft: AircraftHandle | null = null;
 let aircraftModel = -1;
 /** Part index of the cockpit/canopy inside the loaded aircraft, used as the first-person anchor. */
@@ -144,10 +180,12 @@ let snapCamera = true;
 let lastWeather = -1;
 let envDriver: ReturnType<typeof createEngineEnvironmentDriver> | null = null;
 let engine: Engine;
+let flightEffects: FlightEffects | null = null;
 /** Route A only: the world streams from a locally baked pak (no welding, no texture-array growth). */
 let pakWorld: PakWorld | null = null;
 const MAP_PAK_BASE = params.get('pak') ?? '/map-pak';
 let camera: ReplayCamera;
+let lastRenderedCameraState: CameraStateOut | null = null;
 let chaseTimeline: ChaseCameraTimeline | null = null;
 let chaseTrack: FlightTrack | null = null;
 let chaseSize = '';
@@ -220,10 +258,12 @@ function updateReadout(track: FlightTrack, pose: ReturnType<typeof sampleTrack>)
     ['颜色 ID', colors],
     ['姿态', track.axesNote],
     ['起落架原始值', gear],
+    ['Hydra 喷口控制', row.nozzleRotation === null ? '未采集' : `${Math.round(row.nozzleRotation)} / 5000`],
+    ['冒烟', row.smokeActive === null ? '未采集' : row.smokeActive ? '是' : '否'],
     ['动画节点来源', source],
     ['节点', nodeText],
   ];
-  readout.innerHTML = items.map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join('');
+  readout.innerHTML = items.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`).join('');
   const keyItems: [string, number][] = [
     ['Q', row.keyQ], ['A', row.keyA], ['E', row.keyE], ['D', row.keyD], ['↑', row.keyUp], ['↓', row.keyDown],
   ];
@@ -247,6 +287,7 @@ function update(track: FlightTrack, forceSnap: boolean): void {
       yaw: ((pose.row.keyE || 0) - (pose.row.keyQ || 0)) * 0.28,
     };
     aircraft.applyNodes(pose.nodes, pose.row.gear, keysInferred);
+    aircraft.applyProps({ nodes: pose.row.propNodes, nozzleRotation: pose.row.nozzleRotation });
   }
   // Camera axes come from the SLERP-ed orientation, NOT the raw sampled row vectors: the raw row is only
   // updated at 25 Hz, so during a barrel roll its up/forward jumped every sample and the cockpit shook
@@ -289,7 +330,9 @@ function update(track: FlightTrack, forceSnap: boolean): void {
       model: pose.row.model, modelLength, modelTop,
       position: posEngine, snap: forceSnap || snapCamera, up, velocity,
     });
-  if (chaseTransition && isChaseMode(cameraMode)) {
+  const freeCameraState = analysis.cameraState(aspect);
+  if (freeCameraState) cameraState = freeCameraState;
+  if (!freeCameraState && chaseTransition && isChaseMode(cameraMode)) {
     const blend = Math.min(1, (performance.now() - chaseTransition.started) / 250);
     if (blend < 1) {
       const previous = timelineFor(track).state(elapsed, chaseTransition.from, aspect, gameAspect);
@@ -298,15 +341,20 @@ function update(track: FlightTrack, forceSnap: boolean): void {
       chaseTransition = null;
     }
   }
-  if (isChaseMode(cameraMode) && pakWorld?.isReady) {
+  if (!freeCameraState && isChaseMode(cameraMode) && pakWorld?.isReady) {
     cameraState = pakWorld.resolveCamera(cameraState, cameraMode, dt, forceSnap || snapCamera);
   }
-  debug.cameraMode = cameraMode;
+  debug.cameraMode = freeCameraState ? 'free' : cameraMode;
   const view = [cameraState.target[0] - cameraState.eye[0], cameraState.target[1] - cameraState.eye[1], cameraState.target[2] - cameraState.eye[2]];
   debug.cameraDistance = Math.hypot(...view);
   debug.cameraTravelDot = view.reduce((sum, component, index) => sum + component * velocity[index], 0) / Math.max(1e-6, Math.hypot(...view) * Math.hypot(...velocity));
   snapCamera = false;
+  lastRenderedCameraState = cameraState;
   try {
+    engine.particleClock = elapsed;
+    if (flightEffects) {
+      flightEffects.update(track, pose, elapsed, aircraft);
+    }
     engine.frame(cameraState);
     debug.renders += 1;
     debug.phase = 'rendering';
@@ -317,16 +365,19 @@ function update(track: FlightTrack, forceSnap: boolean): void {
     }
   }
   updateReadout(track, pose);
+  analysis.update(elapsed, { trackName: track.name, model: track.model, playing });
+  replayAudio.sync(playing, Number(el<HTMLSelectElement>('speed').value), elapsed);
   clock.textContent = `${fmt(elapsed)} / ${fmt(track.duration)}`;
   // The scrubber's range must track the ACTIVE recording, or dragging it clamps every value to 0.
   if (scrub.max !== String(track.duration)) {
     scrub.max = String(track.duration);
   }
   scrub.value = String(elapsed);
-  modeChip.textContent = `${CAMERA_LABELS[cameraMode]}（${playing ? '播放中' : '暂停'}）`;
+  modeChip.textContent = `${freeCameraState ? '自由视角' : CAMERA_LABELS[cameraMode]}（${playing ? '播放中' : '暂停'}）`;
   el('follow').textContent = `视角：${CAMERA_LABELS[cameraMode]}`;
   if (pakWorld?.isReady) {
-    pakWorld.update(pose.pos[0], pose.pos[1], pakWorld.renderRadius.hd, pakWorld.renderRadius.lod);
+    const streamPos = freeCameraState ? analysis.camera.position : posEngine;
+    pakWorld.update(streamPos[0], -streamPos[2], pakWorld.renderRadius.hd, pakWorld.renderRadius.lod);
     const busy = pakWorld.loadedCells === 0 && pakWorld.isLoading;
     mapLoading.hidden = !busy;
     if (busy) mapLoadingText.textContent = '载入预烘焙地图…';
@@ -336,6 +387,9 @@ function update(track: FlightTrack, forceSnap: boolean): void {
 async function selectTrack(index: number): Promise<void> {
   active = Math.max(0, Math.min(plays.length - 1, index));
   elapsed = 0;
+  replayAudio.select(plays[active], elapsed);
+  analysis.setTrack(plays[active]);
+  analysis.heatmap.setActive(active);
   snapCamera = true;
   chaseTransition = null;
   void ensureAircraft();
@@ -347,7 +401,7 @@ function renderTrackList(): void {
   el<HTMLButtonElement>('bakeRoute').disabled = !activeTrack() || routeBakeRunning;
   tracksEl.innerHTML = plays.map((track, index) => (
     `<div class="track ${index === active ? 'active' : ''}" data-i="${index}">` +
-    `<span class="track-name">${track.name}</span><span class="badge">${track.rows.length}</span>` +
+    `<span class="track-name">${escapeHtml(track.name)}</span><span class="badge">${track.rows.length}</span>` +
     `<span class="track-meta">${fmt(track.duration)} · 模型 ${track.model}</span></div>`
   )).join('');
   tracksEl.querySelectorAll<HTMLElement>('.track').forEach((node) => {
@@ -445,16 +499,30 @@ function frameOnce(): void {
 }
 
 async function addFiles(files: File[]): Promise<void> {
-  for (const file of files) {
+  const csvFiles = files.filter((file) => /\.csv$/i.test(file.name));
+  const wavFiles = files.filter((file) => /\.wav$/i.test(file.name));
+  for (const file of csvFiles) {
     try {
       const csv = await file.text();
       const track = parseFlightCsv(csv, file.name);
       trackSources.set(track, csv);
+      trackFilenames.set(track, file.name);
       plays.push(track);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : String(error));
     }
   }
+  for (const file of wavFiles) {
+    const stem = file.name.replace(/\.wav$/i, '').toLowerCase();
+    const track = [...plays].reverse().find((item) => item.name.replace(/\.csv$/i, '').toLowerCase() === stem);
+    if (track) {
+      const url = URL.createObjectURL(file);
+      audioObjectUrls.push(url);
+      trackAudioFiles.set(track, file);
+      replayAudio.attach(track, url);
+    }
+  }
+  analysis.setTracks(plays, active);
   if (plays.length) {
     renderTrackList();
     await ensureAircraft();
@@ -472,7 +540,13 @@ async function loadLatest(): Promise<void> {
     const csv = await response.text();
     const track = parseFlightCsv(csv, recording === '/local-recording/latest.csv' ? '最新本地记录.csv' : '航迹包录像.csv');
     trackSources.set(track, csv);
+    const originalName = response.headers.get('X-Recording-Name');
+    if (originalName) trackFilenames.set(track, originalName);
+    const audioUrl = response.headers.get('X-Recording-Audio')
+      ?? (recording !== '/local-recording/latest.csv' && recording.endsWith('.csv') ? `${recording.slice(0, -4)}.wav` : '');
+    if (audioUrl && !VIDEO_EXPORT) replayAudio.attach(track, audioUrl);
     plays.push(track);
+    analysis.setTracks(plays, active);
     renderTrackList();
     await ensureAircraft();
     await selectTrack(plays.length - 1);
@@ -518,6 +592,62 @@ async function bakeActiveRoute(): Promise<void> {
 }
 
 let resources!: PakResources;
+
+async function exportActiveVideo(button: HTMLButtonElement, cancel: HTMLButtonElement, note: HTMLElement): Promise<void> {
+  const track = activeTrack();
+  const csv = track && trackSources.get(track);
+  if (!track || !csv) return;
+  button.disabled = true;
+  cancel.hidden = true;
+  note.textContent = '准备导出…';
+  let jobId = '';
+  try {
+    const filename = trackFilenames.get(track);
+    const audioFile = trackAudioFiles.get(track);
+    let audioToken: string | undefined;
+    if (audioFile) {
+      note.textContent = '上传录制音频…';
+      const upload = await fetch('/video-export/audio', {
+        method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: audioFile,
+      });
+      if (!upload.ok) throw new Error((await upload.json() as { error?: string }).error ?? '音频上传失败');
+      audioToken = (await upload.json() as { token: string }).token;
+    }
+    const view = analysis.isFreeMode()
+      ? { mode: 'free', position: analysis.camera.position, yaw: analysis.camera.yaw, pitch: analysis.camera.pitch }
+      : { mode: cameraMode };
+    const response = await fetch('/video-export', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csv, filename: filename && /^flight_[A-Za-z0-9._-]+\.csv$/i.test(filename) ? filename : undefined,
+        pakBase: MAP_PAK_BASE, view, audioToken }),
+    });
+    if (!response.ok) throw new Error((await response.json() as { error?: string }).error ?? '导出请求失败');
+    jobId = (await response.json() as { id: string }).id;
+    cancel.hidden = false;
+    cancel.onclick = () => { void fetch(`/video-export/${jobId}/cancel`, { method: 'POST' }); };
+    for (;;) {
+      await new Promise((resolve) => window.setTimeout(resolve, 500));
+      const progress = await fetch(`/video-export/${jobId}`);
+      if (!progress.ok) throw new Error('导出状态不可用');
+      const job = await progress.json() as { state: string; message: string; progress: number; audio: boolean; downloadUrl: string | null };
+      note.textContent = `${job.message} · ${job.progress}%`;
+      if (job.state === 'failed' || job.state === 'cancelled') throw new Error(job.message);
+      if (job.state === 'ready' && job.downloadUrl) {
+        const link = document.createElement('a');
+        link.href = job.downloadUrl;
+        link.textContent = `下载 MP4${job.audio ? '（含游戏原声）' : '（无录制音频）'}`;
+        link.style.color = 'var(--accent)';
+        note.replaceChildren(link);
+        break;
+      }
+    }
+  } catch (error) {
+    note.textContent = `导出失败：${error instanceof Error ? error.message : String(error)}`;
+  } finally {
+    button.disabled = false;
+    cancel.hidden = true;
+  }
+}
 
 async function boot(): Promise<void> {
   const bootId = crypto.randomUUID();
@@ -596,6 +726,7 @@ async function boot(): Promise<void> {
   }
   bootStage = 'pak-resources';
   resources = await PakResources.load(MAP_PAK_BASE);
+  flightEffects = setupFlightEffects(engine, resources.getFxpText(), resources.getFxTxdBytes());
   timecycText = resources.getText('data/timecyc.dat') ?? '';
   installWater(engine, resources.getText('data/water.dat'));
   const pak = new PakWorld(engine, MAP_PAK_BASE);
@@ -676,11 +807,15 @@ function loop(): void {
       playButton.textContent = '▶';
     }
   }
+  analysis.updateInput(dt);
   update(track, false);
   lastFrame = now;
 }
 
 function cycleCamera(): void {
+  analysis.setFreeMode(false);
+  const freeButton = document.getElementById('freeView');
+  if (freeButton) freeButton.textContent = '自由视角';
   const previous = cameraMode;
   cameraMode = CAMERA_MODES[(CAMERA_MODES.indexOf(cameraMode) + 1) % CAMERA_MODES.length];
   camera.mode = cameraMode;
@@ -692,11 +827,87 @@ function cycleCamera(): void {
 }
 
 function bindUi(): void {
+  analysis.mountHud(el('analysis-hud'));
+  analysis.mountHeatmap(el('analysis-heatmap'));
+  analysis.attachCameraInput(canvas);
+  if (VIDEO_EXPORT) {
+    document.body.classList.add('video-export-mode');
+    analysis.setHudVisible(true);
+    analysis.setHudCollapsed(false);
+    analysis.setHeatmapVisible(false);
+  }
   if (MAP_PAK_BASE.startsWith('/route-pak/')) {
     el('bakeStatus').textContent = '当前使用航迹包；远景范围为 1200 单位。';
   }
   const drop = el<HTMLDivElement>('drop');
   const picker = el<HTMLInputElement>('picker');
+  picker.accept = '.csv,.wav,text/csv,audio/wav';
+  const audioButton = document.createElement('button');
+  audioButton.type = 'button';
+  audioButton.title = '切换录制的游戏原声音频；旧录像可以没有 WAV';
+  audioButton.textContent = '音频：开';
+  audioButton.onclick = () => {
+    replayAudio.muted = !replayAudio.muted;
+    audioButton.textContent = replayAudio.muted ? '音频：关' : '音频：开';
+  };
+  el<HTMLSelectElement>('speed').insertAdjacentElement('afterend', audioButton);
+  const freeButton = document.createElement('button');
+  freeButton.type = 'button';
+  freeButton.id = 'freeView';
+  freeButton.textContent = '自由视角';
+  freeButton.title = 'WASD 移动，QE 升降，拖动画面旋转，滚轮前后移动；Shift 加速';
+  freeButton.onclick = () => {
+    if (analysis.isFreeMode()) {
+      analysis.setFreeMode(false);
+      freeButton.textContent = '自由视角';
+      camera.reset();
+      snapCamera = true;
+    } else {
+      if (lastRenderedCameraState) {
+        analysis.camera.setPose({ position: lastRenderedCameraState.eye });
+        analysis.camera.lookAt(lastRenderedCameraState.target);
+        analysis.camera.focusDistance = Math.hypot(
+          lastRenderedCameraState.target[0] - lastRenderedCameraState.eye[0],
+          lastRenderedCameraState.target[1] - lastRenderedCameraState.eye[1],
+          lastRenderedCameraState.target[2] - lastRenderedCameraState.eye[2],
+        );
+      }
+      analysis.setFreeMode(true);
+      freeButton.textContent = '退出自由视角';
+    }
+    frameOnce();
+  };
+  el('follow').insertAdjacentElement('afterend', freeButton);
+  const heatmapButton = document.createElement('button');
+  heatmapButton.type = 'button';
+  heatmapButton.textContent = '终点热力图';
+  heatmapButton.onclick = () => {
+    analysis.toggleHeatmap();
+    if (analysis.heatmap.isVisible()) el<HTMLElement>('right').hidden = true;
+  };
+  freeButton.insertAdjacentElement('afterend', heatmapButton);
+  const rawButton = document.createElement('button');
+  rawButton.type = 'button';
+  rawButton.textContent = '原始数据';
+  rawButton.onclick = () => {
+    const panel = el<HTMLElement>('right');
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) analysis.setHeatmapVisible(false);
+  };
+  heatmapButton.insertAdjacentElement('afterend', rawButton);
+  const videoButton = document.createElement('button');
+  videoButton.type = 'button';
+  videoButton.textContent = '导出 MP4';
+  const cancelVideo = document.createElement('button');
+  cancelVideo.type = 'button';
+  cancelVideo.textContent = '取消导出';
+  cancelVideo.hidden = true;
+  const videoNote = document.createElement('span');
+  videoNote.className = 'small';
+  videoButton.onclick = () => { void exportActiveVideo(videoButton, cancelVideo, videoNote); };
+  rawButton.insertAdjacentElement('afterend', videoButton);
+  videoButton.insertAdjacentElement('afterend', cancelVideo);
+  cancelVideo.insertAdjacentElement('afterend', videoNote);
   drop.onclick = () => picker.click();
   drop.onkeydown = (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -712,7 +923,7 @@ function bindUi(): void {
     drop.classList.remove('drag');
   }));
   drop.addEventListener('drop', (event) => {
-    const files = [...(event.dataTransfer?.files ?? [])].filter((file) => file.name.toLowerCase().endsWith('.csv'));
+    const files = [...(event.dataTransfer?.files ?? [])].filter((file) => /\.(csv|wav)$/i.test(file.name));
     void addFiles(files);
   });
   picker.onchange = () => {
@@ -755,6 +966,8 @@ function bindUi(): void {
   };
   el('follow').onclick = cycleCamera;
   el('resetView').onclick = () => {
+    analysis.setFreeMode(false);
+    freeButton.textContent = '自由视角';
     cameraMode = 'chase-mid';
     camera.mode = cameraMode;
     camera.reset();
@@ -774,6 +987,7 @@ function bindUi(): void {
     cycleCamera();
   });
   scrub.max = '0';
+  window.addEventListener('beforeunload', () => audioObjectUrls.forEach((url) => URL.revokeObjectURL(url)));
 
   const weatherSlider = el<HTMLInputElement>('weatherSlider');
   const hourSlider = el<HTMLInputElement>('hourSlider');
@@ -807,7 +1021,54 @@ function bindUi(): void {
   };
 }
 
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+let bootPromise: Promise<void>;
+if (VIDEO_EXPORT) {
+  (window as unknown as { __flightVideoExport: {
+    ready(): Promise<{ duration: number }>;
+    renderFrame(seconds: number): Promise<void>;
+  } }).__flightVideoExport = {
+    async ready() {
+      await bootPromise;
+      const track = activeTrack();
+      if (!track || !engine || !pakWorld) throw new Error('回放或地图未就绪');
+      const readyDeadline = performance.now() + 180_000;
+      while (!pakWorld.isReady && performance.now() < readyDeadline) await nextFrame();
+      if (!pakWorld.isReady) throw new Error('地图纹理上传超时');
+      await ensureAircraft();
+      if (!aircraft) throw new Error('飞机模型未就绪');
+      if (exportView?.mode === 'free' && exportView.position && exportView.yaw !== undefined && exportView.pitch !== undefined) {
+        analysis.camera.setPose({ position: exportView.position, yaw: exportView.yaw, pitch: exportView.pitch });
+        analysis.setFreeMode(true);
+      }
+      const deadline = performance.now() + 120_000;
+      while (pakWorld.loadedCells === 0 && pakWorld.isLoading && performance.now() < deadline) await nextFrame();
+      if (debug.error) throw new Error(debug.error);
+      return { duration: track.duration };
+    },
+    async renderFrame(seconds) {
+      const track = activeTrack();
+      if (!track || !engine) throw new Error('回放未就绪');
+      playing = false;
+      elapsed = Math.max(0, Math.min(track.duration, seconds));
+      snapCamera = true;
+      update(track, true);
+      const deadline = performance.now() + 30_000;
+      while (pakWorld?.isLoading && performance.now() < deadline) await nextFrame();
+      if (pakWorld?.isLoading) throw new Error('地图地块载入超时');
+      await engine.device.queue.onSubmittedWorkDone();
+      await nextFrame();
+      await nextFrame();
+      if (debug.error) throw new Error(debug.error);
+    },
+  };
+}
+
 bindUi();
-void boot().catch((error) => {
+bootPromise = boot();
+void bootPromise.catch((error) => {
   setStatus(`启动失败：${error instanceof Error ? error.message : String(error)}`);
 });

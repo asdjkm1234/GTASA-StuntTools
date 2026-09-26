@@ -301,3 +301,12 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
 - HUD“烘焙当前航迹”把选中的 CSV 发给仅监听本机的服务；服务调用 `bake-map.mts --recording <csv>`，按航迹线段附近 1200 单位筛选地图和相机碰撞 cell，重新规划纹理数组，完成后自动切换到独立 pak 和该 CSV。整图 `map-pak/` 不变；航迹包保存在 gitignored 的 `tools/opensa/map-pak-routes/<id>/`。
 - 航迹包在索引中记录 `renderRadius.hd/lod=1200`；整图包仍使用 1200/3000。短录像 `flight_20260926_044304_980_m520_050.csv` 实测地图 93 个不同 cell，包约 106 MB（整图约 790 MB）。大小随航迹跨度和共用纹理变化，长途录像可能接近整图大小。
 - 已用 `scripts/test-route-bake.mjs` 点击 HUD 按钮、等待自动切包、检查 Hydra 回放和截图；后续 app 改动仍须运行类型检查、发布及截图自测。Rustler 真实飞行仍待实际 476 录像。
+
+## 15. 六项飞行分析功能（2026-09-26）
+
+- 录制器写 v8 CSV，继续读取 v4–v7。新增 Hydra 喷口原始控制值、可读的 prop 节点、冒烟状态和明确的爆炸事件；Rustler 不采集 prop 节点动画。后续 v8 文件还追加可选 `capture_elapsed_s`，与同名 WAV 使用同一个 QPC 起点；没有该列的早期 v8 文件仍按本地时间读取。
+- `recorder/build.ps1` 同时构建 `FlightRecorder.asi` 与 `GameAudioCapture.exe`；安装脚本会备份旧 ASI 并安装两者。WAV 是 GTA 进程 loopback 原声，文件名与 CSV 相同。游戏需重启才会加载新 ASI。
+- 回放有自由视角、所有已加载片段终点的红点与俯视密度图，以及可逐项隐藏的姿态、速度、高度、升降率、航向、油门、健康度、过载、角速度仪表。终点不自动判定为死亡。
+- pak 增加本机 `effects.fxp`/`effectsPC.txd` 特效资源；更换此版后须重新烘焙整图或航迹 pak。特效由录像时间驱动，倒退和重复定位不会叠加旧粒子。原版 Hydra 模型没有可旋转喷口网格，因此喷口角度按录制值推断，并用原版 `jetthrust` 粒子方向表现；此几何角度不是原版实测动画。
+- 视频由本机 Chrome/Edge 和 FFmpeg 导出 H.264/AAC MP4（1920×1080、30fps、原速）。保留当前视角与分析 HUD，不录页面操作控件；支持进度、取消、下载及拖入同名 WAV。
+- 验收用真实 Hydra `flight_20260926_153900_322_m520_001`（22.435 秒，含喷口变化、181 个冒烟采样、一次爆炸）和 Rustler `flight_20260926_155714_107_m476_001`（1153 采样，55.535 秒）。Hydra 整段 MP4 经 ffprobe 核对视频与音频均约 22.47 秒；Rustler 起飞、中段、末段截图无错误。新版 QPC 列经编译与模拟时钟跳变解析测试，尚无安装此微调版 ASI 后的真人录像。

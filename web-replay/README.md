@@ -12,11 +12,13 @@ pak 由用户在本机生成，不上传或分发游戏资源。
 ## 用法
 
 - 直接回放最新本地记录：`http://127.0.0.1:4173/?local=latest`
-- 打开回放页后可拖入一个或多个 CSV，或点击选择文件。
+- 打开回放页后可拖入一个或多个 CSV，或点击选择文件；一起拖入同名 WAV 可回放游戏原声并用于视频导出。
 - 多文件以各自起点对齐；点击左侧列表选择要跟随的飞行。
 - 点击左侧“烘焙当前航迹”可用选中的 CSV 生成独立航迹 pak；完成后页面自动切换。需要本机 GTA 安装，整图 pak 保持可用。航迹 pak 将远景范围缩为 1200 游戏单位，大小随路线而变；生成文件在 `tools/opensa/map-pak-routes/`。
 - 播放 / 暂停 / 重新开始 / 逐帧 / 时间轴拖动 / 0.25×–4× 速度。
 - 按 **V** 切换第三人称近、中、远、原版第一人称和机舱第一人称；重置视角回到默认跟随。
+- “自由视角”可移动和旋转镜头；“终点热力图”显示所有片段最后有效位置的红点和俯视密度。红点是片段终点，不一定代表已确认死亡。
+- “飞行分析”仪表可逐项隐藏；“导出 MP4”以当前视角、原速、1080p/30fps 输出画面和 HUD，操作控件不入画。
 
 ## 本地服务提供的接口
 
@@ -26,9 +28,11 @@ pak 由用户在本机生成，不上传或分发游戏资源。
 - `/route-bake`、`/route-bake/<id>`：从当前 CSV 启动烘焙并查询进度；`/route-pak/<id>/*` 提供生成的航迹包。
 - `/game-src/*`：仅供本地烘焙器使用，首次请求时才读取游戏目录。
 - `/local-recording/latest.csv`：`flight_recordings/` 中最新的一份 CSV；可用 `RECORDINGS_ROOT` 指向其他 CSV 文件夹。
+- `/local-recording/audio/<name>.wav`：提供录制器保存的同名游戏原声，支持分段读取。
 - `/video-export`（仅监听本机）：`POST {csv, filename?, pakBase?}` 启动 1920×1080 30fps 的 H.264/AAC 视频导出；
   `/video-export/<id>` 查询进度，`/<id>/cancel` 取消，`/<id>/download` 下载 MP4。需要 Chrome/Edge、`tools/opensa` 里的
-  Playwright 以及 PATH 上的 FFmpeg（可用 `FFMPEG_PATH` 指定）。若 `recordingsRoot` 下存在同名 `.wav`，会一并混入音轨。
+  Playwright 以及 PATH 上的 FFmpeg（可用 `FFMPEG_PATH` 指定）。若 `recordingsRoot` 下存在同名 `.wav`，会一并混入音轨；
+  拖入的同名 WAV 经 `/video-export/audio` 上传到本地服务供导出使用。
 
 端口 4173 已被占用时不会抛 `EADDRINUSE`：服务会提示“已在运行”，并打开已有页面。
 

@@ -60,6 +60,7 @@ const contentType = file => file.endsWith(".html") ? "text/html; charset=utf-8"
   : file.endsWith(".css") ? "text/css; charset=utf-8"
   : file.endsWith(".json") || file.endsWith(".webmanifest") ? "application/json; charset=utf-8"
   : file.endsWith(".csv") ? "text/csv; charset=utf-8"
+  : file.endsWith(".wav") ? "audio/wav"
   : file.endsWith(".png") ? "image/png"
   : file.endsWith(".svg") ? "image/svg+xml"
   : file.endsWith(".woff2") ? "font/woff2"
@@ -140,8 +141,15 @@ async function chooseSettledRecording(dated) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`); const pathname = decodeURIComponent(url.pathname);
   try {
+    let pathname;
+    let requestUrl;
+    try {
+      requestUrl = new URL(req.url, `http://${req.headers.host}`);
+      pathname = decodeURIComponent(requestUrl.pathname);
+    } catch {
+      return send(res, 400, "Invalid URL");
+    }
     if (await videoExporter.handle(req, res, pathname)) return;
     // Only this loopback page may request a bake. The browser sends the selected recording, so
     // drag-and-drop files work without exposing arbitrary local paths to the server.
@@ -206,7 +214,12 @@ const server = http.createServer(async (req, res) => {
     }
     if (pathname === "/webgpu-report" && req.method === "POST") {
       let body = "";
-      for await (const chunk of req) body += chunk;
+      let size = 0;
+      for await (const chunk of req) {
+        size += chunk.length;
+        if (size > 1024 * 1024) return send(res, 413, "Report is too large");
+        body += chunk;
+      }
       await fs.writeFile(path.join(process.cwd(), "webgpu-report.json"), body).catch(() => {});
       // Keep the full boot/reload sequence; the single latest report cannot explain intermittent device loss.
       let event;
@@ -285,6 +298,23 @@ const server = http.createServer(async (req, res) => {
     }
     // Local-only convenience route. It is intentionally limited to files already
     // written by this recorder; no arbitrary path can be read through the browser.
+    if (pathname.startsWith("/local-recording/audio/") && req.method === "GET") {
+      const name = pathname.slice("/local-recording/audio/".length);
+      if (!/^flight_[A-Za-z0-9._-]+\.wav$/i.test(name) || path.basename(name) !== name) return send(res, 403, "Forbidden");
+      const file = path.join(recordingsRoot, name);
+      const stat = await fs.stat(file).catch(() => null);
+      if (!stat?.isFile()) return send(res, 404, "Audio unavailable");
+      const range = /^bytes=(\d+)-(\d*)$/i.exec(req.headers.range || "");
+      const start = range ? Number(range[1]) : 0;
+      const end = range ? Math.min(range[2] ? Number(range[2]) : stat.size - 1, stat.size - 1) : stat.size - 1;
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start > end || end >= stat.size) {
+        res.writeHead(416, { "Content-Range": `bytes */${stat.size}` }); return res.end();
+      }
+      res.writeHead(range ? 206 : 200, { "Content-Type": "audio/wav", "Accept-Ranges": "bytes",
+        "Content-Length": end - start + 1, "Cache-Control": "no-store",
+        ...(range ? { "Content-Range": `bytes ${start}-${end}/${stat.size}` } : {}) });
+      return createReadStream(file, { start, end }).pipe(res);
+    }
     if (pathname === "/local-recording/latest.csv") {
       const entries = await fs.readdir(recordingsRoot, { withFileTypes: true }).catch(() => []);
       const files = entries
@@ -297,12 +327,17 @@ const server = http.createServer(async (req, res) => {
       // file is detected structurally: its size changes between two stats a moment apart. When the newest
       // file is still being written, fall back to the newest one that is NOT.
       const chosen = await chooseSettledRecording(dated);
-      return createReadStream(path.join(recordingsRoot, chosen.name)).on("error", () => send(res, 404, "Recording unavailable")).pipe(res);
+      const audioName = chosen.name.replace(/\.csv$/i, ".wav");
+      const audio = await fs.stat(path.join(recordingsRoot, audioName)).catch(() => null);
+      res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "no-store",
+        "X-Recording-Name": chosen.name,
+        ...(audio?.isFile() ? { "X-Recording-Audio": `/local-recording/audio/${encodeURIComponent(audioName)}` } : {}) });
+      return createReadStream(path.join(recordingsRoot, chosen.name)).pipe(res);
     }
     // The replay page is the OpenSA WebGPU build; `/` forwards to it with the query intact so
     // `http://127.0.0.1:4173/?local=latest` (and `?src=`) works unchanged.
     if (pathname === "/") {
-      res.writeHead(302, { Location: `/opensa/flight-replay.html${url.search}` });
+      res.writeHead(302, { Location: `/opensa/flight-replay.html${requestUrl.search}` });
       return res.end();
     }
     const requested = pathname === "/" ? "index.html" : pathname.slice(1);

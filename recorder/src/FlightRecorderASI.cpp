@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
+#include <cwchar>
 
 // Temporarily disabled for V1.1. Set to 1 to resume recording the original camera trace.
 #define FLIGHT_RECORDER_CAMERA_DEBUG 0
@@ -71,7 +72,14 @@ constexpr size_t kVehiclePrimaryColor = 0x434;
 constexpr size_t kVehicleSecondaryColor = 0x435;
 constexpr size_t kVehicleTertiaryColor = 0x436;
 constexpr size_t kVehicleQuaternaryColor = 0x437;
+// CVehicle::m_nTimeWhenBlowedUp changes when GTA actually creates the explosion.
+constexpr size_t kVehicleTimeWhenBlowedUp = 0x4D8;
 constexpr size_t kPlaneLandingGearStatus = 0x9CC;
+// CAutomobile::m_wMiscComponentAngle controls Hydra nozzle rotation in SA 1.0 US.
+constexpr size_t kPlaneNozzleRotation = 0x86C;
+constexpr size_t kPlaneNozzleRotationPrevious = 0x86E;
+constexpr size_t kPlaneSmokeParticle = 0x9F8;
+constexpr size_t kPlaneSmokeEjector = 0xA00;
 // CAutomobile::m_aCarNodes[CAR_NUM_NODES] (25 pointers) at 0x648.
 constexpr size_t kVehicleCarNodes = 0x648;
 constexpr size_t kPlaneNodeCount = 25;
@@ -91,6 +99,8 @@ constexpr int kPlaneNodeSpecCount = static_cast<int>(sizeof(kPlaneNodes) / sizeo
 constexpr int kSurfaceCount = 5; // first five entries are the aerodynamic surfaces
 constexpr int kCenterGearNodes[] = { 23, 24 }; // PLANE_MISC_A / PLANE_MISC_B
 constexpr int kCenterGearCount = 2;
+constexpr int kPropNodes[] = { 12, 13, 14, 15 };
+constexpr int kPropNodeCount = 4;
 
 // GTA SA 1.0 US globals.
 constexpr uintptr_t kGameClockHours = 0xB70153;
@@ -128,6 +138,11 @@ struct Sample {
     unsigned centerGearStatus; // bit i set => misc node rotation and position readable
     float centerGearQuat[kCenterGearCount][4];
     Vec3 centerGearPosition[kCenterGearCount];
+    int nozzleRotation;
+    int nozzleRotationPrevious;
+    unsigned propNodeStatus;
+    float propNodeQuat[kPropNodeCount][4];
+    int smokeActive;
 #if FLIGHT_RECORDER_CAMERA_DEBUG
     CameraDebug camera;
 #endif
@@ -143,6 +158,11 @@ int gSequence = 0;
 GameProcessFn gOriginalGameProcess = nullptr;
 void* gGameProcessTrampoline = nullptr;
 std::chrono::steady_clock::time_point gLastSample{};
+LONGLONG gSessionQpc = 0;
+LONGLONG gQpcFrequency = 0;
+bool gExplosionWritten = false;
+HANDLE gAudioStopEvent = nullptr;
+HANDLE gAudioProcess = nullptr;
 int gCaptureState = -1; // -1 unknown, 0 no readable player vehicle, 1 vehicle sampled
 const void* gObservedVehicle = nullptr;
 int gObservedModel = -1;
@@ -255,12 +275,42 @@ bool readNodePose(const void* vehicle, int nodeIndex, float q[4], Vec3& position
     return std::isfinite(position.x) && std::isfinite(position.y) && std::isfinite(position.z);
 }
 
+void stopAudioCapture() {
+    if (gAudioStopEvent) {
+        SetEvent(gAudioStopEvent);
+        CloseHandle(gAudioStopEvent);
+        gAudioStopEvent = nullptr;
+    }
+    if (gAudioProcess) {
+        CloseHandle(gAudioProcess);
+        gAudioProcess = nullptr;
+    }
+}
+
 void closeSession(const char* reason) {
     if (!gFile) return;
     char now[32]; timestamp(now, sizeof(now));
     std::fprintf(gFile, "# session_end,%s,%s\n", reason, now);
     std::fclose(gFile);
+    stopAudioCapture();
     gFile = nullptr; gVehicle = nullptr; gHasPrevious = false; gPreviousSampleTime = {};
+    gSessionQpc = 0; gQpcFrequency = 0; gExplosionWritten = false;
+}
+
+double sessionSeconds(LONGLONG qpc) {
+    return gSessionQpc && gQpcFrequency > 0
+        ? static_cast<double>(qpc - gSessionQpc) / static_cast<double>(gQpcFrequency) : 0.0;
+}
+
+void writeExplosionEvent(LONGLONG qpc) {
+    if (!gFile || !gHasPrevious || gExplosionWritten || !gVehicle) return;
+    uint32_t explosionTime = 0;
+    if (!readAt(gVehicle, kVehicleTimeWhenBlowedUp, explosionTime) || explosionTime == 0) return;
+    const double seconds = sessionSeconds(qpc);
+    std::fprintf(gFile, "# event,%.6f,explosion,%.6f,%.6f,%.6f\n",
+        seconds, gPrevious.x, gPrevious.y, gPrevious.z);
+    std::fflush(gFile);
+    gExplosionWritten = true;
 }
 
 const char* surfaceSource(const Sample& s) {
@@ -269,7 +319,45 @@ const char* surfaceSource(const Sample& s) {
     return "partial";
 }
 
-void startSession(const Sample& s) {
+void startAudioCapture(const char* csvPath, long long sessionQpc) {
+    wchar_t exePath[MAX_PATH]{};
+    const DWORD exeChars = GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    if (!exeChars || exeChars >= MAX_PATH) return;
+    wchar_t* tail = std::wcsrchr(exePath, L'\\');
+    if (!tail || wcscpy_s(tail + 1, MAX_PATH - (tail + 1 - exePath), L"GameAudioCapture.exe")) return;
+    if (GetFileAttributesW(exePath) == INVALID_FILE_ATTRIBUTES) {
+        debugLog("audio helper missing; CSV will be silent");
+        return;
+    }
+    char wavPath[MAX_PATH]{};
+    if (strcpy_s(wavPath, csvPath)) return;
+    char* extension = std::strrchr(wavPath, '.');
+    if (!extension || strcpy_s(extension, MAX_PATH - (extension - wavPath), ".wav")) return;
+    wchar_t wavRelative[MAX_PATH]{};
+    wchar_t wavAbsolute[MAX_PATH]{};
+    if (!MultiByteToWideChar(CP_ACP, 0, wavPath, -1, wavRelative, MAX_PATH)) return;
+    if (!GetFullPathNameW(wavRelative, MAX_PATH, wavAbsolute, nullptr)) return;
+    wchar_t stopName[128]{};
+    _snwprintf_s(stopName, _TRUNCATE, L"Local\\GTASAFlightAudio_%lu_%d", GetCurrentProcessId(), gSequence);
+    gAudioStopEvent = CreateEventW(nullptr, TRUE, FALSE, stopName);
+    if (!gAudioStopEvent) return;
+    wchar_t command[2 * MAX_PATH + 256]{};
+    _snwprintf_s(command, _TRUNCATE, L"\"%s\" --pid %lu --out \"%s\" --session-qpc %lld --stop-event \"%s\"",
+        exePath, GetCurrentProcessId(), wavAbsolute, sessionQpc, stopName);
+    STARTUPINFOW startup{}; startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process{};
+    if (!CreateProcessW(exePath, command, nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
+        nullptr, nullptr, &startup, &process)) {
+        debugLog("audio helper launch failed; CSV will be silent");
+        stopAudioCapture();
+        return;
+    }
+    CloseHandle(process.hThread);
+    gAudioProcess = process.hProcess;
+    debugLog("audio helper launched");
+}
+
+void startSession(const Sample& s, LONGLONG sessionQpc) {
     CreateDirectoryA("flight_recordings", nullptr);
     SYSTEMTIME t{}; GetLocalTime(&t);
     char path[MAX_PATH];
@@ -279,11 +367,12 @@ void startSession(const Sample& s) {
     gFile = std::fopen(path, "wb");
     if (!gFile) return;
     char now[32]; timestamp(now, sizeof(now));
-    std::fprintf(gFile, "# gtasa_flight_recorder,version=7,sample_hz=25,camera_debug=%d,center_gear_debug=1\n",
+    std::fprintf(gFile, "# gtasa_flight_recorder,version=8,sample_hz=25,camera_debug=%d,center_gear_debug=1\n",
         FLIGHT_RECORDER_CAMERA_DEBUG);
     std::fprintf(gFile, "# node_columns=rudder,elevator_l,elevator_r,aileron_l,aileron_r,gear_l,gear_r\n");
     std::fprintf(gFile, "# center_gear_columns=misc_a,misc_b; local frame rotation and position; status bits 0,1\n");
     std::fprintf(gFile, "# surface_source: real=read from CPlane node frames, partial=some nodes, inferred=not available (keys only)\n");
+    std::fprintf(gFile, "# timebase=capture_elapsed_s uses the same QPC origin as the WAV audio\n");
 #if FLIGHT_RECORDER_CAMERA_DEBUG
     std::fprintf(gFile, "# camera_debug: active CCam and final CCamera matrix, sampled with aircraft; temporary reference data\n");
 #endif
@@ -292,8 +381,14 @@ void startSession(const Sample& s) {
 #if FLIGHT_RECORDER_CAMERA_DEBUG
     std::fprintf(gFile, ",camera_valid,camera_matrix_valid,camera_active,camera_mode,camera_zoom,camera_zoom_smoothed,camera_alpha,camera_beta,camera_fov,camera_source_x,camera_source_y,camera_source_z,camera_front_x,camera_front_y,camera_front_z,camera_up_x,camera_up_y,camera_up_z,camera_matrix_x,camera_matrix_y,camera_matrix_z,camera_matrix_right_x,camera_matrix_right_y,camera_matrix_right_z,camera_matrix_forward_x,camera_matrix_forward_y,camera_matrix_forward_z,camera_matrix_up_x,camera_matrix_up_y,camera_matrix_up_z");
 #endif
-    std::fprintf(gFile, ",center_gear_status,misc_a_qx,misc_a_qy,misc_a_qz,misc_a_qw,misc_a_x,misc_a_y,misc_a_z,misc_b_qx,misc_b_qy,misc_b_qz,misc_b_qw,misc_b_x,misc_b_y,misc_b_z\n");
+    std::fprintf(gFile, ",center_gear_status,misc_a_qx,misc_a_qy,misc_a_qz,misc_a_qw,misc_a_x,misc_a_y,misc_a_z,misc_b_qx,misc_b_qy,misc_b_qz,misc_b_qw,misc_b_x,misc_b_y,misc_b_z");
+    std::fprintf(gFile, ",nozzle_rotation,nozzle_rotation_previous,prop_node_status,prop_12_qx,prop_12_qy,prop_12_qz,prop_12_qw,prop_13_qx,prop_13_qy,prop_13_qz,prop_13_qw,prop_14_qx,prop_14_qy,prop_14_qz,prop_14_qw,prop_15_qx,prop_15_qy,prop_15_qz,prop_15_qw,smoke_active,capture_elapsed_s\n");
     gVehicle = s.vehicle;
+    gSessionQpc = sessionQpc;
+    LARGE_INTEGER frequency{};
+    if (QueryPerformanceFrequency(&frequency)) gQpcFrequency = frequency.QuadPart;
+    gExplosionWritten = false;
+    startAudioCapture(path, sessionQpc);
 }
 
 void writeQuat(const float q[4], int readable, char* out, size_t size) {
@@ -301,7 +396,7 @@ void writeQuat(const float q[4], int readable, char* out, size_t size) {
     _snprintf_s(out, size, _TRUNCATE, "%.6f,%.6f,%.6f,%.6f", q[0], q[1], q[2], q[3]);
 }
 
-void writeSample(const Sample& s, std::chrono::steady_clock::time_point sampleTime) {
+void writeSample(const Sample& s, std::chrono::steady_clock::time_point sampleTime, LONGLONG sampleQpc) {
     if (!gFile) return;
     float ax = 0.0f, ay = 0.0f, az = 0.0f;
     if (gHasPrevious) {
@@ -352,6 +447,14 @@ void writeSample(const Sample& s, std::chrono::steady_clock::time_point sampleTi
             std::fprintf(gFile, ",nan,nan,nan");
         }
     }
+    std::fprintf(gFile, ",%d,%d", s.nozzleRotation, s.nozzleRotationPrevious);
+    std::fprintf(gFile, ",%u", s.propNodeStatus);
+    for (int i = 0; i < kPropNodeCount; i++) {
+        char buffer[96];
+        writeQuat(s.propNodeQuat[i], (s.propNodeStatus >> i) & 1u, buffer, sizeof(buffer));
+        std::fprintf(gFile, ",%s", buffer);
+    }
+    std::fprintf(gFile, ",%d,%.6f", s.smokeActive, sessionSeconds(sampleQpc));
     std::fprintf(gFile, "\n");
     std::fflush(gFile);
     gPrevious = s; gPreviousSampleTime = sampleTime; gHasPrevious = true;
@@ -467,13 +570,28 @@ bool captureSample(Sample& s) {
         }
     }
     s.centerGearStatus = 0;
+    s.nozzleRotation = -1;
+    s.nozzleRotationPrevious = -1;
+    s.propNodeStatus = 0;
+    s.smokeActive = -1;
     if (s.model == 520) {
         for (int i = 0; i < kCenterGearCount; i++) {
             if (readNodePose(vehicle, kCenterGearNodes[i], s.centerGearQuat[i], s.centerGearPosition[i])) {
                 s.centerGearStatus |= (1u << i);
             }
         }
+        int16_t nozzle = 0, nozzlePrevious = 0;
+        if (readAt(vehicle, kPlaneNozzleRotation, nozzle)) s.nozzleRotation = nozzle;
+        if (readAt(vehicle, kPlaneNozzleRotationPrevious, nozzlePrevious)) s.nozzleRotationPrevious = nozzlePrevious;
+        for (int i = 0; i < kPropNodeCount; i++) {
+            if (readNodeQuat(vehicle, kPropNodes[i], s.propNodeQuat[i])) s.propNodeStatus |= (1u << i);
+        }
     }
+    void* smoke = nullptr;
+    bool smokeEjector = false;
+    const bool hasSmokePointer = readAt(vehicle, kPlaneSmokeParticle, smoke);
+    const bool hasSmokeEjector = readAt(vehicle, kPlaneSmokeEjector, smokeEjector);
+    if (hasSmokePointer || hasSmokeEjector) s.smokeActive = (smoke != nullptr || smokeEjector) ? 1 : 0;
     readGameClock(s);
     readWeather(s);
 #if FLIGHT_RECORDER_CAMERA_DEBUG
@@ -492,10 +610,13 @@ void onGameProcess() {
     const auto now = std::chrono::steady_clock::now();
     if (gLastSample.time_since_epoch().count() && now - gLastSample < kSamplePeriod) return;
     gLastSample = now;
+    LARGE_INTEGER sampleQpc{};
+    QueryPerformanceCounter(&sampleQpc);
     Sample s{};
     if (!captureSample(s)) {
         if (gCaptureState != 0) debugLog("diagnostic: no readable player vehicle");
         gCaptureState = 0;
+        writeExplosionEvent(sampleQpc.QuadPart);
         closeSession("player_left_vehicle_or_vehicle_destroyed");
         return;
     }
@@ -510,9 +631,12 @@ void onGameProcess() {
     if (!isTrackedModel(s.model)) { closeSession("non_target_vehicle"); return; }
     if (gFile && s.vehicle != gVehicle) closeSession("vehicle_changed");
     if (gFile && quickhome(s)) closeSession("quickhome_teleport_detected");
-    if (!gFile) startSession(s);
+    if (!gFile) {
+        startSession(s, sampleQpc.QuadPart);
+    }
     if (gFile && !gHasPrevious) debugLog("vehicle detected; CSV session opened");
-    writeSample(s, now);
+    writeSample(s, now, sampleQpc.QuadPart);
+    writeExplosionEvent(sampleQpc.QuadPart);
 }
 
 bool ensureTrampoline() {

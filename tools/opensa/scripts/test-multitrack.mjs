@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 
-const gameDir = join(process.cwd(), '..', '..', 'GTA San Andreas', 'flight_recordings');
+const gameDir = process.env.RECORDINGS_ROOT ?? join(process.cwd(), '..', '..', 'GTA San Andreas', 'flight_recordings');
 const files = ['flight_20260920_232028_918_m520_001.csv', 'flight_20260918_021607_017_m520_003.csv', 'flight_20260918_014828_691_m520_001.csv'].map((name) => join(gameDir, name));
 const url = process.argv[2] ?? 'http://127.0.0.1:4173/opensa/flight-replay.html';
 const outDir = join(process.cwd(), 'captures');

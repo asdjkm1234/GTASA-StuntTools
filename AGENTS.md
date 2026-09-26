@@ -1,19 +1,19 @@
-# AGENTS — start here (project V1.1)
+# AGENTS — start here (current development after V1.1)
 
 Local **GTA:SA stunt-flight recorder + WebGPU replay**. Full detail in **[`HANDOFF.md`](HANDOFF.md)**; this
 file is the fast onboarding for a new AI session. Do not distribute game assets; OpenSA is AGPL-3.0.
 
 ## What it is
-- **Recorder**: standalone ASI `recorder/src/FlightRecorderASI.cpp` — records Hydra(520)/Rustler(476) to CSV at
-  25 Hz (v7: full pose basis, real control-surface quaternions, Hydra center gear node poses, game clock/weather;
-  camera debug capture is temporarily disabled in V1.1).
+- **Recorder**: standalone ASI `recorder/src/FlightRecorderASI.cpp` — records Hydra(520)/Rustler(476) to v8 CSV at
+  25 Hz, with Hydra nozzle, smoke, explosion events and a same-name game-process WAV captured by
+  `GameAudioCapture.exe`. Older v4–v7 CSVs still load; camera debug capture remains disabled.
 - **Replay**: OpenSA WebGPU engine in the browser, streaming a **locally baked map pak** (Route A). The
   raw-install live-welding path was removed (HANDOFF §8) — a pak is required.
-- Everything runs on this machine. Baking reads the user's own install; replay reads the baked pak and CSV only.
+- Everything runs on this machine. Baking reads the user's own install; replay reads the baked pak and CSV/WAV only.
 
 ## Run / build / test (this machine)
 ```powershell
-# 1. Map pak (required; re-bake after any map mod)
+# 1. Map pak (required; re-bake after any map mod or when upgrading to the FX-capable pak)
 cd tools\opensa
 npx tsx scripts\bake-map.mts map-pak          # whole map: ~40s, ~760MB (gitignored)
 
@@ -25,20 +25,22 @@ cd tools\opensa
 npx tsc --noEmit -p tsconfig.json             # MUST be 0 errors
 powershell -ExecutionPolicy Bypass -File .\build-flight-replay.ps1   # publish to web-replay\dist\opensa
 
-# 4. Recorder (only if the .cpp changed)
+# 4. Recorder (when the .cpp or audio helper changed)
 cd recorder
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-## Architecture (V1.1)
+## Architecture
 - App entry: `tools/opensa/apps/web/src/standalone/flight-replay.ts`
   + `apps/web/src/flight/`: `pak-world.ts` (stream the pak), `pak-resources.ts` (aircraft/data),
-  `camera.ts`, `csv.ts`, `aircraft.ts`, `math.ts`. `map-source.ts` and `asset-store.ts` serve the baker.
+  `camera.ts`, `csv.ts`, `aircraft.ts`, `math.ts`, `fx.ts`, `free-camera.ts`, `analysis-overlay.ts`,
+  `replay-audio.ts`. `map-source.ts` and `asset-store.ts` serve the baker.
 - Baker: `tools/opensa/scripts/bake-map.mts` → `map-pak/{index.json,cells,collision,textures,data,aircraft}`;
-  `aircraft` contains only 520/476 plus their shared `vehicle.txd`. `replayAssets.version=2` is required;
+  `aircraft` contains only 520/476 plus their shared `vehicle.txd`; `fx` contains local effects. `replayAssets.version=2` is required;
   re-bake older pak files before replay.
-- Server: `web-replay/local-server.mjs` (`/map-pak`, `/local-recording/latest.csv`, `/webgpu-report`);
+- Server: `web-replay/local-server.mjs` (`/map-pak`, `/local-recording/latest.csv`, `/local-recording/audio`,
+  `/video-export`, `/webgpu-report`);
   `/game-src` is indexed lazily for baking only. `RECORDINGS_ROOT` can point to CSV files outside the game folder.
 - Self-tests (self-close their Chrome): `tools/opensa/scripts/{capture-replay,test-multitrack,test-scrub,soak-replay,test-hud,test-standalone-pak}.mjs`, `smoke-map.mts`.
 
