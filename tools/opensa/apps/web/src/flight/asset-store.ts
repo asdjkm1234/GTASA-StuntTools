@@ -96,6 +96,39 @@ export class AssetStore {
     return readEntry(this.install, entry).catch(() => null);
   }
 
+  /**
+   * Read a file that is NOT a placed model/texture — `effects.fxp` (loose under `models/`) or
+   * `effectsPC.txd` (archived in `gta3.img` without an IDE placement). Tries a loose path (with and
+   * without the `models/` prefix, lower-cased) and then the raw archives, so it resolves either a retail
+   * layout or a modded one. Null when the install genuinely lacks the file.
+   */
+  async readInstallFile(name: string): Promise<Uint8Array | null> {
+    const base = name.toLowerCase();
+    const bare = base.replace(/^models\//, '');
+    const looseCandidates = [base, bare, `models/${bare}`];
+    for (const candidate of looseCandidates) {
+      try {
+        const bytes = await this.install.readLoose(candidate);
+        if (bytes.byteLength > 0) {
+          return bytes;
+        }
+      } catch {
+        // not a loose file — fall through to the archives
+      }
+    }
+    for (const archive of [this.install.gta3, this.install.gtaInt]) {
+      if (!archive) {
+        continue;
+      }
+      const bytes = await archive.read(bare).catch(() => null);
+      if (bytes) {
+        return bytes;
+      }
+    }
+
+    return null;
+  }
+
   /** A dictionary and its `txdp` ancestors, lowercased (cycle-safe). */
   private txdChain(txdName: string | undefined): string[] {
     const chain: string[] = [];

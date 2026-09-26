@@ -1,13 +1,17 @@
 /** Small replay-only assets baked from the owner's GTA install alongside the map cells. */
 export class PakResources {
   private readonly binaries = new Map<string, Uint8Array | null>();
+  /** `models/effects.fxp`, when the pak carries it — the FX system tracks the particle lane bakes. */
+  private fxText: string | null = null;
+  /** `effectsPC.txd`, when the pak carries it — the sprite atlas the FX systems sample. */
+  private fxTxd: Uint8Array | null = null;
   private readonly texts = new Map<string, string>();
 
   private constructor(private readonly base: string) {}
 
   static async load(base: string): Promise<PakResources> {
     const manifest = await (await fetch(`${base}/index.json`)).json() as {
-      replayAssets?: { aircraft?: Record<string, string>; version?: number };
+      replayAssets?: { aircraft?: Record<string, string>; fx?: string[]; version?: number };
     };
     if (manifest.replayAssets?.version !== 2 ||
       !manifest.replayAssets.aircraft?.['520'] || !manifest.replayAssets.aircraft?.['476']) {
@@ -22,8 +26,29 @@ export class PakResources {
       }
       resources.texts.set(path, await response.text());
     }
+    // The FX library is OPTIONAL: a pak baked before it existed (or one whose install had no effects.fxp)
+    // loads fine and the replay simply draws no sprite smoke/explosions. Never fail the boot over a cosmetic.
+    const fx = manifest.replayAssets?.fx ?? [];
+    if (fx.includes('effects.fxp')) {
+      const response = await fetch(`${base}/fx/effects.fxp`);
+      if (response.ok) resources.fxText = await response.text();
+    }
+    if (fx.includes('effectsPC.txd')) {
+      const response = await fetch(`${base}/fx/effectsPC.txd`);
+      if (response.ok) resources.fxTxd = new Uint8Array(await response.arrayBuffer());
+    }
 
     return resources;
+  }
+
+  /** The FX system definitions (`models/effects.fxp`) baked into this pak, or null when absent. */
+  getFxpText(): string | null {
+    return this.fxText;
+  }
+
+  /** The FX sprite dictionary (`effectsPC.txd`) baked into this pak, or null when absent. */
+  getFxTxdBytes(): Uint8Array | null {
+    return this.fxTxd;
   }
 
   getText(path: string): string | null {

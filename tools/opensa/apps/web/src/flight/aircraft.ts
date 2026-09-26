@@ -18,6 +18,7 @@ import type { PakResources } from './pak-resources';
 
 import { NODE_NAMES, relativeNodeRotation } from './csv';
 import { conjugate, quatMultiply, rotateVec } from './math';
+import { axisAngleX, deriveNozzleAngle, PROP_NODE_NAMES } from './nozzle';
 
 /** Model id → DFF/TXD base name; `stuntplane` is accepted as the server name for the Rustler. */
 const MODEL_NAMES: Record<number, string[]> = {
@@ -32,6 +33,8 @@ export interface AircraftHandle {
     gearStatus: number,
     inferred: { pitch: number; roll: number; yaw: number },
   ): void;
+  /** Apply recorded prop frame rotations only when a Hydra model actually contains those parts. */
+  applyProps(props: { nozzleRotation?: null | number; nodes?: (null | Quat)[] }): void;
   applyPaint(colors: readonly (null | number)[]): void;
   /** Apply a pose: model root in engine space from GTA position + orientation quaternion. */
   applyPose(positionGta: readonly [number, number, number], orientation: Quat): void;
@@ -84,6 +87,20 @@ export async function loadAircraft(engine: Engine, resources: PakResources, mode
 
     return [rotation[0], rotation[1], rotation[2], rotation[3]];
   });
+
+  // The stock Hydra DFF has no prop meshes; these slots support a modded Hydra that authors them. The stock
+  // Rustler does have prop meshes, so the model guard in applyProps is essential to keep its propeller fixed.
+  const propPartFor: (null | number)[] = PROP_NODE_NAMES.map((node) => findPart(instance, data.parts, node));
+  const propBindFor: (null | Quat)[] = propPartFor.map((part) => {
+    if (part === null) {
+      return null;
+    }
+    const rotation = data.parts[part].localRotation;
+
+    return [rotation[0], rotation[1], rotation[2], rotation[3]];
+  });
+  /** True for the two MOVING prop entries (indices 1 and 3) of {@link PROP_NODE_NAMES}. */
+  const isMovingProp = PROP_NODE_NAMES.map((_, index) => index % 2 === 1);
 
   // A wheel authored under a gear strut is a CHILD of that strut's part. The engine flattens every part
   // independently, so the relation is composed here when a node rotates and a retracting gear carries its
@@ -180,6 +197,40 @@ export async function loadAircraft(engine: Engine, resources: PakResources, mode
         applyRotation(part, [axisAngle[0] * side, axisAngle[1] * side, axisAngle[2] * side, axisAngle[3]]);
       });
       applyHydraCenterGear(gearStatus, nodes);
+    },
+    applyProps({ nodes, nozzleRotation }): void {
+      if (model !== 520) return;
+      // 1) Recorder-measured prop-node rotations are authentic and win outright. The recorder captures every
+      //    present frame, so a null entry means "this model/recording did not provide it", not "identity".
+      const recorded = nodes ?? [];
+      let anyRecorded = false;
+      for (let index = 0; index < PROP_NODE_NAMES.length; index += 1) {
+        const quat = recorded[index];
+        const part = propPartFor[index];
+        const bind = propBindFor[index];
+        if (!quat || part === null || !bind) {
+          continue;
+        }
+        applyRotation(part, relativeNodeRotation(bind, quat));
+        anyRecorded = true;
+      }
+      if (anyRecorded) {
+        return;
+      }
+      // 2) No measured prop nodes: drive the two MOVING nozzles from the raw 0..5000 control, an INFERRED
+      //    local-X sweep (see nozzle.ts). Never presented as authentic geometry motion.
+      if (!Number.isFinite(nozzleRotation ?? 0)) {
+        return;
+      }
+      const angle = deriveNozzleAngle(nozzleRotation ?? null);
+      const sweep = axisAngleX(angle);
+      for (let index = 0; index < PROP_NODE_NAMES.length; index += 1) {
+        const part = propPartFor[index];
+        if (!isMovingProp[index] || part === null) {
+          continue;
+        }
+        applyRotation(part, sweep);
+      }
     },
     applyPaint(colors): void {
       const rgb = resolvePaint(resources, colors);

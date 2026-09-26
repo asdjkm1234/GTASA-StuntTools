@@ -61,6 +61,14 @@ export class DynamicParticlePool {
     this.deaths = new Float64Array(capacity);
   }
 
+  /** Drop every live particle immediately (a replay rewinding its clock). */
+  clear(): boolean {
+    const changed = this.count > 0;
+    this.count = 0;
+
+    return changed;
+  }
+
   /** Swap-remove every particle whose death time has passed. Returns true when the pool changed. */
   prune(now: number): boolean {
     let changed = false;
@@ -231,6 +239,18 @@ export class DynamicParticles {
     }
 
     return draws;
+  }
+
+  /**
+   * Drop every live one-shot particle. A replay that REWINDS its clock needs this: the pool prunes on
+   * "death time has passed", so moving `now` backwards would make every existing particle immortal.
+   * Returns true when anything was dropped (the caller re-uploads on the next draw).
+   */
+  clear(): boolean {
+    const add = this.add.pool.clear();
+    const blend = this.blend.pool.clear();
+
+    return add || blend;
   }
 
   /** Route by the system's blend mode. False when the index is unknown or its pool is full. */

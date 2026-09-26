@@ -7,6 +7,7 @@
  *   <out>/textures/<ref>.ostex        arrays uploaded with `beginLoad` + per-frame `drainUploads`
  *   <out>/collision/<cx>_<cy>.oscol   GTA COL shapes on the 256-unit game grid
  *   <out>/aircraft/*.{dff,txd}        only Hydra (520) and Rustler (476)
+ *   <out>/fx/*                        effects.fxp + effectsPC.txd (optional sprite smoke/explosion lane)
  *   <out>/data/*                      replay weather, water, vehicle scale and paint tables
  *
  * Because ONE planner produced every cell, layer indices are globally consistent and the arrays are complete
@@ -95,6 +96,7 @@ await fs.mkdir(path.join(outDir, 'cells'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'textures'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'collision'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'aircraft'), { recursive: true });
+await fs.mkdir(path.join(outDir, 'fx'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'data'), { recursive: true });
 
 // Bake the only two aircraft the recorder supports, plus the small text tables used at replay time.
@@ -125,6 +127,21 @@ for (const [id, candidates] of [[520, ['hydra']], [476, ['rustler', 'stuntplane'
   if (!found) throw new Error(`GTA install is missing DFF/TXD for model ${id}`);
 }
 console.log(`  replay aircraft ${Object.entries(replayAircraft).map(([id, name]) => `${id}:${name}`).join(', ')}`);
+
+// Optional sprite FX lane: the `effects.fxp` system tracks and the `effectsPC.txd` sprite dictionary the
+// replay's smoke/explosion billboards are baked from. Both are optional — a pak without them still replays,
+// it just draws no sprite smoke (the aircraft model, nozzle geometry and flight all keep working).
+const replayFx: string[] = [];
+for (const name of ['effects.fxp', 'effectsPC.txd'] as const) {
+  const bytes = await map.assets.readInstallFile(name);
+  if (!bytes) {
+    console.log(`  fx: install has no ${name} — sprite smoke/explosions will be skipped at replay`);
+    continue;
+  }
+  await fs.writeFile(path.join(outDir, 'fx', name), bytes);
+  replayFx.push(name);
+}
+if (replayFx.length) console.log(`  fx ${replayFx.join(', ')}`);
 
 const planner = new TexturePlanner(map.fs, map.defs.txdParents ?? new Map<string, string>());
 const written: { cx: number; cy: number; lod: boolean }[] = [];
@@ -189,7 +206,7 @@ await fs.writeFile(
     cells: written,
     collisionCellSize: GAME_CELL_SIZE,
     collisionCells,
-    replayAssets: { version: 2, aircraft: replayAircraft, data: replayDataFiles, sharedTextures: ['vehicle.txd'] },
+    replayAssets: { version: 2, aircraft: replayAircraft, data: replayDataFiles, fx: replayFx, sharedTextures: ['vehicle.txd'] },
     ...(routeFile ? { renderRadius: { hd: routeRadius, lod: routeRadius } } : {}),
     generated: new Date().toISOString(),
     source: base,

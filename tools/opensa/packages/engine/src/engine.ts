@@ -677,6 +677,15 @@ export class Engine {
   particlesEnabled = true;
 
   /**
+   * Optional REPLAY CLOCK override, in seconds (089/01 extension for the flight replay). When non-null the
+   * dynamic one-shot particle lane — and every shader that reads `frame.params2.z` — ages, culls and prunes
+   * on THIS clock instead of engine uptime, so a scrubbed replay's smoke and explosions are a pure function
+   * of the recorded time rather than of how long the tab has been open. `null` (the default) keeps the
+   * original wall-clock behaviour for every other consumer of the engine.
+   */
+  particleClock: null | number = null;
+
+  /**
    * Env-probe centre (074/16 step 2), ENGINE space — the host feeds the followed car (or the player) every
    * frame; `null` skips the probe entirely (the lab, reflections off) and the rigid shader falls back to the
    * analytic sky. One cube face refreshes per frame while set.
@@ -1215,7 +1224,9 @@ export class Engine {
     // camera.w = spare (held the retired cloud-panorama crossfade blend).
     frameData.set([...camera.eye, 0], 32);
     const env = this.environment;
-    const seconds = (performance.now() - this.startedMs) / 1000;
+    // Replay clock wins when a host set one (see `particleClock`): every shader that reads params2.z — the
+    // one-shot particles, the water, the UV scrolls — then animates on the recorded time, not uptime.
+    const seconds = this.particleClock ?? (performance.now() - this.startedMs) / 1000;
     const sunLen = Math.hypot(env.sunDir[0], env.sunDir[1], env.sunDir[2]) || 1;
     // sunDir.w = current arc elevation (the sun-vis v2 threshold input — 074/07).
     frameData.set([env.sunDir[0] / sunLen, env.sunDir[1] / sunLen, env.sunDir[2] / sunLen, env.sunElevation], 36);
@@ -1651,6 +1662,15 @@ export class Engine {
       return;
     }
     this.dynamicParticles = new DynamicParticles(this.device, this.resources, this.pipelines.particleLayout, library);
+  }
+
+  /**
+   * Drop every live dynamic one-shot particle (089/01). Used by a replay that REWINDS its clock: the lane's
+   * prune is "death time has passed", so moving `particleClock` backwards would otherwise leave every
+   * existing particle alive forever. Harmless when no lane is installed.
+   */
+  clearParticles(): void {
+    this.dynamicParticles?.clear();
   }
 
   /** Install (replacing) the skid-mark decal lane (089/03): SA's particleskid sprite, once at boot. */
@@ -2107,9 +2127,20 @@ export class Engine {
     if (!this.dynamicParticles || !this.particlesEnabled) {
       return false;
     }
-    const now = (performance.now() - this.startedMs) / 1000;
+    // The one-shot lane's phase/prune clock: the replay clock when set, else engine uptime (matches the
+    // `frame.params2.z` this same value feeds, or a spawned particle would be born already aged).
+    const now = this.particleClock ?? (performance.now() - this.startedMs) / 1000;
 
-    return this.dynamicParticles.spawn(now, systemIndex, x, y, z, vx, vy, vz, life, alpha);
+    return this.spawnParticleAt(now, systemIndex, x, y, z, vx, vy, vz, life, alpha);
+  }
+
+  /** Stamp a replay particle with its recorded birth time, so seeking reconstructs its correct age. */
+  spawnParticleAt(
+    bornAt: number, systemIndex: number, x: number, y: number, z: number,
+    vx: number, vy: number, vz: number, life: number, alpha = 1,
+  ): boolean {
+    if (!this.dynamicParticles || !this.particlesEnabled) return false;
+    return this.dynamicParticles.spawn(bornAt, systemIndex, x, y, z, vx, vy, vz, life, alpha);
   }
 
   updateDebugLines(id: DebugLineSetId, positions: Float32Array): void {
