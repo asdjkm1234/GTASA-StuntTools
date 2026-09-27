@@ -8,7 +8,8 @@
  *   <out>/collision/<cx>_<cy>.oscol   GTA COL shapes on the 256-unit game grid
  *   <out>/aircraft/*.{dff,txd}        only Hydra (520) and Rustler (476)
  *   <out>/fx/*                        effects.fxp + effectsPC.txd (optional sprite smoke/explosion lane)
- *   <out>/data/*                      replay weather, water, vehicle scale and paint tables
+ *   <out>/data/*                      replay weather, water, vehicle scale, paint and handling tables
+ *   <out>/audio/*                     GENRL engine/collision/explosion samples + provenance manifest (LOCAL)
  *
  * Because ONE planner produced every cell, layer indices are globally consistent and the arrays are complete
  * up front: the replay uploads them once and NEVER grows/replaces an array at runtime (the black-screen/TDR
@@ -31,7 +32,56 @@ import { cellModelNames } from '@opensa/renderware/map/cell-groups';
 import { buildWorldGrid, cellKey } from '@opensa/renderware/map/world-grid';
 
 import { loadMapSource } from '../apps/web/src/flight/map-source';
+import type { LoadedMap } from '../apps/web/src/flight/map-source';
 import { bakeCellCollision, collisionCellRect } from '../tools/opensa-pack/src/pack-collision';
+
+import {
+  decodeGenrlSample,
+  ENGINE_LOOP_CROSSFADE_SECONDS,
+  genrlBanks,
+  genrlPackageIndex,
+  genrlPackageNames,
+  GENRL_SAMPLE_SPECS,
+  GenrlDecodeError,
+  makeSeamlessLoop,
+  resamplePcm16,
+  wavBytes,
+  wavInfo,
+} from './lib/genrl';
+import { genrlBankName } from './lib/genrl-bank-names';
+
+/** One sample as the pak's `audio/manifest.json` records it — the exact bank/slot provenance. */
+interface PakAudioSample {
+  bankName: string;
+  category: string;
+  file: string;
+  globalBankId: number;
+  headroom: number;
+  loopStartFrame: number | null;
+  packageBankIndex: number;
+  pcmBytes: number;
+  sampleRateHz: number;
+  setSoundCount: number;
+  slotId: number;
+  slotName: string;
+  soundIndex: number;
+  wavBytes: number;
+  wavFrames: number;
+  /** Engine samples: model (520/476), engine family, rate-step index, baked rate and why this bank. */
+  model?: number;
+  kind?: string;
+  step?: number;
+  rate?: number;
+  provenance?: string;
+  /** Engine samples: the layer role (turbine/whine/distance/lift/accelerate/decelerate) this step belongs to. */
+  layer?: string;
+  /** Engine samples: the layer's relative mix (turbine is the unity reference). */
+  mix?: number;
+  /** Engine samples: the exact gta-reversed `SoundIDs.h` name of the decoded sound. */
+  soundName?: string;
+  /** Engine samples: tail->head crossfade applied to make the loop seamless (`0` = none applied). */
+  loopCrossfadeFrames?: number;
+}
 
 const outDir = path.resolve(process.argv[2] ?? 'map-pak');
 const routeFlag = process.argv[3] === '--recording';
@@ -77,6 +127,73 @@ function distanceToRoute(x: number, y: number): number {
   return best;
 }
 
+/**
+ * Decode the G4-validated GENRL categories (engine accelerate/decelerate, collision set, explosion set)
+ * into `audio/` WAVs plus a manifest that records every sample's exact bank/slot provenance. LOCAL ONLY:
+ * this is the owner's own game audio and it is written into the gitignored pak — nothing is copied
+ * anywhere else. Returns the pak-index entry the replay loader fetches these through.
+ */
+async function bakeGenrlAudio(map: LoadedMap, audioDir: string): Promise<{ files: string[]; manifest: string }> {
+  const config = async (name: string): Promise<Uint8Array> => {
+    const bytes = await map.assets.readInstallFile(`audio/CONFIG/${name}`);
+    if (!bytes) throw new Error(`GTA install is missing audio/CONFIG/${name}`);
+    return bytes;
+  };
+  const genrl = await map.assets.readInstallFile('audio/SFX/GENRL');
+  if (!genrl) throw new Error('GTA install is missing audio/SFX/GENRL — cannot bake the local audio lane');
+  const packageNames = genrlPackageNames(await config('PakFiles.dat'));
+  const banks = genrlBanks(await config('BankLkup.dat'), genrlPackageIndex(packageNames), packageNames.length);
+  const samples: PakAudioSample[] = [];
+  for (const spec of GENRL_SAMPLE_SPECS) {
+    const bank = banks.get(spec.globalBankId);
+    if (!bank) throw new GenrlDecodeError(spec.category, `GENRL bank ${spec.globalBankId} is absent`);
+    const actualName = genrlBankName(spec.globalBankId);
+    if (actualName !== spec.bankName) {
+      throw new GenrlDecodeError(
+        spec.category,
+        `GENRL bank ${spec.globalBankId} is ${actualName ?? 'unknown'}, not ${spec.bankName}`,
+      );
+    }
+    const decoded = decodeGenrlSample(genrl, bank, spec);
+    const rate = spec.rate ?? 1;
+    // An engine layer loops for the whole flight: crossfade its tail into its head so the replay can loop the
+    // entire buffer with no seam transient (the bake is the only place the raw loop is touched).
+    const isEngine = spec.model !== undefined;
+    const crossfadeFrames = isEngine
+      ? Math.round(ENGINE_LOOP_CROSSFADE_SECONDS * decoded.sound.sampleRateHz)
+      : 0;
+    const looped = isEngine ? makeSeamlessLoop(decoded.pcm, crossfadeFrames) : decoded.pcm;
+    const pcm = rate === 1 ? looped : resamplePcm16(looped, rate);
+    const wav = wavBytes(pcm, decoded.sound.sampleRateHz);
+    const info = wavInfo(wav);
+    await fs.writeFile(path.join(audioDir, spec.file), wav);
+    samples.push({
+      bankName: spec.bankName, category: spec.category, file: spec.file, globalBankId: bank.globalBankId,
+      headroom: decoded.sound.headroom,
+      loopStartFrame: isEngine ? 0 : decoded.sound.loopOffset < 0 ? null : Math.round(decoded.sound.loopOffset / rate),
+      packageBankIndex: bank.packageBankIndex, pcmBytes: pcm.length,
+      sampleRateHz: decoded.sound.sampleRateHz, setSoundCount: decoded.setSoundCount,
+      slotId: spec.slotId, slotName: spec.slotName, soundIndex: spec.soundIndex,
+      wavBytes: info.bytes, wavFrames: info.frames,
+      ...(isEngine
+        ? {
+            model: spec.model, kind: spec.kind, step: spec.step, rate, provenance: spec.provenance,
+            layer: spec.layer, mix: spec.mix, soundName: spec.soundName,
+            loopCrossfadeFrames: rate === 1 ? crossfadeFrames : Math.round(crossfadeFrames / rate),
+          }
+        : {}),
+    });
+    const soundLabel = spec.soundName ? `${spec.soundIndex} ${spec.soundName}` : String(spec.soundIndex);
+    const label = isEngine
+      ? `${spec.category} model ${spec.model} layer ${spec.layer} step ${spec.step} x${rate}`
+      : spec.category;
+    console.log(`  audio ${label}: bank ${bank.globalBankId}/${bank.packageBankIndex} ${spec.bankName}, slot ${spec.slotId} ${spec.slotName}, sound ${soundLabel}/${decoded.setSoundCount}, ${info.frames} frames @ ${decoded.sound.sampleRateHz} Hz -> audio/${spec.file}`);
+  }
+  await fs.writeFile(path.join(audioDir, 'manifest.json'), `${JSON.stringify({ version: 3, source: 'audio/SFX/GENRL', samples }, null, 2)}\n`);
+
+  return { files: samples.map((sample) => sample.file), manifest: 'manifest.json' };
+}
+
 const started = performance.now();
 console.log(`loading map source ${base} …`);
 const map = await loadMapSource({ base, kind: 'http-dir' });
@@ -98,9 +215,10 @@ await fs.mkdir(path.join(outDir, 'collision'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'aircraft'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'fx'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'data'), { recursive: true });
+await fs.mkdir(path.join(outDir, 'audio'), { recursive: true });
 
 // Bake the only two aircraft the recorder supports, plus the small text tables used at replay time.
-const replayDataFiles = ['timecyc.dat', 'water.dat', 'vehicles.ide', 'carcols.dat'];
+const replayDataFiles = ['timecyc.dat', 'water.dat', 'vehicles.ide', 'carcols.dat', 'handling.cfg'];
 for (const name of replayDataFiles) {
   const text = map.fs.getText(`data/${name}`);
   if (text === null) throw new Error(`GTA install is missing data/${name}`);
@@ -142,6 +260,11 @@ for (const name of ['effects.fxp', 'effectsPC.txd'] as const) {
   replayFx.push(name);
 }
 if (replayFx.length) console.log(`  fx ${replayFx.join(', ')}`);
+
+// Local audio lane: GTA's own GENRL SFX banks decoded for replay. Written ONLY into this gitignored pak,
+// with a manifest that records the bank/slot/sound provenance of every sample.
+const replayAudio = await bakeGenrlAudio(map, path.join(outDir, 'audio'));
+console.log(`  audio manifest audio/manifest.json: ${replayAudio.files.length} samples (${replayAudio.files.join(', ')})`);
 
 const planner = new TexturePlanner(map.fs, map.defs.txdParents ?? new Map<string, string>());
 const written: { cx: number; cy: number; lod: boolean }[] = [];
@@ -206,7 +329,7 @@ await fs.writeFile(
     cells: written,
     collisionCellSize: GAME_CELL_SIZE,
     collisionCells,
-    replayAssets: { version: 2, aircraft: replayAircraft, data: replayDataFiles, fx: replayFx, sharedTextures: ['vehicle.txd'] },
+    replayAssets: { version: 3, aircraft: replayAircraft, data: replayDataFiles, fx: replayFx, audio: replayAudio, sharedTextures: ['vehicle.txd'] },
     ...(routeFile ? { renderRadius: { hd: routeRadius, lod: routeRadius } } : {}),
     generated: new Date().toISOString(),
     source: base,
