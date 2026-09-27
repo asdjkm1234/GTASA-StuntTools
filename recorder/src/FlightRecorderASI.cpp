@@ -41,6 +41,14 @@ constexpr size_t kCameraMatrix = 0x974;
 constexpr float kQuickhomeDistanceMetres = 120.0f;
 constexpr auto kSamplePeriod = std::chrono::milliseconds(40); // GTA SA's native ~25 Hz logic cadence
 
+// Collision impacts are INFERRED from two signals the recorder already samples: a one-sample health drop
+// or an acceleration spike.  Either signal alone is enough.  No new game offset is read and nothing is
+// hooked, so the source token is always `inferred` and is never presented as a measured material/contact.
+constexpr float kCollisionHealthDrop = 20.0f;     // health points lost versus the previous sample
+constexpr float kCollisionAccelSpike = 30.0f;     // acceleration magnitude, m/s^2
+constexpr float kCollisionEnvelopeDecay = 60.0f;  // spike envelope decay per second (peak-hold over ~0.5 s)
+constexpr double kCollisionCooldownSeconds = 1.0; // one event per impact; suppresses the damage tail
+
 struct Vec3 { float x, y, z; };
 // CMatrix stores right, forward (called `up` in some old SDK headers), then up
 // (called `at`/`forward` in those headers).  Keep the semantic names here.
@@ -127,6 +135,8 @@ struct Sample {
     float forward_x, forward_y, forward_z;
     float vx, vy, vz;
     float steer, throttle, brake;
+    int transmissionGearInferred;
+    float engineLoadInferred;
     int color_primary, color_secondary, color_tertiary, color_quaternary;
     float landing_gear_status;
     int q, a, e, d, up, down;
@@ -161,6 +171,8 @@ std::chrono::steady_clock::time_point gLastSample{};
 LONGLONG gSessionQpc = 0;
 LONGLONG gQpcFrequency = 0;
 bool gExplosionWritten = false;
+float gImpactEnvelope = 0.0f;                 // peak-hold acceleration used by the inferred collision test
+double gLastCollisionSeconds = -1.0e9;        // session seconds of the last inferred collision event
 HANDLE gAudioStopEvent = nullptr;
 HANDLE gAudioProcess = nullptr;
 int gCaptureState = -1; // -1 unknown, 0 no readable player vehicle, 1 vehicle sampled
@@ -295,6 +307,7 @@ void closeSession(const char* reason) {
     stopAudioCapture();
     gFile = nullptr; gVehicle = nullptr; gHasPrevious = false; gPreviousSampleTime = {};
     gSessionQpc = 0; gQpcFrequency = 0; gExplosionWritten = false;
+    gImpactEnvelope = 0.0f; gLastCollisionSeconds = -1.0e9;
 }
 
 double sessionSeconds(LONGLONG qpc) {
@@ -311,6 +324,24 @@ void writeExplosionEvent(LONGLONG qpc) {
         seconds, gPrevious.x, gPrevious.y, gPrevious.z);
     std::fflush(gFile);
     gExplosionWritten = true;
+}
+
+// Inferred collision impact.  Fires when EITHER a one-sample health drop OR an acceleration spike crosses its
+// threshold, and at most once per impact (cooldown plus envelope reset).  `impact` is the peak-hold
+// acceleration magnitude in m/s^2; `inferred` is the source token, never a measured surface/material name.
+void writeCollisionEvent(const Sample& s, float elapsedSeconds, float accelMagnitude, LONGLONG qpc) {
+    if (!gFile || !gHasPrevious) return;
+    gImpactEnvelope = std::fmax(accelMagnitude, gImpactEnvelope - kCollisionEnvelopeDecay * elapsedSeconds);
+    // OR semantics: return only when NEITHER signal is present.  A `||` here would demand both at once
+    // (the defect that swallowed the 486-point health drop because its acceleration was only ~8.9 m/s^2).
+    if (gPrevious.health - s.health < kCollisionHealthDrop && gImpactEnvelope < kCollisionAccelSpike) return;
+    const double seconds = sessionSeconds(qpc);
+    if (seconds - gLastCollisionSeconds < kCollisionCooldownSeconds) return;
+    std::fprintf(gFile, "# event,%.6f,collision,inferred,%.6f,%.6f,%.6f,%.6f\n",
+        seconds, gImpactEnvelope, s.x, s.y, s.z);
+    std::fflush(gFile);
+    gLastCollisionSeconds = seconds;
+    gImpactEnvelope = 0.0f;
 }
 
 const char* surfaceSource(const Sample& s) {
@@ -367,11 +398,13 @@ void startSession(const Sample& s, LONGLONG sessionQpc) {
     gFile = std::fopen(path, "wb");
     if (!gFile) return;
     char now[32]; timestamp(now, sizeof(now));
-    std::fprintf(gFile, "# gtasa_flight_recorder,version=8,sample_hz=25,camera_debug=%d,center_gear_debug=1\n",
+    std::fprintf(gFile, "# gtasa_flight_recorder,version=9,sample_hz=25,camera_debug=%d,center_gear_debug=1\n",
         FLIGHT_RECORDER_CAMERA_DEBUG);
     std::fprintf(gFile, "# node_columns=rudder,elevator_l,elevator_r,aileron_l,aileron_r,gear_l,gear_r\n");
     std::fprintf(gFile, "# center_gear_columns=misc_a,misc_b; local frame rotation and position; status bits 0,1\n");
     std::fprintf(gFile, "# surface_source: real=read from CPlane node frames, partial=some nodes, inferred=not available (keys only)\n");
+    std::fprintf(gFile, "# inferred_signal_contract: transmission_gear_inferred=speed/throttle heuristic [0,6]; engine_load_inferred=clamp(max(abs(throttle),abs(brake)),0,1); both source columns must equal inferred; engine rev/RPM is unavailable and is not emitted\n");
+    std::fprintf(gFile, "# collision_event=# event,<seconds>,collision,inferred,<impact_m_s2>,<x>,<y>,<z>; derived from a health drop OR an acceleration spike; surface token is always inferred, never a measured material/contact\n");
     std::fprintf(gFile, "# timebase=capture_elapsed_s uses the same QPC origin as the WAV audio\n");
 #if FLIGHT_RECORDER_CAMERA_DEBUG
     std::fprintf(gFile, "# camera_debug: active CCam and final CCamera matrix, sampled with aircraft; temporary reference data\n");
@@ -382,12 +415,13 @@ void startSession(const Sample& s, LONGLONG sessionQpc) {
     std::fprintf(gFile, ",camera_valid,camera_matrix_valid,camera_active,camera_mode,camera_zoom,camera_zoom_smoothed,camera_alpha,camera_beta,camera_fov,camera_source_x,camera_source_y,camera_source_z,camera_front_x,camera_front_y,camera_front_z,camera_up_x,camera_up_y,camera_up_z,camera_matrix_x,camera_matrix_y,camera_matrix_z,camera_matrix_right_x,camera_matrix_right_y,camera_matrix_right_z,camera_matrix_forward_x,camera_matrix_forward_y,camera_matrix_forward_z,camera_matrix_up_x,camera_matrix_up_y,camera_matrix_up_z");
 #endif
     std::fprintf(gFile, ",center_gear_status,misc_a_qx,misc_a_qy,misc_a_qz,misc_a_qw,misc_a_x,misc_a_y,misc_a_z,misc_b_qx,misc_b_qy,misc_b_qz,misc_b_qw,misc_b_x,misc_b_y,misc_b_z");
-    std::fprintf(gFile, ",nozzle_rotation,nozzle_rotation_previous,prop_node_status,prop_12_qx,prop_12_qy,prop_12_qz,prop_12_qw,prop_13_qx,prop_13_qy,prop_13_qz,prop_13_qw,prop_14_qx,prop_14_qy,prop_14_qz,prop_14_qw,prop_15_qx,prop_15_qy,prop_15_qz,prop_15_qw,smoke_active,capture_elapsed_s\n");
+    std::fprintf(gFile, ",nozzle_rotation,nozzle_rotation_previous,prop_node_status,prop_12_qx,prop_12_qy,prop_12_qz,prop_12_qw,prop_13_qx,prop_13_qy,prop_13_qz,prop_13_qw,prop_14_qx,prop_14_qy,prop_14_qz,prop_14_qw,prop_15_qx,prop_15_qy,prop_15_qz,prop_15_qw,smoke_active,capture_elapsed_s,transmission_gear_inferred,transmission_gear_source,engine_load_inferred,engine_load_source\n");
     gVehicle = s.vehicle;
     gSessionQpc = sessionQpc;
     LARGE_INTEGER frequency{};
     if (QueryPerformanceFrequency(&frequency)) gQpcFrequency = frequency.QuadPart;
     gExplosionWritten = false;
+    gImpactEnvelope = 0.0f; gLastCollisionSeconds = -1.0e9;
     startAudioCapture(path, sessionQpc);
 }
 
@@ -399,8 +433,9 @@ void writeQuat(const float q[4], int readable, char* out, size_t size) {
 void writeSample(const Sample& s, std::chrono::steady_clock::time_point sampleTime, LONGLONG sampleQpc) {
     if (!gFile) return;
     float ax = 0.0f, ay = 0.0f, az = 0.0f;
+    float elapsedSeconds = 0.0f;
     if (gHasPrevious) {
-        const float elapsedSeconds = std::chrono::duration<float>(sampleTime - gPreviousSampleTime).count();
+        elapsedSeconds = std::chrono::duration<float>(sampleTime - gPreviousSampleTime).count();
         if (elapsedSeconds > 0.0001f) {
             ax = (s.vx - gPrevious.vx) / elapsedSeconds;
             ay = (s.vy - gPrevious.vy) / elapsedSeconds;
@@ -454,9 +489,11 @@ void writeSample(const Sample& s, std::chrono::steady_clock::time_point sampleTi
         writeQuat(s.propNodeQuat[i], (s.propNodeStatus >> i) & 1u, buffer, sizeof(buffer));
         std::fprintf(gFile, ",%s", buffer);
     }
-    std::fprintf(gFile, ",%d,%.6f", s.smokeActive, sessionSeconds(sampleQpc));
+    std::fprintf(gFile, ",%d,%.6f,%d,inferred,%.6f,inferred", s.smokeActive, sessionSeconds(sampleQpc),
+        s.transmissionGearInferred, s.engineLoadInferred);
     std::fprintf(gFile, "\n");
     std::fflush(gFile);
+    writeCollisionEvent(s, elapsedSeconds, std::sqrt(ax * ax + ay * ay + az * az), sampleQpc);
     gPrevious = s; gPreviousSampleTime = sampleTime; gHasPrevious = true;
 }
 
@@ -557,6 +594,16 @@ bool captureSample(Sample& s) {
             (s.q = keyDown('Q')), (s.a = keyDown('A')), (s.e = keyDown('E')), (s.d = keyDown('D')),
             (s.up = keyDown(VK_UP)), (s.down = keyDown(VK_DOWN)), true);
     if (!captured) return false;
+    const float speedMagnitude = std::sqrt(s.vx * s.vx + s.vy * s.vy + s.vz * s.vz);
+    const float driveInput = std::fmin(1.0f, std::fabs(s.throttle));
+    if (speedMagnitude < 0.01f && driveInput < 0.05f) s.transmissionGearInferred = 0;
+    else if (speedMagnitude < 0.08f) s.transmissionGearInferred = 1;
+    else if (speedMagnitude < 0.16f) s.transmissionGearInferred = 2;
+    else if (speedMagnitude < 0.24f) s.transmissionGearInferred = 3;
+    else if (speedMagnitude < 0.34f) s.transmissionGearInferred = 4;
+    else if (speedMagnitude < 0.46f) s.transmissionGearInferred = 5;
+    else s.transmissionGearInferred = 6;
+    s.engineLoadInferred = std::fmin(1.0f, std::fmax(std::fabs(s.throttle), std::fabs(s.brake)));
     s.color_primary = primary; s.color_secondary = secondary; s.color_tertiary = tertiary; s.color_quaternary = quaternary;
     s.landing_gear_status = 0.0f;
     if (!readAt(vehicle, kPlaneLandingGearStatus, s.landing_gear_status)) s.landing_gear_status = 0.0f;

@@ -6,7 +6,8 @@
 - 无 F11 开关；进入目标飞机即自动开始，离开即结束，换飞机自动新建。
 - 仅录制模型 **520（Hydra）** 与 **476（Rustler / Stuntplane）**。
 
-输出位于游戏目录的 `flight_recordings/`，每个载具会话一个 CSV。
+输出位于游戏目录的 `flight_recordings/`，每个载具会话一个 CSV。当前 CSV 格式为 **v9**：
+v9 新增的挡位/负载/碰撞字段全部是推断值（inferred），逐行 `*_source` 列必须为 `inferred`，绝不写成实测。
 
 ## 构建
 
@@ -15,7 +16,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1     # 需要 tools/zig/zig-
 powershell -ExecutionPolicy Bypass -File .\install.ps1   # 覆盖游戏目录前自动备份到 backups/
 ```
 
-## 字段（v7）
+## 字段（v9）
 
 基础列与 v5 相同：`local_timestamp`（电脑本地毫秒时间）、`model`、`health`、`x/y/z`、`heading_deg`、
 完整姿态基 `right_* / up_* / forward_*`、`vx/vy/vz` 与由相邻采样时长计算的 `ax/ay/az`、`steer/throttle/brake`、
@@ -42,6 +43,30 @@ v7 在表尾新增起落架调试列：`center_gear_status` 的 bit 0/1 分别�
 节点是否可读；随后各记录局部四元数 `qx/qy/qz/qw` 和局部位置 `x/y/z`。无效时写 `nan`。
 这些列记录 Hydra 机身中线起落架在原版中的实际动作。回放会优先使用它们；旧录像根据
 `landing_gear_status` 和实测的 `misc_a=-80°`、`misc_b=+130°` 补全动作。
+
+v8 新增 Hydra 喷口、螺旋桨节点、烟雾、爆炸事件、与 WAV 共用时基的 `capture_elapsed_s`。
+
+v9 新增以下字段；它们全部是**推断值（inferred），不是游戏内测量值**：
+
+- `transmission_gear_inferred`（0–6）和 `transmission_gear_source`（固定为 `inferred`）：根据速度幅值与油门输入作分段推断。它不是从变速箱字段读取的真实挡位。
+- `engine_load_inferred`（0–1）和 `engine_load_source`（固定为 `inferred`）：`clamp(max(abs(throttle), abs(brake)), 0, 1)`。它是输入负载代理，不是测得的发动机负载。
+
+文件头的 `inferred_signal_contract` 注释重复声明上述来源，逐行 `*_source` 列也必须为 `inferred`，避免消费者误称为实测。由于本地 `gta_sa.exe` 不是经 SDK 验证的 1.0-US 指纹，v9 不依赖未经验证的结构偏移。发动机 rev/RPM 仍被阻塞，**v9 不写 rev/RPM 列，也不猜测该值**。v4–v8 文件缺少这些列时，读取结果必须为 `null`。
+
+### 推断碰撞事件（v9，inferred）
+
+v9 在检测到碰撞冲击时额外写入一行**推断事件**。判据只用录制器已采样的两个信号：`health` 相对上一
+采样下降 ≥ 20，**或**峰值保持的加速度幅值 ≥ 30 m/s²；满足**任意一项**即写，每次冲击最多写一行：
+
+```
+# event,<seconds>,collision,inferred,<impact_m_s2>,<x>,<y>,<z>
+```
+
+- `inferred` 是来源标记，**永远是推断，绝不是实测的表面材质/接触物名称**；回放端只能据此标注“推断碰撞”。
+- `<impact_m_s2>` 是峰值保持的加速度幅值（m/s²），是推导出的代理值，不是实测冲击力。
+- 一次冲击后 1 秒冷却，避免同一撞击在损伤尾段重复写行。
+- 该检测**不读取任何新的结构偏移、不挂钩**；爆炸事件仍是 `# event,<seconds>,explosion,<x>,<y>,<z>`。
+- 旧版本（v4–v8）文件没有该事件；解析端遇到 v9 之前的碰撞行必须忽略，绝不误读为有碰撞记录。
 
 ## 自动切档
 
