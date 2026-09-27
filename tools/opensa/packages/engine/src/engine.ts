@@ -673,9 +673,6 @@ export class Engine {
     windStrength: 1,
   };
 
-  /** `graphics.effects.enabled` gate (089/01) — hosts sync it from config; gates BOTH particle lanes. */
-  particlesEnabled = true;
-
   /**
    * Optional REPLAY CLOCK override, in seconds (089/01 extension for the flight replay). When non-null the
    * dynamic one-shot particle lane — and every shader that reads `frame.params2.z` — ages, culls and prunes
@@ -684,6 +681,9 @@ export class Engine {
    * original wall-clock behaviour for every other consumer of the engine.
    */
   particleClock: null | number = null;
+
+  /** `graphics.effects.enabled` gate (089/01) — hosts sync it from config; gates BOTH particle lanes. */
+  particlesEnabled = true;
 
   /**
    * Env-probe centre (074/16 step 2), ENGINE space — the host feeds the followed car (or the player) every
@@ -700,10 +700,31 @@ export class Engine {
    *  to the swapchain. Live — the next frame rebuilds the targets. */
   renderScale = 1;
 
+  /**
+   * OPTIONAL injected output surface (headless export / readback). `null` (the browser default) composites
+   * the post pass to `canvasContext.getCurrentTexture()`, unchanged; when set, `frame` composites there
+   * instead and the scene targets size to ITS dimensions, so swapping in a differently-sized target
+   * rebuilds them on the next frame exactly as a canvas resize does.
+   *
+   * The texture must allow `RENDER_ATTACHMENT`, be viewable as `engineDevice.colorFormat` (the post pipeline
+   * writes sRGB), and carry `COPY_SRC` if the host reads it back with `copyTextureToBuffer`+`mapAsync`. It is
+   * host-owned: the engine never destroys it. `GPUTexture` is the whole shape this seam needs.
+   */
+  renderTarget: GPUTexture | null = null;
+
   /** Flat sky clear (M0 stand-in for the sky pass). LINEAR values — the sRGB target encodes on write. */
   skyColor: GPUColor = { a: 1, b: 0.71, g: 0.46, r: 0.24 };
 
   textures!: TextureArrays;
+
+  /**
+   * Optional OFFLINE clock: when set, every effect that would read `performance.now()` reads this instead,
+   * so a headless render is a pure function of the injected time. It returns milliseconds on the SAME basis
+   * as `performance.now()` (a monotonic counter, not a date). `setTimeSource` re-origins engine uptime to
+   * the source's current value, so a fresh source starts the frame clock at 0. `null` (default) is the
+   * browser: `performance.now()`, byte-for-byte the pre-seam behaviour.
+   */
+  timeSource: (() => number) | null = null;
 
   /**
    * Draw the installed water surface at all (plan 094/07). A debug toggle, not a config: an inspector has to
@@ -861,7 +882,8 @@ export class Engine {
   private skidMarks: null | SkidMarks = null;
   private skyLutCurrentKey = '';
   private skyLutTexture!: GPUTexture;
-  private readonly startedMs = performance.now();
+  /** Uptime origin (ms). Mutable so `setTimeSource` can re-origin it onto an injected clock. */
+  private startedMs = performance.now();
   private readonly statsValue: EngineStats = {
     cellsTotal: 0,
     cellsVisible: 0,
@@ -912,7 +934,7 @@ export class Engine {
     if (!this.skidMarks || !this.particlesEnabled) {
       return;
     }
-    this.skidMarks.add(segment, (performance.now() - this.startedMs) / 1000);
+    this.skidMarks.add(segment, (this.nowMs() - this.startedMs) / 1000);
   }
 
   breakClutterInstance(keyHash: number): boolean {
@@ -924,6 +946,15 @@ export class Engine {
     this.clutterBreakables.delete(keyHash);
 
     return true;
+  }
+
+  /**
+   * Drop every live dynamic one-shot particle (089/01). Used by a replay that REWINDS its clock: the lane's
+   * prune is "death time has passed", so moving `particleClock` backwards would otherwise leave every
+   * existing particle alive forever. Harmless when no lane is installed.
+   */
+  clearParticles(): void {
+    this.dynamicParticles?.clear();
   }
 
   /**
@@ -1207,9 +1238,12 @@ export class Engine {
       this.firstFrameDetail -= 1;
     }
     const step = <T>(name: string, run: () => T): T => (detail ? this.firstFrameSpans.measure(name, run) : run());
-    const canvasTexture = this.canvasContext.getCurrentTexture();
+    // The output surface is the injected target when a host set one (headless export / readback), else the
+    // swapchain. Its SIZE drives the internal scene targets, so swapping in a differently-sized target
+    // rebuilds them on the next frame exactly as a canvas resize does.
+    const surface = this.renderTarget ?? this.canvasContext.getCurrentTexture();
     step('frame:targets', () => {
-      this.ensureTargets(canvasTexture.width, canvasTexture.height);
+      this.ensureTargets(surface.width, surface.height);
     });
 
     // The projection convention (reversed-Z, plan view) lives in ONE place — the streamer decides
@@ -1226,7 +1260,7 @@ export class Engine {
     const env = this.environment;
     // Replay clock wins when a host set one (see `particleClock`): every shader that reads params2.z — the
     // one-shot particles, the water, the UV scrolls — then animates on the recorded time, not uptime.
-    const seconds = this.particleClock ?? (performance.now() - this.startedMs) / 1000;
+    const seconds = this.particleClock ?? (this.nowMs() - this.startedMs) / 1000;
     const sunLen = Math.hypot(env.sunDir[0], env.sunDir[1], env.sunDir[2]) || 1;
     // sunDir.w = current arc elevation (the sun-vis v2 threshold input — 074/07).
     frameData.set([env.sunDir[0] / sunLen, env.sunDir[1] / sunLen, env.sunDir[2] / sunLen, env.sunElevation], 36);
@@ -1442,7 +1476,7 @@ export class Engine {
           clearValue: { a: 1, b: 0, g: 0, r: 0 },
           loadOp: 'clear',
           storeOp: 'store',
-          view: canvasTexture.createView({ format: this.engineDevice.colorFormat }),
+          view: surface.createView({ format: this.engineDevice.colorFormat }),
         },
       ],
       label: 'post',
@@ -1646,7 +1680,7 @@ export class Engine {
       resources: this.resources,
       textures: this.textures,
     });
-    this.ensureTargets(canvas.width, canvas.height);
+    this.ensureTargets((this.renderTarget ?? canvas).width, (this.renderTarget ?? canvas).height);
     bootPhase('init:targets', at);
     this.bootTotals = this.bootSpans.drain();
   }
@@ -1662,15 +1696,6 @@ export class Engine {
       return;
     }
     this.dynamicParticles = new DynamicParticles(this.device, this.resources, this.pipelines.particleLayout, library);
-  }
-
-  /**
-   * Drop every live dynamic one-shot particle (089/01). Used by a replay that REWINDS its clock: the lane's
-   * prune is "death time has passed", so moving `particleClock` backwards would otherwise leave every
-   * existing particle alive forever. Harmless when no lane is installed.
-   */
-  clearParticles(): void {
-    this.dynamicParticles?.clear();
   }
 
   /** Install (replacing) the skid-mark decal lane (089/03): SA's particleskid sprite, once at boot. */
@@ -1972,6 +1997,16 @@ export class Engine {
   }
 
   /**
+   * Install (or clear) the offline clock — see {@link timeSource}. Re-origins engine uptime to the source's
+   * current value so `frame`'s effect time starts at 0 on a fresh source, and is idempotent: calling it
+   * again with the same source only re-origins the uptime.
+   */
+  setTimeSource(source: (() => number) | null): void {
+    this.timeSource = source;
+    this.startedMs = this.nowMs();
+  }
+
+  /**
    * Install the pak's UV-scroll animations (B7·c / plan 074/18) — call once after the manifest loads. A cell's
    * kind-4 objectTable draw stores a slot index into this list; the engine advances every entry each frame and
    * feeds each visible scroller its current transform. Empty is fine (scrollers render static).
@@ -2076,7 +2111,7 @@ export class Engine {
       size: 16,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    const spawn = (performance.now() - this.startedMs) / 1000;
+    const spawn = (this.nowMs() - this.startedMs) / 1000;
     this.device.queue.writeBuffer(uniform, 0, new Float32Array([spawn, upload.lifetime, upload.fade, upload.gravity]));
     const { byteEstimate: textureBytes, texture } = this.createModelTexture(upload.texture, 'debris:shards');
     this.debris.push({
@@ -2129,17 +2164,26 @@ export class Engine {
     }
     // The one-shot lane's phase/prune clock: the replay clock when set, else engine uptime (matches the
     // `frame.params2.z` this same value feeds, or a spawned particle would be born already aged).
-    const now = this.particleClock ?? (performance.now() - this.startedMs) / 1000;
+    const now = this.particleClock ?? (this.nowMs() - this.startedMs) / 1000;
 
     return this.spawnParticleAt(now, systemIndex, x, y, z, vx, vy, vz, life, alpha);
   }
 
   /** Stamp a replay particle with its recorded birth time, so seeking reconstructs its correct age. */
   spawnParticleAt(
-    bornAt: number, systemIndex: number, x: number, y: number, z: number,
-    vx: number, vy: number, vz: number, life: number, alpha = 1,
+    bornAt: number,
+    systemIndex: number,
+    x: number,
+    y: number,
+    z: number,
+    vx: number,
+    vy: number,
+    vz: number,
+    life: number,
+    alpha = 1,
   ): boolean {
     if (!this.dynamicParticles || !this.particlesEnabled) return false;
+
     return this.dynamicParticles.spawn(bornAt, systemIndex, x, y, z, vx, vy, vz, life, alpha);
   }
 
@@ -2550,18 +2594,6 @@ export class Engine {
     this.resources.destroyTexture('texture', entry.texture, entry.textureBytes);
   }
 
-  /**
-   * Draw every live instance of every model. `firstInstance` carries the matrix row — slot × partCount +
-   * part — so the WGSL side is unchanged from the single-probe days. One draw per visible submesh per car:
-   * the known cost knob if a street full of parked cars ever pushes the draw budget.
-   */
-  /**
-   * Two draws for every 2dfx emitter on the map (one per blend mode). The vertex shader owns the lifecycle,
-   * so this is genuinely all there is to it per frame.
-   */
-  /** Draw the live breaks and retire the finished ones (their GPU resources go back immediately). */
-  /** Debug wireframes (074/13 phase 4) — one draw per registered set, skipped entirely when there are none. */
-
   private drawClutter(pass: GPURenderPassEncoder, camera: CameraState): number {
     if (!this.clutterEnabled) {
       return 0;
@@ -2607,6 +2639,18 @@ export class Engine {
 
     return draws;
   }
+
+  /**
+   * Draw every live instance of every model. `firstInstance` carries the matrix row — slot × partCount +
+   * part — so the WGSL side is unchanged from the single-probe days. One draw per visible submesh per car:
+   * the known cost knob if a street full of parked cars ever pushes the draw budget.
+   */
+  /**
+   * Two draws for every 2dfx emitter on the map (one per blend mode). The vertex shader owns the lifecycle,
+   * so this is genuinely all there is to it per frame.
+   */
+  /** Draw the live breaks and retire the finished ones (their GPU resources go back immediately). */
+  /** Debug wireframes (074/13 phase 4) — one draw per registered set, skipped entirely when there are none. */
 
   /** 2dfx corona billboards of visible cells (074/06 row 13): CPU-gated by night + farClip, one
    *  instanced draw. Colour is premultiplied by the dn gate — coronas are a NIGHT phenomenon (v1). */
@@ -2677,7 +2721,7 @@ export class Engine {
   }
 
   private drawDebris(pass: GPURenderPassEncoder): number {
-    const now = (performance.now() - this.startedMs) / 1000;
+    const now = (this.nowMs() - this.startedMs) / 1000;
     while (this.debris.length > 0 && this.debris[0].expiresAt <= now) {
       this.destroyDebris(this.debris.shift()!);
     }
@@ -2899,12 +2943,13 @@ export class Engine {
     return 1;
   }
 
-  private ensureTargets(canvasWidth: number, canvasHeight: number): void {
+  private ensureTargets(surfaceWidth: number, surfaceHeight: number): void {
     // Tier knob (074/09): render scale shrinks the scene targets (the post pass upscales to the
-    // swapchain). LIVE — a key change rebuilds everything.
+    // output surface). LIVE — a key change rebuilds everything. The surface is the swapchain or an
+    // injected target, so an injected target of a new size rebuilds these exactly as a resize does.
     const scale = Math.min(1, Math.max(0.5, this.renderScale));
-    const width = Math.max(2, Math.round(canvasWidth * scale));
-    const height = Math.max(2, Math.round(canvasHeight * scale));
+    const width = Math.max(2, Math.round(surfaceWidth * scale));
+    const height = Math.max(2, Math.round(surfaceHeight * scale));
     const key = `${width}x${height}`;
     if (this.targetKey === key) {
       return;
@@ -2927,14 +2972,15 @@ export class Engine {
       bytes / 2,
     );
     this.sceneTargets.push({ bytes: bytes / 2, texture: msaa });
-    // The MSAA resolve lands here; the godrays post pass samples it and writes the swapchain.
+    // The MSAA resolve lands here; the godrays post pass samples it and writes the output surface. COPY_SRC
+    // is kept so a headless host can read the resolved HDR scene back with `copyTextureToBuffer` too.
     const sceneColor = this.resources.createTexture(
       'target',
       {
         format: SCENE_FORMAT,
         label: 'scene-color',
         size: { height, width },
-        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
       },
       width * height * 8,
     );
@@ -3086,6 +3132,11 @@ export class Engine {
         this.writeVehiclePlate(model, state.slot, state.plate.textSlot, state.plate.city);
       }
     }
+  }
+
+  /** The current monotonic time in ms: the injected clock when set, else `performance.now()`. */
+  private nowMs(): number {
+    return this.timeSource ? this.timeSource() : performance.now();
   }
 
   /** Rebuild the sky LUT when its environment inputs moved (quantized key — ~a few rebuilds per game

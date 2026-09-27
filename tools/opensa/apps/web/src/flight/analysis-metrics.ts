@@ -277,7 +277,7 @@ export function sampleAnalysis(analysis: FlightAnalysis, s: number): FlightMetri
   };
 }
 
-/** The final sample a track contributes to the endpoint heatmap: the last row with a usable pose. */
+/** The final sample a track contributes to the endpoint model (`track-endpoints.ts`): the last usable pose. */
 export function finalValidSample(track: FlightTrack): FlightRow | null {
   for (let i = track.rows.length - 1; i >= 0; i -= 1) {
     const row = track.rows[i];

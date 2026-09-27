@@ -33,6 +33,10 @@ export interface FakeGpu {
   readonly passes: RecordedPass[];
   /** Drop everything recorded so far — call between frames to assert one frame in isolation. */
   reset(): void;
+  /** `copyTextureToBuffer` calls, in order (the readback seam is asserted from here). */
+  readonly textureCopies: RecordedTextureCopy[];
+  /** Usage flags every created texture was asked for, by label — the COPY_SRC contract is read here. */
+  readonly textureUsage: Map<string, number>;
   /** `queue.writeTexture` calls, in order (085: the missing-texture repaint is asserted from here). */
   readonly textureWrites: RecordedTextureWrite[];
   /** `queue.writeBuffer` calls, in order. */
@@ -61,8 +65,20 @@ export interface RecordedDraw {
 export interface RecordedPass {
   /** Labels of bundles executed into this pass, in order. */
   bundles: string[];
+  /** Labels of the color-attachment views this pass renders into (the render-target seam is asserted here). */
+  colorTargets: string[];
   drawCount: number;
   label: string;
+}
+
+/** One recorded `copyTextureToBuffer` — the destination extent and the source texture's label. */
+export interface RecordedTextureCopy {
+  bytesPerRow: number;
+  height: number;
+  label: string;
+  mappedBytes: number;
+  rowsPerImage: number;
+  width: number;
 }
 
 /** One recorded `queue.writeTexture` — the destination layer and a COPY of the texel bytes. */
@@ -87,9 +103,21 @@ interface Recorder {
   destroyed: string[];
   draws: RecordedDraw[];
   passes: RecordedPass[];
+  textureCopies: RecordedTextureCopy[];
   textures: Map<string, boolean>;
+  textureUsage: Map<string, number>;
   textureWrites: RecordedTextureWrite[];
   writes: RecordedWrite[];
+}
+
+/** `GPUTextureUsage.COPY_SRC` — the real bit value, so the fake needs no global installed. */
+const COPY_SRC_USAGE = 0x01;
+
+/** Read the 2D extent from the dict shape the engine always uses (the union's other arm has no fields). */
+function extentSize(size: GPUExtent3DStrict): { height: number; width: number } {
+  const dict = size as GPUExtent3DDictStrict;
+
+  return { height: dict.height ?? 1, width: dict.width ?? 1 };
 }
 
 /** A `GPUDevice` stand-in recording everything the engine asks of it. */
@@ -99,16 +127,22 @@ export function createFakeDevice(): FakeGpu {
     destroyed: [],
     draws: [],
     passes: [],
+    textureCopies: [],
     textures: new Map(),
+    textureUsage: new Map(),
     textureWrites: [],
     writes: [],
   };
+  /** Backing store per fake buffer, so the readback seam returns the bytes `copyTextureToBuffer` wrote. */
+  const bufferBytes = new WeakMap<object, Uint8Array>();
 
   const view = (label: string): unknown => ({ label });
 
   const texture = (descriptor: GPUTextureDescriptor): unknown => {
     const label = descriptor.label ?? 'texture';
+    const { height, width } = extentSize(descriptor.size);
     recorder.textures.set(label, true);
+    recorder.textureUsage.set(label, descriptor.usage);
 
     return {
       createView: (options?: GPUTextureViewDescriptor) => view(options?.label ?? label),
@@ -116,36 +150,73 @@ export function createFakeDevice(): FakeGpu {
         recorder.textures.set(label, false);
         recorder.destroyed.push(label);
       },
+      height,
       label,
+      width,
     };
   };
 
   const buffer = (descriptor: GPUBufferDescriptor): unknown => {
     recorder.bufferUsage.set(descriptor.label ?? 'buffer', descriptor.usage);
+    const bytes = new Uint8Array(descriptor.size);
 
-    return {
+    const handle = {
       destroy: (): void => {
         recorder.destroyed.push(descriptor.label ?? 'buffer');
       },
-      getMappedRange: () => new ArrayBuffer(descriptor.size),
+      getMappedRange: () => bytes.buffer,
       label: descriptor.label,
       mapAsync: () => Promise.resolve(),
       size: descriptor.size,
       unmap: (): void => {},
     };
+    bufferBytes.set(handle, bytes);
+
+    return handle;
   };
 
   const commandEncoder = (): unknown => {
-    let current: RecordedPass = { bundles: [], drawCount: 0, label: 'unlabelled' };
+    let current: RecordedPass = { bundles: [], colorTargets: [], drawCount: 0, label: 'unlabelled' };
 
     return {
       beginRenderPass(descriptor: GPURenderPassDescriptor): unknown {
-        current = { bundles: [], drawCount: 0, label: descriptor.label ?? 'unlabelled' };
+        current = {
+          bundles: [],
+          colorTargets: (descriptor.colorAttachments ?? []).map((attachment) => attachment?.view.label ?? 'view'),
+          drawCount: 0,
+          label: descriptor.label ?? 'unlabelled',
+        };
         recorder.passes.push(current);
 
         return encoderRecorder(recorder, current);
       },
       copyBufferToBuffer(): void {},
+      copyTextureToBuffer(
+        source: { texture: { label?: string } },
+        destination: { buffer: object; bytesPerRow?: number; rowsPerImage?: number },
+        size: { height?: number; width?: number },
+      ): void {
+        const label = source.texture.label ?? 'texture';
+        const usage = recorder.textureUsage.get(label) ?? 0;
+        if ((usage & COPY_SRC_USAGE) === 0) {
+          throw new Error(`copyTextureToBuffer: texture "${label}" was not created with COPY_SRC`);
+        }
+        // Deterministic bytes so a readback test asserts CONTENT, not just that a call happened.
+        const bytes = bufferBytes.get(destination.buffer);
+        if (bytes) {
+          for (let index = 0; index < bytes.length; index += 1) {
+            bytes[index] = index & 0xff;
+          }
+        }
+        recorder.textureCopies.push({
+          bytesPerRow: destination.bytesPerRow ?? 0,
+          height: size.height ?? 0,
+          label,
+          mappedBytes: bytes?.byteLength ?? 0,
+          rowsPerImage: destination.rowsPerImage ?? 0,
+          width: size.width ?? 0,
+        });
+      },
       copyTextureToTexture(): void {},
       finish: () => ({ label: 'command-buffer' }),
       resolveQuerySet(): void {},
@@ -163,7 +234,7 @@ export function createFakeDevice(): FakeGpu {
       label: descriptor.label,
     }),
     createRenderBundleEncoder(descriptor: GPURenderBundleEncoderDescriptor): unknown {
-      const pass: RecordedPass = { bundles: [], drawCount: 0, label: descriptor.label ?? 'bundle' };
+      const pass: RecordedPass = { bundles: [], colorTargets: [], drawCount: 0, label: descriptor.label ?? 'bundle' };
 
       return {
         ...encoderRecorder(recorder, pass),
@@ -233,10 +304,13 @@ export function createFakeDevice(): FakeGpu {
     reset(): void {
       recorder.draws.length = 0;
       recorder.passes.length = 0;
+      recorder.textureCopies.length = 0;
       recorder.writes.length = 0;
       recorder.textureWrites.length = 0;
       recorder.destroyed.length = 0;
     },
+    textureCopies: recorder.textureCopies,
+    textureUsage: recorder.textureUsage,
     textureWrites: recorder.textureWrites,
     writes: recorder.writes,
   };

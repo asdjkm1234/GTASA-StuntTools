@@ -14,50 +14,95 @@ import type { Vec3 } from './math';
 const WORLD_UP: Vec3 = [0, 1, 0];
 const PITCH_LIMIT = 1.5533431;
 const DEFAULT_FOCUS_DISTANCE = 60;
+/** Default length of a fly-to, in milliseconds. */
+const DEFAULT_FLY_DURATION_MS = 650;
+/** A fly-to is always bounded: a caller asking for longer gets this, so no flight outlives a few frames. */
+const MAX_FLY_DURATION_MS = 5000;
+/** Below this a pose difference cannot move a pixel — the flight completes in one step, without dividing. */
+const FLY_EPSILON = 1e-9;
 
 const clamp = (value: number, low: number, high: number): number => Math.max(low, Math.min(high, value));
 
-function normalize(value: Vec3): Vec3 {
-  const length = Math.hypot(value[0], value[1], value[2]);
+/** Ease-in-out on [0, 1]: monotonic, so flight progress only ever moves forward. */
+const smoothstep = (t: number): number => t * t * (3 - 2 * t);
 
-  return length > 1e-6 ? [value[0] / length, value[1] / length, value[2] / length] : [0, 0, 0];
-}
-
-export interface FreeCameraPose {
-  position: Vec3;
-  yaw: number;
-  pitch: number;
-  fovYDeg: number;
-  near: number;
-  far: number;
-}
-
-export interface FreeCameraOptions {
-  position?: Vec3;
-  yaw?: number;
-  pitch?: number;
-  fovYDeg?: number;
-  near?: number;
-  far?: number;
-  focusDistance?: number;
+export interface FreeCameraFlyToOptions extends FreeCameraFocusOptions {
+  /** Upper bound of the flight, in milliseconds. Defaults to 650; always clamped to 5000. */
+  durationMs?: number;
 }
 
 export interface FreeCameraFocusOptions {
   distance?: number;
-  yaw?: number;
-  pitch?: number;
   /** When false, the camera only turns to face the target and does not move. Defaults to true. */
   move?: boolean;
+  pitch?: number;
+  yaw?: number;
+}
+
+export interface FreeCameraInputOptions {
+  boost?: number;
+  dollyStep?: number;
+  invertY?: boolean;
+  moveSpeed?: number;
+  rotateSpeed?: number;
+}
+
+export interface FreeCameraOptions {
+  far?: number;
+  focusDistance?: number;
+  fovYDeg?: number;
+  near?: number;
+  pitch?: number;
+  position?: Vec3;
+  yaw?: number;
+}
+
+export interface FreeCameraPose {
+  far: number;
+  fovYDeg: number;
+  near: number;
+  pitch: number;
+  position: Vec3;
+  yaw: number;
+}
+
+/** The pose a focus aims at — the destination of an instant `focus()` and of a `flyTo()` flight. */
+interface CameraAim {
+  focusDistance: number;
+  pitch: number;
+  position: Vec3;
+  yaw: number;
+}
+
+interface CameraFlight {
+  durationMs: number;
+  elapsedMs: number;
+  from: CameraAim;
+  to: CameraAim;
+  /** Shortest-arc yaw turn, so interpolation ignores full turns between the two headings. */
+  yawDelta: number;
 }
 
 export class FreeCamera {
-  position: Vec3;
-  yaw: number;
-  pitch: number;
-  fovYDeg: number;
-  near: number;
   far: number;
   focusDistance: number;
+  fovYDeg: number;
+  near: number;
+  pitch: number;
+  position: Vec3;
+  yaw: number;
+  get pose(): FreeCameraPose {
+    return {
+      far: this.far,
+      fovYDeg: this.fovYDeg,
+      near: this.near,
+      pitch: this.pitch,
+      position: [...this.position],
+      yaw: this.yaw,
+    };
+  }
+
+  private flight: CameraFlight | null = null;
 
   constructor(options: FreeCameraOptions = {}) {
     this.position = options.position ? [...options.position] : [0, 50, 0];
@@ -69,18 +114,150 @@ export class FreeCamera {
     this.focusDistance = options.focusDistance ?? DEFAULT_FOCUS_DISTANCE;
   }
 
-  get pose(): FreeCameraPose {
-    return {
+  /** Advance an active fly-to by `dt` seconds (the caller's frame delta). No-op without a flight. */
+  advance(dt: number): void {
+    const flight = this.flight;
+    if (!flight) {
+      return;
+    }
+    const stepMs = Number.isFinite(dt) ? Math.max(0, dt) * 1000 : 0;
+    flight.elapsedMs = Math.min(flight.durationMs, flight.elapsedMs + stepMs);
+    const progress = flight.elapsedMs / flight.durationMs;
+    if (progress >= 1) {
+      this.flight = null;
+      this.applyAim(flight.to);
+
+      return;
+    }
+    const eased = smoothstep(progress);
+    this.position = [
+      flight.from.position[0] + (flight.to.position[0] - flight.from.position[0]) * eased,
+      flight.from.position[1] + (flight.to.position[1] - flight.from.position[1]) * eased,
+      flight.from.position[2] + (flight.to.position[2] - flight.from.position[2]) * eased,
+    ];
+    this.yaw = flight.from.yaw + flight.yawDelta * eased;
+    this.pitch = flight.from.pitch + (flight.to.pitch - flight.from.pitch) * eased;
+    this.focusDistance = flight.from.focusDistance + (flight.to.focusDistance - flight.from.focusDistance) * eased;
+  }
+
+  /** Drop an active flight, leaving the camera where it currently is. */
+  cancelFlyTo(): void {
+    this.flight = null;
+  }
+
+  /** Whether a fly-to is in progress. */
+  flying(): boolean {
+    return this.flight !== null;
+  }
+
+  /** Raw (un-eased) flight progress in [0, 1]; 1 when no flight is active. */
+  flyProgress(): number {
+    const flight = this.flight;
+
+    return flight ? Math.min(1, Math.max(0, flight.elapsedMs / flight.durationMs)) : 1;
+  }
+
+  /**
+   * Ease to the pose an instant `focus(target, options)` would take, over `durationMs`.
+   *
+   * Position and direction are interpolated together (yaw along the shortest arc) and the flight always ends
+   * on the exact destination pose. Any direct mutation — `focus`, `lookAt`, `setPose`, a move/rotate, the
+   * interactive input — cancels it, so the operator always wins. Calling it again mid-flight re-targets
+   * cleanly from the pose the camera has reached. Zero-distance and non-positive durations complete
+   * immediately.
+   */
+  flyTo(target: Vec3, options: FreeCameraFlyToOptions = {}): void {
+    const to = this.focusPose(target, options);
+    const requested = options.durationMs ?? DEFAULT_FLY_DURATION_MS;
+    // A non-finite request falls back to the default rather than producing a NaN-duration flight.
+    const durationMs = Number.isFinite(requested)
+      ? Math.min(MAX_FLY_DURATION_MS, Math.max(0, requested))
+      : DEFAULT_FLY_DURATION_MS;
+    const from: CameraAim = {
+      focusDistance: this.focusDistance,
+      pitch: this.pitch,
       position: [...this.position],
       yaw: this.yaw,
-      pitch: this.pitch,
-      fovYDeg: this.fovYDeg,
-      near: this.near,
-      far: this.far,
     };
+    const yawDelta = shortestAngle(from.yaw, to.yaw);
+    const distance = Math.hypot(
+      to.position[0] - from.position[0],
+      to.position[1] - from.position[1],
+      to.position[2] - from.position[2],
+    );
+    if (
+      durationMs <= 0 ||
+      (distance < FLY_EPSILON && Math.abs(yawDelta) < FLY_EPSILON && Math.abs(to.pitch - from.pitch) < FLY_EPSILON)
+    ) {
+      this.flight = null;
+      this.applyAim(to);
+
+      return;
+    }
+    this.flight = { durationMs, elapsedMs: 0, from, to, yawDelta };
+  }
+
+  /** Turn to (and by default reposition around) a world point — the instant endpoint-focus entry point. */
+  focus(target: Vec3, options: FreeCameraFocusOptions = {}): void {
+    this.cancelFlyTo();
+    this.applyAim(this.focusPose(target, options));
+  }
+
+  forward(): Vec3 {
+    const cosPitch = Math.cos(this.pitch);
+
+    return [Math.sin(this.yaw) * cosPitch, Math.sin(this.pitch), -Math.cos(this.yaw) * cosPitch];
+  }
+
+  /** Aim at a world point without moving. Leaves the focus distance untouched. Instant, like every non-flight move. */
+  lookAt(target: Vec3): void {
+    this.cancelFlyTo();
+    const aim = this.lookAtAngles(target);
+    this.yaw = aim.yaw;
+    this.pitch = aim.pitch;
+  }
+
+  /** Move along world axes. */
+  moveBy(offset: Vec3): void {
+    this.cancelFlyTo();
+    this.position = [this.position[0] + offset[0], this.position[1] + offset[1], this.position[2] + offset[2]];
+  }
+
+  /** Move along the camera's own forward/right/up axes. */
+  moveLocal(forwardOffset: number, rightOffset: number, upOffset: number): void {
+    const forward = this.forward();
+    const right = this.right();
+    const up = this.up();
+    this.moveBy([
+      forward[0] * forwardOffset + right[0] * rightOffset + up[0] * upOffset,
+      forward[1] * forwardOffset + right[1] * rightOffset + up[1] * upOffset,
+      forward[2] * forwardOffset + right[2] * rightOffset + up[2] * upOffset,
+    ]);
+  }
+
+  reset(options: FreeCameraOptions = {}): void {
+    this.cancelFlyTo();
+    this.position = options.position ? [...options.position] : [0, 50, 0];
+    this.yaw = options.yaw ?? 0;
+    this.pitch = clamp(options.pitch ?? -0.35, -PITCH_LIMIT, PITCH_LIMIT);
+    this.fovYDeg = options.fovYDeg ?? 60;
+    this.near = options.near ?? 0.5;
+    this.far = options.far ?? 12000;
+    this.focusDistance = options.focusDistance ?? DEFAULT_FOCUS_DISTANCE;
+  }
+
+  right(): Vec3 {
+    return [Math.cos(this.yaw), 0, Math.sin(this.yaw)];
+  }
+
+  rotateBy(yawDelta: number, pitchDelta: number): void {
+    this.cancelFlyTo();
+    this.yaw += yawDelta;
+    this.pitch = clamp(this.pitch + pitchDelta, -PITCH_LIMIT, PITCH_LIMIT);
   }
 
   setPose(pose: Partial<FreeCameraPose>): void {
+    this.cancelFlyTo();
     if (pose.position) {
       this.position = [...pose.position];
     }
@@ -101,104 +278,6 @@ export class FreeCamera {
     }
   }
 
-  forward(): Vec3 {
-    const cosPitch = Math.cos(this.pitch);
-
-    return [Math.sin(this.yaw) * cosPitch, Math.sin(this.pitch), -Math.cos(this.yaw) * cosPitch];
-  }
-
-  right(): Vec3 {
-    return [Math.cos(this.yaw), 0, Math.sin(this.yaw)];
-  }
-
-  up(): Vec3 {
-    const right = this.right();
-    const forward = this.forward();
-
-    return normalize([
-      right[1] * forward[2] - right[2] * forward[1],
-      right[2] * forward[0] - right[0] * forward[2],
-      right[0] * forward[1] - right[1] * forward[0],
-    ]);
-  }
-
-  /** The point the camera is looking at, at the current focus distance. */
-  target(): Vec3 {
-    const forward = this.forward();
-
-    return [
-      this.position[0] + forward[0] * this.focusDistance,
-      this.position[1] + forward[1] * this.focusDistance,
-      this.position[2] + forward[2] * this.focusDistance,
-    ];
-  }
-
-  /** Move along world axes. */
-  moveBy(offset: Vec3): void {
-    this.position = [
-      this.position[0] + offset[0],
-      this.position[1] + offset[1],
-      this.position[2] + offset[2],
-    ];
-  }
-
-  /** Move along the camera's own forward/right/up axes. */
-  moveLocal(forwardOffset: number, rightOffset: number, upOffset: number): void {
-    const forward = this.forward();
-    const right = this.right();
-    const up = this.up();
-    this.moveBy([
-      forward[0] * forwardOffset + right[0] * rightOffset + up[0] * upOffset,
-      forward[1] * forwardOffset + right[1] * rightOffset + up[1] * upOffset,
-      forward[2] * forwardOffset + right[2] * rightOffset + up[2] * upOffset,
-    ]);
-  }
-
-  rotateBy(yawDelta: number, pitchDelta: number): void {
-    this.yaw += yawDelta;
-    this.pitch = clamp(this.pitch + pitchDelta, -PITCH_LIMIT, PITCH_LIMIT);
-  }
-
-  /** Aim at a world point without moving. Leaves the focus distance untouched. */
-  lookAt(target: Vec3): void {
-    const dx = target[0] - this.position[0];
-    const dy = target[1] - this.position[1];
-    const dz = target[2] - this.position[2];
-    const horizontal = Math.hypot(dx, dz);
-    if (horizontal < 1e-6 && Math.abs(dy) < 1e-6) {
-      return;
-    }
-    this.yaw = Math.atan2(dx, -dz);
-    this.pitch = clamp(Math.atan2(dy, horizontal), -PITCH_LIMIT, PITCH_LIMIT);
-  }
-
-  /** Turn to (and by default reposition around) a world point — the endpoint-focus entry point. */
-  focus(target: Vec3, options: FreeCameraFocusOptions = {}): void {
-    const move = options.move ?? true;
-    if (move) {
-      if (options.yaw !== undefined) {
-        this.yaw = options.yaw;
-      }
-      if (options.pitch !== undefined) {
-        this.pitch = clamp(options.pitch, -PITCH_LIMIT, PITCH_LIMIT);
-      }
-      if (options.distance !== undefined) {
-        this.focusDistance = Math.max(1, options.distance);
-      }
-      const forward = this.forward();
-      this.position = [
-        target[0] - forward[0] * this.focusDistance,
-        target[1] - forward[1] * this.focusDistance,
-        target[2] - forward[2] * this.focusDistance,
-      ];
-    } else {
-      this.lookAt(target);
-      if (options.distance !== undefined) {
-        this.focusDistance = Math.max(1, options.distance);
-      }
-    }
-  }
-
   /** Camera state for `engine.frame()`; `aspect` is the canvas width/height. */
   state(aspect: number): CameraStateOut {
     return {
@@ -212,63 +291,142 @@ export class FreeCamera {
     };
   }
 
-  reset(options: FreeCameraOptions = {}): void {
-    this.position = options.position ? [...options.position] : [0, 50, 0];
-    this.yaw = options.yaw ?? 0;
-    this.pitch = clamp(options.pitch ?? -0.35, -PITCH_LIMIT, PITCH_LIMIT);
-    this.fovYDeg = options.fovYDeg ?? 60;
-    this.near = options.near ?? 0.5;
-    this.far = options.far ?? 12000;
-    this.focusDistance = options.focusDistance ?? DEFAULT_FOCUS_DISTANCE;
+  /** The point the camera is looking at, at the current focus distance. */
+  target(): Vec3 {
+    const forward = this.forward();
+
+    return [
+      this.position[0] + forward[0] * this.focusDistance,
+      this.position[1] + forward[1] * this.focusDistance,
+      this.position[2] + forward[2] * this.focusDistance,
+    ];
+  }
+
+  up(): Vec3 {
+    const right = this.right();
+    const forward = this.forward();
+
+    return normalize([
+      right[1] * forward[2] - right[2] * forward[1],
+      right[2] * forward[0] - right[0] * forward[2],
+      right[0] * forward[1] - right[1] * forward[0],
+    ]);
+  }
+
+  private applyAim(aim: CameraAim): void {
+    this.position = [...aim.position];
+    this.yaw = aim.yaw;
+    this.pitch = aim.pitch;
+    this.focusDistance = aim.focusDistance;
+  }
+
+  /** The pose a `focus()` / `flyTo()` aims at, without applying it. */
+  private focusPose(target: Vec3, options: FreeCameraFocusOptions): CameraAim {
+    const move = options.move ?? true;
+    const focusDistance = options.distance !== undefined ? Math.max(1, options.distance) : this.focusDistance;
+    if (!move) {
+      const aim = this.lookAtAngles(target);
+
+      return { focusDistance, pitch: aim.pitch, position: [...this.position], yaw: aim.yaw };
+    }
+    const yaw = options.yaw ?? this.yaw;
+    const pitch = options.pitch !== undefined ? clamp(options.pitch, -PITCH_LIMIT, PITCH_LIMIT) : this.pitch;
+    const cosPitch = Math.cos(pitch);
+    const forward: Vec3 = [Math.sin(yaw) * cosPitch, Math.sin(pitch), -Math.cos(yaw) * cosPitch];
+
+    return {
+      focusDistance,
+      pitch,
+      position: [
+        target[0] - forward[0] * focusDistance,
+        target[1] - forward[1] * focusDistance,
+        target[2] - forward[2] * focusDistance,
+      ],
+      yaw,
+    };
+  }
+
+  /** Angles for aiming at `target`, or the current angles when the target is the eye itself. */
+  private lookAtAngles(target: Vec3): { pitch: number; yaw: number } {
+    const dx = target[0] - this.position[0];
+    const dy = target[1] - this.position[1];
+    const dz = target[2] - this.position[2];
+    const horizontal = Math.hypot(dx, dz);
+    if (horizontal < 1e-6 && Math.abs(dy) < 1e-6) {
+      return { pitch: this.pitch, yaw: this.yaw };
+    }
+
+    return { pitch: clamp(Math.atan2(dy, horizontal), -PITCH_LIMIT, PITCH_LIMIT), yaw: Math.atan2(dx, -dz) };
   }
 }
 
-export interface FreeCameraInputOptions {
-  rotateSpeed?: number;
-  moveSpeed?: number;
-  boost?: number;
-  dollyStep?: number;
-  invertY?: boolean;
+function normalize(value: Vec3): Vec3 {
+  const length = Math.hypot(value[0], value[1], value[2]);
+
+  return length > 1e-6 ? [value[0] / length, value[1] / length, value[2] / length] : [0, 0, 0];
 }
 
-const CONTROL_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'Space',
-  'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+/** Shortest signed yaw turn from `from` to `to`, in (−π, π] — a flight across the ±π seam never spins the long way. */
+function shortestAngle(from: number, to: number): number {
+  const turn = (to - from) % (Math.PI * 2);
+  if (turn > Math.PI) {
+    return turn - Math.PI * 2;
+  }
+  if (turn < -Math.PI) {
+    return turn + Math.PI * 2;
+  }
+
+  return turn;
+}
+
+const CONTROL_KEYS = new Set([
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowUp',
+  'ControlLeft',
+  'KeyA',
+  'KeyD',
+  'KeyE',
+  'KeyQ',
+  'KeyS',
+  'KeyW',
+  'ShiftLeft',
+  'ShiftRight',
+  'Space',
+]);
 
 /** Opt-in pointer + keyboard controller. Attach it only while the free camera is the active view. */
 export class FreeCameraInput {
-  private readonly keys = new Set<string>();
-  private element: HTMLElement | null = null;
-  private dragging = false;
-  private lastX = 0;
-  private lastY = 0;
+  get attached(): boolean {
+    return this.element !== null;
+  }
+  get enabled(): boolean {
+    return this.active;
+  }
   private active = true;
-  private readonly rotateSpeed: number;
-  private readonly moveSpeed: number;
   private readonly boost: number;
   private readonly dollyStep: number;
+  private dragging = false;
+  private element: HTMLElement | null = null;
   private readonly invertY: boolean;
+  private readonly keys = new Set<string>();
+  private lastX = 0;
+  private lastY = 0;
 
-  constructor(private readonly camera: FreeCamera, options: FreeCameraInputOptions = {}) {
+  private readonly moveSpeed: number;
+
+  private readonly rotateSpeed: number;
+
+  constructor(
+    private readonly camera: FreeCamera,
+    options: FreeCameraInputOptions = {},
+  ) {
     this.rotateSpeed = options.rotateSpeed ?? 0.004;
     this.moveSpeed = options.moveSpeed ?? 90;
     this.boost = options.boost ?? 4;
     this.dollyStep = options.dollyStep ?? 8;
     this.invertY = options.invertY ?? false;
-  }
-
-  get attached(): boolean {
-    return this.element !== null;
-  }
-
-  get enabled(): boolean {
-    return this.active;
-  }
-
-  setEnabled(value: boolean): void {
-    this.active = value;
-    if (!value) {
-      this.keys.clear();
-    }
   }
 
   attach(element: HTMLElement): void {
@@ -303,12 +461,24 @@ export class FreeCameraInput {
     this.keys.clear();
   }
 
+  dispose(): void {
+    this.detach();
+  }
+
+  setEnabled(value: boolean): void {
+    this.active = value;
+    if (!value) {
+      this.keys.clear();
+    }
+  }
+
   /** Move by the currently held keys; call once per rendered frame with the real frame delta. */
   update(dt: number): void {
     if (!this.active || !this.element) {
       return;
     }
-    const step = Math.min(0.1, Math.max(0, dt)) * this.moveSpeed * (this.isDown('ShiftLeft', 'ShiftRight') ? this.boost : 1);
+    const step =
+      Math.min(0.1, Math.max(0, dt)) * this.moveSpeed * (this.isDown('ShiftLeft', 'ShiftRight') ? this.boost : 1);
     let forward = 0;
     let right = 0;
     let up = 0;
@@ -323,13 +493,29 @@ export class FreeCameraInput {
     }
   }
 
-  dispose(): void {
-    this.detach();
-  }
-
   private isDown(...codes: string[]): boolean {
     return codes.some((code) => this.keys.has(code));
   }
+
+  private readonly onContextMenu = (event: MouseEvent): void => {
+    if (this.active) {
+      event.preventDefault();
+    }
+  };
+
+  private readonly onKeyDown = (event: KeyboardEvent): void => {
+    if (!this.active || isTextEntry(event.target)) {
+      return;
+    }
+    if (CONTROL_KEYS.has(event.code)) {
+      event.preventDefault();
+      this.keys.add(event.code);
+    }
+  };
+
+  private readonly onKeyUp = (event: KeyboardEvent): void => {
+    this.keys.delete(event.code);
+  };
 
   private readonly onPointerDown = (event: PointerEvent): void => {
     if (!this.active || event.button !== 0) {
@@ -372,30 +558,15 @@ export class FreeCameraInput {
       this.camera.forward()[2] * -notches * this.dollyStep,
     ]);
   };
-
-  private readonly onContextMenu = (event: MouseEvent): void => {
-    if (this.active) {
-      event.preventDefault();
-    }
-  };
-
-  private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (!this.active || isTextEntry(event.target)) {
-      return;
-    }
-    if (CONTROL_KEYS.has(event.code)) {
-      event.preventDefault();
-      this.keys.add(event.code);
-    }
-  };
-
-  private readonly onKeyUp = (event: KeyboardEvent): void => {
-    this.keys.delete(event.code);
-  };
 }
 
 function isTextEntry(target: EventTarget | null): boolean {
   const tag = target instanceof HTMLElement ? target.tagName : '';
 
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (target instanceof HTMLElement && target.isContentEditable);
+  return (
+    tag === 'INPUT' ||
+    tag === 'TEXTAREA' ||
+    tag === 'SELECT' ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
 }

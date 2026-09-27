@@ -16,12 +16,13 @@ export const ANALYSIS_GAUGE_IDS = ['attitude', 'groundSpeed', 'altitude', 'climb
 
 export type AnalysisGaugeId = typeof ANALYSIS_GAUGE_IDS[number];
 
-interface GaugeDefinition {
+/** Exported so the export-only canvas mirror draws the same gauge ids and labels (no second label table). */
+export interface GaugeDefinition {
   id: AnalysisGaugeId;
   label: string;
 }
 
-const GAUGE_DEFINITIONS: readonly GaugeDefinition[] = [
+export const GAUGE_DEFINITIONS: readonly GaugeDefinition[] = [
   { id: 'attitude', label: '姿态' },
   { id: 'groundSpeed', label: '地速' },
   { id: 'altitude', label: '高度' },
