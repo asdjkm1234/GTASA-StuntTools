@@ -29,7 +29,7 @@ GTASA-StuntTools/
   README.md / HANDOFF.md / AGENTS.md
   GTA San Andreas/                    游戏；录制器与 flight_recordings/ 都在这里
   recorder/
-    src/FlightRecorderASI.cpp         录制器 v7 源（无 CLEO opcode）
+    src/FlightRecorderASI.cpp         录制器 v9 源（无 CLEO opcode）
     build.ps1 / install.ps1           zig 编译 / 安装（安装前自动备份到 recorder/backups）
     README.md                          字段与规则
   web-replay/
@@ -104,7 +104,7 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
 
 ## 4. 关键架构与已完成
 
-- **录制器 v7**（`recorder/src/FlightRecorderASI.cpp`）：独立 ASI，25Hz，仅 520/476；进入即录、下车/爆炸/失效/换机/QuickHome(≥120m/采样) 切档。保留 v6 字段，并额外记录 Hydra `misc_a`/`misc_b` 的局部四元数、局部位置与有效位；v6 原有字段包括：
+- **录制器 v9**（`recorder/src/FlightRecorderASI.cpp`）：独立 ASI，25Hz，仅 520/476；进入即录、下车/爆炸/失效/换机/QuickHome(≥120m/采样) 切档。在 v8（喷口/螺旋桨/冒烟/爆炸事件/`capture_elapsed_s`）之上，v9 追加推断列 `transmission_gear_inferred`/`engine_load_inferred`（逐行 `*_source=inferred`）与推断碰撞事件行，并保留 v6/v7 字段：
   - `game_hour/minute/second`（`CClock`）与 `weather_new/old/forced`（`CWeather`）；
   - **真实动画节点四元数**（`CPlane::m_aCarNodes` 的 `RwFrame` 局部建模矩阵，7 个：rudder/elevator_l,elevator_r,aileron_l,aileron_r,gear_l,gear_r），用 `node_status` 位掩码 + `surface_source=real|partial|inferred` 标注。
   - **诚实规则**：Q/A/E/D/上下键是输入列；真实节点读不到就写 `nan` 且标 `inferred`，绝不把按键伪装成舵面。
@@ -159,11 +159,27 @@ node scripts\probe-webgpu-chrome.mjs 4199        # 逐组 Chrome 参数实测适
 
 ## 6. 数据格式（CSV）
 
-列名驱动、**向后兼容 v4/v5/v6**（缺列为 `null`）。v6 基础表头（顺序）：
+列名驱动、**向后兼容 v4–v8**（缺列为 `null`）。v6 基础表头（顺序）：
 `local_timestamp,model,health,x,y,z,heading_deg,right_x/y/z,up_x/y/z,forward_x/y/z,vx,vy,vz,ax,ay,az,steer,throttle,brake,color_primary/secondary/tertiary/quaternary,landing_gear_status,key_q,key_a,key_e,key_d,key_up,key_down,game_hour,game_minute,game_second,weather_new,weather_old,weather_forced,node_status,surface_source,` 然后 7 组 `<node>_qx,qy,qz,qw`（rudder,elevator_l,elevator_r,aileron_l,aileron_r,gear_l,gear_r）。
 `node_status` 位：0 rudder、1 elevator_l、2 elevator_r、3 aileron_l、4 aileron_r、5 gear_l、6 gear_r；该位为 0 时四元数写 `nan`。
 文件以 `# session_start,…` 开头、`# session_end,<reason>,…` 结束。旧 v5 无游戏时钟/天气/节点列。
 v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` 各自的 `qx/qy/qz/qw/x/y/z`。2026-09-26 的完整收放录像表明两节点每帧都可读、位置不变，收起角分别为 −80°、+130°；回放优先使用实测四元数，旧 CSV 按该角度和收轮进度补全。
+v8 追加 Hydra 喷口原始控制值、可读 prop 节点、冒烟状态、爆炸事件，以及可选 `capture_elapsed_s`（与同名 WAV 共用 QPC 起点；早期 v8 文件无此列仍按本地时间读）。
+
+v9 追加以下列（v9 文件共 112 列），**全部是推断值（inferred），不是游戏内测量值**，逐行 `*_source` 必须为 `inferred`：
+
+- `transmission_gear_inferred`（0–6）+ `transmission_gear_source`（固定 `inferred`）；
+- `engine_load_inferred`（0–1，`clamp(max(abs(throttle),abs(brake)),0,1)`）+ `engine_load_source`（固定 `inferred`）。
+
+v9 还会写入一行推断碰撞事件（8 字段）：
+
+```
+# event,<seconds>,collision,inferred,<impact_m_s2>,<x>,<y>,<z>
+```
+
+判据只用已采样信号：`health` 单采样下降 ≥ 20 **或**峰值保持加速度 ≥ 30 m/s²（满足任意一项即写），每次冲击最多一行、1 秒冷却；`inferred` 是来源标记，**永远是推断，绝不是实测材质**。v4–v8 文件没有这些列与事件；解析端遇到 v9 之前的碰撞行必须忽略。
+
+**诚实声明（G3 NO-GO）**：本机 `gta_sa.exe`（sha1 `185b73…`）不是 SDK 验证的 1.0-US 指纹（期望 `8c23ce…`），v9 不依赖未经验证的结构偏移。发动机 **rev/RPM 被刻意不发射（NOT emitted）**：无该列、不猜测。所有 inferred 值必须逐行标注来源，**推断值绝不当成实测值**。
 
 ## 7. 当前状态与遗留
 
@@ -229,7 +245,7 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
 ## 11. 2026-09-26：回放脱离游戏安装
 
 - 同一次 `bake-map.mts` 烘焙写入完整地图、碰撞、纹理、`data/{timecyc.dat,water.dat,vehicles.ide,carcols.dat}`
-  和 `aircraft/{hydra,rustler}.{dff,txd}`、共享 `aircraft/vehicle.txd`，`index.json` 用 `replayAssets.version=2` 标识。只打包 520/476；
+  和 `aircraft/{hydra,rustler}.{dff,txd}`、共享 `aircraft/vehicle.txd`，`index.json` 用 `replayAssets.version=3` 标识（v3 在 v2 之上追加 `data/handling.cfg` 与 `audio/` lane）。只打包 520/476；
   录制器的 `isTrackedModel` 也只接受 520/476，其他载具不会生成录像。
 - 回放 app 用 `PakResources` 读取上述小文件和飞机；不再调用 `loadMapSource`。服务只在烘焙器请求
   `/game-src/*` 时建立 GTA 文件索引。没有 GTA 安装时，服务仍能从 pak 加载地图和两架飞机。
@@ -293,7 +309,7 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
 ## 13. V1.1 发布
 
 - 版本主题：修复第三人称视角和 Hydra 起落架。第三人称有近、中、远三档；机身中线起落架在 v7 CSV 中使用 `misc_a`/`misc_b` 的实测四元数，旧 CSV 使用原版收放录像量得的 −80°/+130° 补全。
-- 录制器仍为 v7 格式，但 V1.1 暂时不采集或写出相机调试数据。文件头为 `camera_debug=0`，没有 `camera_*` 列，起落架和其他飞行列继续保留。要恢复相机调试，把 `recorder/src/FlightRecorderASI.cpp` 中的 `FLIGHT_RECORDER_CAMERA_DEBUG` 改为 1 后重新构建、安装。
+- V1.1 发布时尚无 v9 字段（当时为 v7 系列格式）；但 V1.1 暂时不采集或写出相机调试数据。文件头为 `camera_debug=0`，没有 `camera_*` 列，起落架和其他飞行列继续保留。要恢复相机调试，把 `recorder/src/FlightRecorderASI.cpp` 中的 `FLIGHT_RECORDER_CAMERA_DEBUG` 改为 1 后重新构建、安装。当前 v9 格式见 §6 与 §16。
 - V1.1 发布标签使用大写 `V1.1`；历史 v1.0 标签保持原样。
 
 ## 14. 航迹 pak（2026-09-26）
@@ -304,9 +320,49 @@ v7 在相机调试列之后追加 `center_gear_status`、`misc_a` 与 `misc_b` �
 
 ## 15. 六项飞行分析功能（2026-09-26）
 
-- 录制器写 v8 CSV，继续读取 v4–v7。新增 Hydra 喷口原始控制值、可读的 prop 节点、冒烟状态和明确的爆炸事件；Rustler 不采集 prop 节点动画。后续 v8 文件还追加可选 `capture_elapsed_s`，与同名 WAV 使用同一个 QPC 起点；没有该列的早期 v8 文件仍按本地时间读取。
+- 录制器写 v8 CSV，继续读取 v4–v7。新增 Hydra 喷口原始控制值、可读的 prop 节点、冒烟状态和明确的爆炸事件；Rustler 不采集 prop 节点动画。后续 v8 文件还追加可选 `capture_elapsed_s`，与同名 WAV 使用同一个 QPC 起点；没有该列的早期 v8 文件仍按本地时间读取。（本节为 2026-09-26 的 v8 迭代记录；当前格式为 v9，见 §6 与 §16。）
 - `recorder/build.ps1` 同时构建 `FlightRecorder.asi` 与 `GameAudioCapture.exe`；安装脚本会备份旧 ASI 并安装两者。WAV 是 GTA 进程 loopback 原声，文件名与 CSV 相同。游戏需重启才会加载新 ASI。
-- 回放有自由视角、所有已加载片段终点的红点与俯视密度图，以及可逐项隐藏的姿态、速度、高度、升降率、航向、油门、健康度、过载、角速度仪表。终点不自动判定为死亡。
+- 回放有自由视角与 **3D world endpoint markers**：每个已加载航迹的 **every track endpoint** 都在 3D 世界里放置标记，密度光环（**density halo**）只表达聚集程度、**never hides a point**；旧的平面 2D 分析面板已退役（**flat 2D panel retired**）。分析 HUD 的姿态、速度、高度、升降率、航向、油门、健康度、过载、角速度仪表仍可逐项隐藏。终点不自动判定为死亡。
 - pak 增加本机 `effects.fxp`/`effectsPC.txd` 特效资源；更换此版后须重新烘焙整图或航迹 pak。特效由录像时间驱动，倒退和重复定位不会叠加旧粒子。原版 Hydra 模型没有可旋转喷口网格，因此喷口角度按录制值推断，并用原版 `jetthrust` 粒子方向表现；此几何角度不是原版实测动画。
-- 视频由本机 Chrome/Edge 和 FFmpeg 导出 H.264/AAC MP4（1920×1080、30fps、原速）。保留当前视角与分析 HUD，不录页面操作控件；支持进度、取消、下载及拖入同名 WAV。
+- 视频导出为 **1920x1080** H.264/AAC MP4：视频在页面内用 **WebCodecs** 硬件编码，ffmpeg 以 **`-c:v copy`** 直接封装（copy-mux），**no per-frame PNG**，导出期间无可见浏览器窗口；支持 30/60/120 fps，保留当前视角与分析 HUD。**不要声称实时导出**：本机 Intel Arc A380 实测 60 秒片段 60 fps 约 65–68 秒（≈1.1x 片长）、120 fps 约 122–141 秒（≈2-2.3x 片长）——120 fps 导出正确但慢于实时，固定每帧成本约 17 ms 超过 8.33 ms 预算；编码器本身远快于实时（流水线 lane 60 秒/60 fps 仅 12.8 秒）。HUD 是 DOM 仪表的 **canvas mirror**（信息等价但 **not pixel-identical**）。120 fps 只改善 **cadence**，无法恢复超过 25 Hz 录制器 **12.5 Hz** 极限的运动。详见 §16。
 - 验收用真实 Hydra `flight_20260926_153900_322_m520_001`（22.435 秒，含喷口变化、181 个冒烟采样、一次爆炸）和 Rustler `flight_20260926_155714_107_m476_001`（1153 采样，55.535 秒）。Hydra 整段 MP4 经 ffprobe 核对视频与音频均约 22.47 秒；Rustler 起飞、中段、末段截图无错误。新版 QPC 列经编译与模拟时钟跳变解析测试，尚无安装此微调版 ASI 后的真人录像。
+
+## 16. v9 录制、音效、分析与导出的诚实声明（2026-09-27）
+
+### v9 录制
+- 录制器输出 v9（文件头 `# gtasa_flight_recorder,version=9,...`），在 v8 之上追加四个列与一种事件行（详见 §6）：
+  `transmission_gear_inferred`、`transmission_gear_source`、`engine_load_inferred`、`engine_load_source`，
+  以及 `# event,<seconds>,collision,inferred,<impact_m_s2>,<x>,<y>,<z>`。
+- 真实 v9 录像（Hydra 520 / Rustler 476）实测 112 列、0 截断行；四个 v9 列的逐行 `*_source` 全部为 `inferred`，
+  没有一行标 `measured`；任何文件都不存在 rev/RPM 列。
+- G3 为 **NO-GO**：本机 `gta_sa.exe`（sha1 `185b73…`）不是 SDK 1.0-US 指纹（期望 `8c23ce…`）。因此挡位与负载
+  都是启发式推断、**逐行标注 inferred**；发动机 rev/RPM 刻意不发射（NOT emitted），不猜。
+
+### 音效回放
+- 烘焙把 **20 个**本机 GENRL 样本写入 pak，引擎 bank **按机型**选取：Hydra 520 →
+  `SND_BANK_GENRL_VEHICLE_GEN`（id 138 / slot 19，**分层喷气**：`THRUST`26 主涡轮 + `WHINE`29 高频啸叫 +
+  `JET_DIST`14 距离层 + `LIFT_LOOP`15 升力层）；Rustler 476 →
+  `SND_BANK_GENRL_FASTPROP`（id 53 加速 / `_D` id 54 减速）。每层 3 档（`[0.7,1,1.4]`）+ `collision-set.wav`、
+  `explosion-set.wav`；引擎样本名为 `engine-520-<layer>-<step>.wav`（如 `engine-520-turbine-1.wav`、`engine-520-whine-1.wav`）
+  与 `engine-476-accelerate-<step>.wav` / `engine-476-decelerate-<step>.wav`，外加 `manifest.json`（逐样本记录 bank/slot/sound/soundName/采样率与 provenance，v3）；该版 pak
+  `replayAssets.version=3`。bank 按名从 gta-reversed `eSoundBank.h` 选、sound 按 `SoundIDs.h` 选，bake 时与安装一一校验，不匹配即抛错（Hydra 缺样本
+  时上报 `engine: null`，绝不静默回退到螺旋桨 bank）。
+- `apps/web/src/flight/audio-engine.ts` 按机型选 bank 并对相邻转速档**分层**混合（涡轮/啸叫/距离/升力）：引擎音高随推断挡位/转速
+  变化、油门/刹车只调制在调的层、碰撞按推断冲击强度选样本、爆炸按固定频率循环，叠加距离衰减与多普勒；独立数值一致性 oracle 覆盖全部常量。
+- **推断边界**：喷气机的**分层音色组合**（THRUST/WHINE/JET_DIST/LIFT_LOOP）为 INFERRED（`ProcessGenericJet` 未逆向）；3 个转速档是同
+  一 loop 的离线重采样，非游戏额外样本。
+- **诚实声明**：音效是**参数化忠实（parameterization-faithful）**的重建，**不是原版混音的逐位一致（NOT bit-exact）**；
+  推断输入一律标注 inferred，绝不呈现为实测。
+
+### 分析与 3D 终点标记
+- 每个已加载航迹的终点都在 3D 世界里放一个标记（**3D world endpoint markers**），**every track endpoint 都有标记**；
+  密度光环（**density halo**）只表达聚集程度、**never hides a point**。旧的平面 2D 分析面板已退役（**flat 2D panel retired**）。
+
+### 视频导出
+- **1920x1080** H.264/AAC MP4；视频在页面内用 **WebCodecs** 硬件编码（prefer-hardware），ffmpeg 以 **`-c:v copy`**
+  直接封装（copy-mux），**no per-frame PNG**，导出时无可见浏览器窗口；支持 30/60/120 fps。
+- **诚实声明：不要声称实时导出（do NOT claim realtime export）。** 本机 Intel Arc A380 实测：60 秒片段在 60 fps
+  约 65–68 秒（≈1.1x 片长），在 120 fps 约 122–141 秒（≈2-2.3x 片长）。120 fps 导出正确但**慢于实时**：固定
+  每帧成本约 17 ms，超过 120 fps 的 8.33 ms 预算；编码器本身远快于实时（流水线 lane 60 秒/60 fps 仅 12.8 秒）。
+- HUD：导出的 HUD 是页面 DOM 仪表的 **canvas mirror**，信息等价但**不是逐像素一致（not pixel-identical）**。
+- 120 fps 只改善节奏（**cadence**），**无法恢复超过 25 Hz 录制器 12.5 Hz 极限的运动**。
