@@ -5,7 +5,7 @@
  * the offline renderer wants decoded mono Float32 frames. This module is the only place that knows the pak's
  * byte layout, so `audio-offline.ts` stays byte-agnostic and its tests can pass synthetic samples.
  *
- * `createOfflineSampleBank` decodes every manifest entry eagerly (the lane is ~20 small samples) and returns the
+ * `createOfflineSampleBank` decodes every manifest entry eagerly and returns the
  * `OfflineSampleBank` the renderer consumes. A malformed sample THROWS rather than being skipped: a partial bank
  * would silently drop a layer, and "no audio" must never look like "correct audio".
  */
@@ -38,8 +38,7 @@ export function coreManifestFromPak(manifest: PakAudioManifest): AudioBankManife
 
 /**
  * Decode every sample the pak's audio manifest lists into an `OfflineSampleBank`. Engine samples loop; sets and
- * one-shots do not. The manifest's `soundIndex` is ignored because each baked set ships a single representative
- * member (the baker records the original set size in `setSoundCount` for provenance only).
+ * one-shots do not. Every collision file is a separate original bank member, selected by its real sound ID.
  */
 export function createOfflineSampleBank(resources: PakResources): OfflineSampleBank {
   const manifest = resources.getAudioManifest();

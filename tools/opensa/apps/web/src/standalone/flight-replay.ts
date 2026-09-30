@@ -12,14 +12,14 @@ import type { AircraftHandle } from '../flight/aircraft';
 import type { FlightTrack } from '../flight/csv';
 
 import { loadAircraft } from '../flight/aircraft';
-import { AnalysisHudCanvas } from '../flight/analysis-hud-canvas';
-import { sampleAnalysis } from '../flight/analysis-metrics';
-import { FlightAnalysisOverlay } from '../flight/analysis-overlay';
 import { type WebAudioListenerPose, WebAudioReplay } from '../flight/audio-engine-web';
 import { renderOfflineWav } from '../flight/audio-offline';
 import { coreManifestFromPak, createOfflineSampleBank } from '../flight/audio-sample-bank';
+import { normalizeAudioMixTuning } from '../flight/audio-tuning';
 import { type CameraMode, type CameraStateOut, ReplayCamera } from '../flight/camera';
 import { ChaseCameraTimeline, type ChaseMode, isChaseMode } from '../flight/camera-track';
+import { cockpitInstrumentState, type CockpitInstrumentState } from '../flight/cockpit-instrument-data';
+import { CockpitLookCamera, type CockpitLookPose } from '../flight/cockpit-look';
 import { NODE_NAMES, parseFlightCsv, sampleTrack } from '../flight/csv';
 import { EndpointMarkers } from '../flight/endpoint-markers';
 import { type MarkerProjection, pickEndpointMarker, projectMarkerEndpoints } from '../flight/endpoint-picking';
@@ -28,7 +28,9 @@ import { gtaDirToEngine, rotateVec, type Vec3 } from '../flight/math';
 import { PakResources } from '../flight/pak-resources';
 import { PakWorld } from '../flight/pak-world';
 import { ReplayAudio } from '../flight/replay-audio';
+import { ReplayNavigation } from '../flight/replay-navigation';
 import { installWater } from '../flight/water';
+import { AudioMixer } from './audio-mixer';
 
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const escapeHtml = (value: string): string =>
@@ -97,6 +99,8 @@ interface FlightDebug {
   flyActive: boolean;
   flyProgress: number;
   gpu: string;
+  instrumentState: CockpitInstrumentState | null;
+  instrumentUploads: number;
   markerActiveTrackId: number;
   markerCapacity: number;
   /** 3D endpoint markers — counts only, so a test asserts completeness from the probe, never a screenshot. */
@@ -113,12 +117,14 @@ interface FlightDebug {
   maxFrameMs: number;
   maxUpStepDeg: number;
   parts: string;
+  pedalMotion: NonNullable<AircraftHandle['pedals']>['state'];
   phase: string;
   renders: number;
   seatSource: string;
   seeks: number;
   slowFrames: number;
   status: string;
+  stickMotion: AircraftHandle['stickMotion'];
   worldReady: boolean;
 }
 const debug: FlightDebug = {
@@ -161,6 +167,8 @@ const debug: FlightDebug = {
   flyActive: false,
   flyProgress: 1,
   gpu: '',
+  instrumentState: null,
+  instrumentUploads: 0,
   markerActiveTrackId: -1,
   markerCapacity: 0,
   markerCount: 0,
@@ -173,12 +181,14 @@ const debug: FlightDebug = {
   maxFrameMs: 0,
   maxUpStepDeg: 0,
   parts: '',
+  pedalMotion: null,
   phase: 'boot',
   renders: 0,
   seatSource: 'none',
   seeks: 0,
   slowFrames: 0,
   status: '',
+  stickMotion: null,
   worldReady: false,
 };
 /** Camera-up from the previous frame, for the jitter metric (`maxUpStepDeg`). */
@@ -248,9 +258,9 @@ function pickMarkerAt(clientX: number, clientY: number): void {
   }
   // Marker slots and endpoint-list slots are both import order, but a track with no usable endpoint exists in
   // one and not the other — resolve through the endpoint list instead of assuming the slots are equal.
-  const slot = analysis.endpoints.getEndpoints().findIndex((endpoint) => endpoint.trackIndex === picked.trackIndex);
+  const slot = navigation.endpoints.getEndpoints().findIndex((endpoint) => endpoint.trackIndex === picked.trackIndex);
   if (slot >= 0) {
-    analysis.focusEndpoint(slot);
+    navigation.focusEndpoint(slot);
   }
 }
 
@@ -329,17 +339,19 @@ let audioSourceMode: AudioSourceMode = 'synth';
 let webAudio: null | WebAudioReplay = null;
 let audioSourceSelect: HTMLSelectElement | null = null;
 let audioStatusEl: HTMLSpanElement | null = null;
+let audioMixer: AudioMixer | null = null;
 const audioObjectUrls: string[] = [];
-const analysis = new FlightAnalysisOverlay({
+const navigation = new ReplayNavigation({
   onEndpointFocus: (endpoint) => {
+    cockpitLook = null;
     active = endpoint.trackIndex;
     debug.activeTrackIndex = active;
     elapsed = endpoint.time;
     playing = false;
     playButton.textContent = '▶';
     replayAudio.select(endpoint.track, elapsed);
-    analysis.setTrack(endpoint.track);
-    analysis.endpoints.setActive(active);
+    navigation.setTrack(endpoint.track);
+    navigation.endpoints.setActive(active);
     endpointMarkers?.setActive(active);
     renderTrackList();
     void ensureAircraft();
@@ -360,8 +372,11 @@ const CAMERA_LABELS: Record<CameraMode, string> = {
   'first-person': '原版第一人称',
 };
 let cameraMode: CameraMode = 'chase-mid';
+let cockpitLook: CockpitLookCamera | null = null;
 interface ExportView {
-  mode: 'free' | CameraMode;
+  audioTuning?: unknown;
+  cockpitLookPose?: CockpitLookPose;
+  mode: 'cockpit-look' | 'free' | CameraMode;
   pitch?: number;
   position?: Vec3;
   yaw?: number;
@@ -370,9 +385,10 @@ let exportView: ExportView | null = null;
 if (VIDEO_EXPORT && params.has('exportView')) {
   try {
     const view = JSON.parse(params.get('exportView') ?? '') as ExportView;
-    if (view && (view.mode === 'free' || CAMERA_MODES.includes(view.mode))) {
+    if (view && (view.mode === 'free' || view.mode === 'cockpit-look' || CAMERA_MODES.includes(view.mode))) {
       exportView = view;
-      if (view.mode !== 'free') cameraMode = view.mode;
+      if (view.mode === 'cockpit-look') cameraMode = 'cockpit';
+      else if (view.mode !== 'free') cameraMode = view.mode;
     }
   } catch {
     /* malformed export view falls back to chase camera */
@@ -382,8 +398,8 @@ if (VIDEO_EXPORT && params.has('exportView')) {
 // ---------------------------------------------------------------------------------------------------
 // Video-export compositor (todo 23): one RAW RGBA frame per encode frame, no screenshot and no rAF.
 //
-// The engine renders into its own canvas; after the queue flush this composites the canvas HUD mirror (todo
-// 22) over it, reads the pixels back deterministically and returns the tightly-packed bytes to the exporter.
+// The engine renders into its owned surface; after the queue flush this reads the finished frame
+// deterministically and returns the tightly-packed bytes to the exporter.
 // Frame time is injected, so a frame is a pure function of its timestamp — nothing here waits for presentation,
 // but the capture IS synchronized to the engine submit and to the composite raster (todo 33, the black-frame
 // fix): the returned bytes are always a completed render.
@@ -404,8 +420,6 @@ const EXPORT_BLACK_CHANNEL_MAX = 4;
 interface ExportCompositor {
   /** Readback is `bgra8unorm`-ordered when the presentation format is BGRA; swizzled to RGBA before use. */
   readonly bgra: boolean;
-  /** The HUD mirror (todo 22) blended over the engine readback — the only 2D canvas in the export path. */
-  readonly hud: AnalysisHudCanvas;
   /** Owned offscreen colour target the engine renders into (`Engine.renderTarget`), then read back. */
   readonly surface: GPUTexture;
 }
@@ -468,31 +482,6 @@ interface ExportEncodeSupport {
 }
 
 /**
- * Alpha-blend the HUD panel (a straight-alpha RGBA read of `hud.bounds`) over the engine readback. The HUD
- * canvas paints only inside `bounds`, so only that rect is read and composited.
- */
-function compositeHudOverPixels(
-  pixels: Uint8Array,
-  hud: Uint8ClampedArray,
-  bounds: { height: number; width: number; x: number; y: number },
-): void {
-  for (let row = 0; row < bounds.height; row += 1) {
-    let src = row * bounds.width * 4;
-    let dst = ((bounds.y + row) * EXPORT_FRAME_WIDTH + bounds.x) * 4;
-    for (let column = 0; column < bounds.width; column += 1, src += 4, dst += 4) {
-      const alpha = hud[src + 3];
-      if (alpha === 0) {
-        continue;
-      }
-      const inverse = 255 - alpha;
-      pixels[dst] = (hud[src] * alpha + pixels[dst] * inverse) / 255;
-      pixels[dst + 1] = (hud[src + 1] * alpha + pixels[dst + 1] * inverse) / 255;
-      pixels[dst + 2] = (hud[src + 2] * alpha + pixels[dst + 2] * inverse) / 255;
-    }
-  }
-}
-
-/**
  * Read the engine's owned export surface back as tightly-packed RGBA/BGRA bytes.
  *
  * `copyTextureToBuffer` + `mapAsync` is the deterministic readback: the engine already wrote the post pass into
@@ -538,7 +527,11 @@ async function renderExportAudio(): Promise<Uint8Array> {
     throw new Error('预烘焙地图没有音频清单（audio/manifest.json），无法合成导出音频');
   }
   const bank = createOfflineSampleBank(resources);
-  const result = renderOfflineWav(track, coreManifestFromPak(pakManifest), bank, { duration: track.duration });
+  const exportTuning = exportView?.audioTuning ? normalizeAudioMixTuning(exportView.audioTuning) : undefined;
+  const result = renderOfflineWav(track, coreManifestFromPak(pakManifest), bank, {
+    duration: track.duration,
+    tuning: exportTuning,
+  });
 
   return result.wav;
 }
@@ -555,7 +548,7 @@ async function renderExportFrame(seconds: number): Promise<Uint8Array> {
  * (`Engine.renderTarget`) instead of the canvas swapchain, so the post pass is a normal submit whose completion
  * `await queue.onSubmittedWorkDone()` guarantees before the readback. The pixels come from
  * `copyTextureToBuffer` + `mapAsync` — never a `drawImage` of a GPU canvas, which is what raced the post pass's
- * opaque-black `loadOp:'clear'` (a fully-black capture). The HUD is blended into those bytes on the CPU and the
+ * opaque-black `loadOp:'clear'` (a fully-black capture). The
  * `VideoFrame` is built FROM the bytes. A frame that is still uniformly black after one re-render is a hard
  * error, so the exporter falls back to the raw lane rather than emitting a black frame.
  */
@@ -584,8 +577,7 @@ async function renderExportPixels(seconds: number, attempt = 0): Promise<Uint8Ar
     swizzleBgraToRgba(pixels);
   }
   if (debug.error) throw new Error(debug.error);
-  // Gate on the ENGINE render, before the HUD is blended: the defect blacked out the whole frame, and a HUD on
-  // a black scene must still count as a black capture.
+  // A finished engine frame must contain scene pixels before it can be encoded.
   if (frameIsAllBlack(pixels)) {
     if (attempt === 0) {
       // Re-render once, after the queue flush above, before giving up.
@@ -593,15 +585,6 @@ async function renderExportPixels(seconds: number, attempt = 0): Promise<Uint8Ar
     }
     throw new Error('导出帧全黑：GPU 同步后仍未捕获到已完成渲染的帧');
   }
-  // HUD mirror (todo 22): the panel is drawn onto its own 1920x1080 canvas but paints only inside `bounds`, so
-  // only that rect is read and alpha-blended over the engine pixels.
-  const analysisData = analysis.getAnalysis();
-  const metrics = analysisData ? sampleAnalysis(analysisData, time) : null;
-  compositor.hud.render(metrics, { model: track.model, playing: false, trackName: track.name });
-  const bounds = compositor.hud.bounds;
-  const hudContext = compositor.hud.canvas.getContext('2d');
-  if (!hudContext) throw new Error('导出 HUD 无法创建 2D 上下文');
-  compositeHudOverPixels(pixels, hudContext.getImageData(bounds.x, bounds.y, bounds.width, bounds.height).data, bounds);
 
   return pixels;
 }
@@ -622,7 +605,6 @@ function setupExportCompositor(): void {
   });
   exportCompositor = {
     bgra: presentationFormat === 'bgra8unorm',
-    hud: new AnalysisHudCanvas({ height: EXPORT_FRAME_HEIGHT, width: EXPORT_FRAME_WIDTH }),
     surface,
   };
   engine.renderTarget = surface;
@@ -887,7 +869,9 @@ async function waitForEncodeQueue(limit: number): Promise<void> {
 
 let aircraft: AircraftHandle | null = null;
 let aircraftModel = -1;
-/** Part index of the cockpit/canopy inside the loaded aircraft, used as the first-person anchor. */
+/** Part index of the cockpit/canopy, used only when the pilot seat dummy is absent. */
+const COCKPIT_EYE_AFT = 0.2;
+const HYDRA_COCKPIT_EYE_DOWN = 0.07;
 let cockpitPart = -1;
 let seatLocal: null | Vec3 = null;
 let modelLength = 14;
@@ -937,7 +921,7 @@ async function addFiles(files: File[]): Promise<void> {
       replayAudio.attach(track, url);
     }
   }
-  analysis.setTracks(plays, active);
+  navigation.setTracks(plays, active);
   endpointMarkers?.setTracks(plays, active);
   if (plays.length) {
     renderTrackList();
@@ -1125,7 +1109,7 @@ async function loadLatest(): Promise<void> {
         : '');
     if (audioUrl && !VIDEO_EXPORT) replayAudio.attach(track, audioUrl);
     plays.push(track);
-    analysis.setTracks(plays, active);
+    navigation.setTracks(plays, active);
     endpointMarkers?.setTracks(plays, active);
     renderTrackList();
     await ensureAircraft();
@@ -1190,13 +1174,17 @@ function renderTrackList(): void {
 }
 
 function selectTrack(index: number): void {
+  if (cockpitLook) navigation.setFreeMode(false);
+  cockpitLook = null;
   active = Math.max(0, Math.min(plays.length - 1, index));
   debug.activeTrackIndex = active;
   elapsed = 0;
   replayAudio.select(plays[active], elapsed);
+  audioMixer?.setModel(plays[active].model);
+  if (audioMixer) webAudio?.setTuning(audioMixer.get(plays[active].model));
   webAudio?.attachTrack(plays[active]);
-  analysis.setTrack(plays[active]);
-  analysis.endpoints.setActive(active);
+  navigation.setTrack(plays[active]);
+  navigation.endpoints.setActive(active);
   endpointMarkers?.setActive(active);
   snapCamera = true;
   chaseTransition = null;
@@ -1215,6 +1203,10 @@ function setAudioSourceMode(mode: AudioSourceMode): void {
 function setStatus(text: string): void {
   status.textContent = text;
   debug.status = text;
+}
+
+function surfaceDamageLabel(state: null | number): string {
+  return state === null ? '未知' : (['完好', '受损', '脱落', '其他原始状态（3）'][state] ?? '未知');
 }
 
 /** Drive both audio paths from the SAME replay clock; the synthesis listener is the replay camera. */
@@ -1257,7 +1249,7 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   const pose = sampleTrack(track, elapsed);
   applyEnvironment(pose.row);
   const posEngine: Vec3 = [pose.pos[0], pose.pos[2], -pose.pos[1]];
-  updateSceneAircraft(pose);
+  updateSceneAircraft(track, pose);
   // Camera axes come from the SLERP-ed orientation, NOT the raw sampled row vectors: the raw row is only
   // updated at 25 Hz, so during a barrel roll its up/forward jumped every sample and the cockpit shook
   // relative to the (smoothly interpolated) airframe.
@@ -1275,14 +1267,8 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   }
   lastCameraUp = up;
   drawAxes(posEngine, forward, right, up);
-  // Flatten BEFORE the camera: the cockpit anchor is a part world matrix, only valid for this frame.
+  // Flatten BEFORE the camera: the fallback cockpit part matrix is only valid for this frame.
   engine.updateVehicles();
-  let cockpitPosition: undefined | Vec3;
-  if (aircraft && cockpitPart >= 0) {
-    const matrices = aircraft.instance.entity.matrices;
-    const offset = cockpitPart * 16;
-    cockpitPosition = [matrices[offset + 12], matrices[offset + 13], matrices[offset + 14]];
-  }
   const firstPersonPosition: undefined | Vec3 = seatLocal
     ? [
         posEngine[0] + right[0] * seatLocal[0] + forward[0] * seatLocal[1] + up[0] * seatLocal[2],
@@ -1290,11 +1276,50 @@ function update(track: FlightTrack, forceSnap: boolean): void {
         posEngine[2] + right[2] * seatLocal[0] + forward[2] * seatLocal[1] + up[2] * seatLocal[2],
       ]
     : undefined;
+  // The cockpit camera uses the pilot's seat rather than the canopy hinge. Sit a little aft at
+  // a slightly lower Hydra eye height so the windshield rail frames the pilot's view.
+  // Keep the old part anchor as a fallback for aircraft without a ped_frontseat dummy.
+  let cockpitPosition: undefined | Vec3 = firstPersonPosition
+    ? [
+        firstPersonPosition[0] - forward[0] * COCKPIT_EYE_AFT,
+        firstPersonPosition[1] - forward[1] * COCKPIT_EYE_AFT,
+        firstPersonPosition[2] - forward[2] * COCKPIT_EYE_AFT,
+      ]
+    : undefined;
+  if (!cockpitPosition && aircraft && cockpitPart >= 0) {
+    const matrices = aircraft.instance.entity.matrices;
+    const offset = cockpitPart * 16;
+    cockpitPosition = [
+      matrices[offset + 12] + forward[0] * 0.6 + up[0] * 0.3,
+      matrices[offset + 13] + forward[1] * 0.6 + up[1] * 0.3,
+      matrices[offset + 14] + forward[2] * 0.6 + up[2] * 0.3,
+    ];
+  }
+  if (cockpitPosition && pose.row.model === 520) {
+    cockpitPosition = cockpitPosition.map((value, axis) => value - up[axis] * HYDRA_COCKPIT_EYE_DOWN) as Vec3;
+  }
   const dt = Math.min(0.1, Math.max(0.0001, (performance.now() - lastFrame) / 1000));
   const velocity = gtaDirToEngine(pose.velocity);
   const aspect = canvas.width / Math.max(1, canvas.height);
   const gameAspect = window.screen.width / Math.max(1, window.screen.height);
-  const freeCameraState = analysis.cameraState(aspect);
+  const freeCameraState =
+    cockpitLook && navigation.isFreeMode() && cockpitPosition
+      ? cockpitLook.state({
+          aspect,
+          canopy: aircraft?.canopyPlanes.length
+            ? {
+                anchor: [right, forward, up].map((axis) =>
+                  axis.reduce((sum, value, index) => sum + value * (cockpitPosition[index] - posEngine[index]), 0),
+                ) as Vec3,
+                planes: aircraft.canopyPlanes,
+              }
+            : undefined,
+          eye: cockpitPosition,
+          forward,
+          right,
+          up,
+        })
+      : navigation.cameraState(aspect);
   const cameraState = updateSceneCamera(
     track,
     forceSnap,
@@ -1310,7 +1335,7 @@ function update(track: FlightTrack, forceSnap: boolean): void {
     posEngine,
     pose,
   );
-  debug.cameraMode = freeCameraState ? 'free' : cameraMode;
+  debug.cameraMode = cockpitLook ? 'cockpit-look' : freeCameraState ? 'free' : cameraMode;
   const view = [
     cameraState.target[0] - cameraState.eye[0],
     cameraState.target[1] - cameraState.eye[1],
@@ -1323,8 +1348,8 @@ function update(track: FlightTrack, forceSnap: boolean): void {
   snapCamera = false;
   lastRenderedCameraState = cameraState;
   debug.cameraState = cameraState;
-  debug.flyActive = analysis.camera.flying();
-  debug.flyProgress = analysis.camera.flyProgress();
+  debug.flyActive = navigation.camera.flying();
+  debug.flyProgress = navigation.camera.flyProgress();
   debug.markerScreenPositions = projectMarkers(cameraState);
   updateSceneRender(track, pose, cameraState);
   updateScenePanels(track, pose, freeCameraState, posEngine);
@@ -1367,6 +1392,11 @@ function updateReadout(track: FlightTrack, pose: ReturnType<typeof sampleTrack>)
     ['航向', `${row.heading.toFixed(2)}°`],
     ['速度', `${speed.toFixed(2)} 单位/秒`],
     ['血量', row.health.toFixed(1)],
+    ['舵面损伤来源', row.surfaceDamage.source === 'game_memory' ? '游戏内存（已校验布局）' : '未知／未采集'],
+    ...['方向舵', '左升降舵', '右升降舵', '左副翼', '右副翼'].map((label, index): [string, string] => [
+      label,
+      surfaceDamageLabel(row.surfaceDamage.states[index]),
+    ]),
     ['颜色 ID', colors],
     ['姿态', track.axesNote],
     ['起落架原始值', gear],
@@ -1378,21 +1408,32 @@ function updateReadout(track: FlightTrack, pose: ReturnType<typeof sampleTrack>)
   readout.innerHTML = items
     .map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`)
     .join('');
-  const keyItems: [string, number][] = [
+  const keyItems: [string, null | number][] = [
     ['Q', row.keyQ],
-    ['A', row.keyA],
+    ['W', row.keyW],
     ['E', row.keyE],
+    ['A', row.keyA],
+    ['S', row.keyS],
     ['D', row.keyD],
     ['↑', row.keyUp],
     ['↓', row.keyDown],
+    ['←', row.keyLeft],
+    ['→', row.keyRight],
   ];
-  keys.innerHTML = keyItems.map(([label, value]) => `<div class="key ${value ? 'on' : ''}">${label}</div>`).join('');
+  keys.innerHTML = keyItems
+    .map(([label, value]) => {
+      const state = track.version >= 11 && !row.keyboardStateValid ? null : value;
+
+      return `<div class="key ${state === 1 ? 'on' : ''}" title="${state === null ? '未录制或失去焦点' : '录制的按键状态'}">${label}${state === null ? ' ·?' : ''}</div>`;
+    })
+    .join('');
   const note = `${track.name} · 采样 ${track.rows.length} · ${source}`;
   setStatus(note);
   segmentChip.textContent = track.name;
 }
 
-function updateSceneAircraft(pose: ReturnType<typeof sampleTrack>): void {
+let instrumentTrack: FlightTrack | null = null;
+function updateSceneAircraft(track: FlightTrack, pose: ReturnType<typeof sampleTrack>): void {
   if (aircraft) {
     aircraft.setVisible(cameraMode !== 'first-person');
     aircraft.applyPose(pose.pos, pose.orientation);
@@ -1403,7 +1444,13 @@ function updateSceneAircraft(pose: ReturnType<typeof sampleTrack>): void {
       yaw: ((pose.row.keyE || 0) - (pose.row.keyQ || 0)) * 0.28,
     };
     aircraft.applyNodes(pose.nodes, pose.row.gear, keysInferred);
+    debug.stickMotion = aircraft.stickMotion;
+    debug.pedalMotion = aircraft.pedals?.state ?? null;
     aircraft.applyProps({ nodes: pose.row.propNodes, nozzleRotation: pose.row.nozzleRotation });
+    aircraft.instruments?.update(cockpitInstrumentState(track, pose, elapsed), instrumentTrack !== track);
+    instrumentTrack = track;
+    debug.instrumentState = aircraft.instruments?.state ?? null;
+    debug.instrumentUploads = aircraft.instruments?.uploads ?? 0;
   }
 }
 
@@ -1467,7 +1514,6 @@ function updateScenePanels(
   posEngine: Vec3,
 ): void {
   updateReadout(track, pose);
-  analysis.update(elapsed, { model: track.model, playing, trackName: track.name });
   syncAudio(track, pose);
   clock.textContent = `${fmt(elapsed)} / ${fmt(track.duration)}`;
   // The scrubber's range must track the ACTIVE recording, or dragging it clamps every value to 0.
@@ -1475,10 +1521,10 @@ function updateScenePanels(
     scrub.max = String(track.duration);
   }
   scrub.value = String(elapsed);
-  modeChip.textContent = `${freeCameraState ? '自由视角' : CAMERA_LABELS[cameraMode]}（${playing ? '播放中' : '暂停'}）`;
+  modeChip.textContent = `${cockpitLook ? '机舱观察' : freeCameraState ? '自由视角' : CAMERA_LABELS[cameraMode]}（${playing ? '播放中' : '暂停'}）`;
   el('follow').textContent = `视角：${CAMERA_LABELS[cameraMode]}`;
   if (pakWorld?.isReady) {
-    const streamPos = freeCameraState ? analysis.camera.position : posEngine;
+    const streamPos = freeCameraState ? navigation.camera.position : posEngine;
     pakWorld.update(streamPos[0], -streamPos[2], pakWorld.renderRadius.hd, pakWorld.renderRadius.lod);
     const busy = pakWorld.loadedCells === 0 && pakWorld.isLoading;
     mapLoading.hidden = !busy;
@@ -1534,9 +1580,8 @@ interface FlightVideoExportApi {
 }
 
 function bindUi(): void {
-  analysis.mountHud(el('analysis-hud'));
-  analysis.mountEndpointList(el('endpoint-list'));
-  analysis.attachCameraInput(canvas);
+  navigation.mountEndpointList(el('endpoint-list'));
+  navigation.attachCameraInput(canvas);
   // 3D marker picking: debug lines are not pickable, so a click is projected against the live camera.
   let markerPointerDown: null | { x: number; y: number } = null;
   canvas.addEventListener('pointerdown', (event) => {
@@ -1552,8 +1597,6 @@ function bindUi(): void {
   });
   if (VIDEO_EXPORT) {
     document.body.classList.add('video-export-mode');
-    analysis.setHudVisible(true);
-    analysis.setHudCollapsed(false);
     // The endpoint list carries data-capture="exclude", so video-export-mode hides it with the other controls.
   }
   if (MAP_PAK_BASE.startsWith('/route-pak/')) {
@@ -1594,39 +1637,80 @@ function bindUi(): void {
   };
   audioSourceSelect = audioSource;
   audioButton.after(audioSource);
+  audioMixer = new AudioMixer(el('audioMixer'), (model, tuning) => {
+    if (activeTrack()?.model === model) webAudio?.setTuning(tuning);
+  });
+  const mixerButton = document.createElement('button');
+  mixerButton.id = 'audioMixerToggle';
+  mixerButton.type = 'button';
+  mixerButton.textContent = '调音台';
+  mixerButton.title = '调整当前载具的合成音频声层、音高和中频厚度';
+  mixerButton.onclick = () => audioMixer?.toggle();
+  audioSource.after(mixerButton);
   const audioStatus = document.createElement('span');
   audioStatus.id = 'audioStatus';
   audioStatus.className = 'small';
   audioStatus.textContent = '合成音频：准备中…';
   audioStatusEl = audioStatus;
-  audioSource.after(audioStatus);
+  mixerButton.after(audioStatus);
   const freeButton = document.createElement('button');
   freeButton.type = 'button';
   freeButton.id = 'freeView';
   freeButton.textContent = '自由视角';
-  freeButton.title = 'WASD 移动，QE 升降，拖动画面旋转，滚轮前后移动；Shift 加速';
+  freeButton.title = 'WASD 水平移动，空格上升，Shift 下降，Ctrl 切换极慢/慢/中/快；拖动旋转，滚轮按当前档位前后移动';
   freeButton.onclick = () => {
-    if (analysis.isFreeMode()) {
-      analysis.setFreeMode(false);
+    if (cockpitLook) {
+      cockpitLook = null;
+      if (lastRenderedCameraState) navigation.camera.lookAt(lastRenderedCameraState.target);
+      freeButton.textContent = '退出自由视角';
+      frameOnce();
+
+      return;
+    }
+    if (navigation.isFreeMode()) {
+      navigation.setFreeMode(false);
       freeButton.textContent = '自由视角';
       camera.reset();
       snapCamera = true;
     } else {
       if (lastRenderedCameraState) {
-        analysis.camera.setPose({ position: lastRenderedCameraState.eye });
-        analysis.camera.lookAt(lastRenderedCameraState.target);
-        analysis.camera.focusDistance = Math.hypot(
+        navigation.camera.setPose({ position: lastRenderedCameraState.eye });
+        navigation.camera.lookAt(lastRenderedCameraState.target);
+        navigation.camera.focusDistance = Math.hypot(
           lastRenderedCameraState.target[0] - lastRenderedCameraState.eye[0],
           lastRenderedCameraState.target[1] - lastRenderedCameraState.eye[1],
           lastRenderedCameraState.target[2] - lastRenderedCameraState.eye[2],
         );
       }
-      analysis.setFreeMode(true);
+      navigation.setFreeMode(true);
       freeButton.textContent = '退出自由视角';
     }
     frameOnce();
   };
   el('follow').insertAdjacentElement('afterend', freeButton);
+  const cockpitLookButton = document.createElement('button');
+  cockpitLookButton.type = 'button';
+  cockpitLookButton.id = 'cockpitLook';
+  cockpitLookButton.textContent = '机舱观察';
+  cockpitLookButton.title =
+    '从驾驶员位置观察机舱；回头时自动轻微前探。拖动旋转，WASD/空格/Shift 小幅微调，Ctrl 切换速度';
+  cockpitLookButton.onclick = () => {
+    if (cockpitLook) {
+      cockpitLook = null;
+      navigation.setFreeMode(false);
+      freeButton.textContent = '自由视角';
+    } else {
+      cameraMode = 'cockpit';
+      camera.mode = cameraMode;
+      cockpitLook = new CockpitLookCamera(navigation.camera);
+      navigation.setFreeMode(true);
+      freeButton.textContent = '切到自由视角';
+    }
+    camera.reset();
+    snapCamera = true;
+    frameOnce();
+  };
+  freeButton.after(cockpitLookButton);
   const rawButton = document.createElement('button');
   rawButton.type = 'button';
   rawButton.textContent = '原始数据';
@@ -1634,7 +1718,7 @@ function bindUi(): void {
     const panel = el<HTMLElement>('right');
     panel.hidden = !panel.hidden;
   };
-  freeButton.after(rawButton);
+  cockpitLookButton.after(rawButton);
   const videoButton = document.createElement('button');
   videoButton.type = 'button';
   videoButton.textContent = '导出 MP4';
@@ -1735,7 +1819,8 @@ function bindUi(): void {
   };
   el('follow').onclick = cycleCamera;
   el('resetView').onclick = () => {
-    analysis.setFreeMode(false);
+    cockpitLook = null;
+    navigation.setFreeMode(false);
     freeButton.textContent = '自由视角';
     cameraMode = 'chase-mid';
     camera.mode = cameraMode;
@@ -1924,7 +2009,8 @@ async function boot(): Promise<void> {
 }
 
 function cycleCamera(): void {
-  analysis.setFreeMode(false);
+  cockpitLook = null;
+  navigation.setFreeMode(false);
   const freeButton = document.getElementById('freeView');
   if (freeButton) freeButton.textContent = '自由视角';
   const previous = cameraMode;
@@ -1952,9 +2038,17 @@ async function exportActiveVideo(
   let jobId = '';
   try {
     const filename = trackFilenames.get(track);
-    const view = analysis.isFreeMode()
-      ? { mode: 'free', pitch: analysis.camera.pitch, position: analysis.camera.position, yaw: analysis.camera.yaw }
-      : { mode: cameraMode };
+    const view = cockpitLook
+      ? { audioTuning: audioMixer?.get(track.model), cockpitLookPose: cockpitLook.pose, mode: 'cockpit-look' }
+      : navigation.isFreeMode()
+        ? {
+            audioTuning: audioMixer?.get(track.model),
+            mode: 'free',
+            pitch: navigation.camera.pitch,
+            position: navigation.camera.position,
+            yaw: navigation.camera.yaw,
+          }
+        : { audioTuning: audioMixer?.get(track.model), mode: cameraMode };
     // The user wants the SYNTHESIZED engine audio in the export, never the recorded game WAV: the request asks
     // for `audioMode: 'synth'` and uploads no recorded track. The exporter fails loudly if synthesis is
     // unavailable rather than silently muxing the recording.
@@ -2055,7 +2149,14 @@ function loop(): void {
       playButton.textContent = '▶';
     }
   }
-  analysis.updateInput(dt);
+  navigation.updateInput(dt);
+  if (navigation.isFreeMode()) {
+    const freeButton = el<HTMLButtonElement>('freeView');
+    freeButton.textContent = cockpitLook ? '切到自由视角' : `退出自由视角（${navigation.input.speedLabel}）`;
+  }
+  el<HTMLButtonElement>('cockpitLook').textContent = cockpitLook
+    ? `退出机舱观察（${navigation.input.speedLabel}）`
+    : '机舱观察';
   update(track, false);
   lastFrame = now;
 }
@@ -2137,8 +2238,14 @@ if (VIDEO_EXPORT) {
         exportView.yaw !== undefined &&
         exportView.pitch !== undefined
       ) {
-        analysis.camera.setPose({ pitch: exportView.pitch, position: exportView.position, yaw: exportView.yaw });
-        analysis.setFreeMode(true);
+        navigation.camera.setPose({ pitch: exportView.pitch, position: exportView.position, yaw: exportView.yaw });
+        navigation.setFreeMode(true);
+      }
+      if (exportView?.mode === 'cockpit-look' && exportView.cockpitLookPose) {
+        cameraMode = 'cockpit';
+        camera.mode = cameraMode;
+        cockpitLook = new CockpitLookCamera(navigation.camera, exportView.cockpitLookPose);
+        navigation.setFreeMode(true);
       }
       const deadline = performance.now() + 120_000;
       while (pakWorld.loadedCells === 0 && pakWorld.isLoading && performance.now() < deadline) await nextFrame();

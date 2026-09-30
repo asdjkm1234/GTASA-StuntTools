@@ -246,6 +246,8 @@ describe("video export HTTP contract", () => {
       assert.equal((await startExport({ csv, fps: 61 })).status, 400);
       assert.equal((await startExport({ csv, fps: "60" })).status, 400);
       assert.equal((await startExport({ csv, audioMode: "recorded" })).status, 400);
+      assert.equal((await startExport({ csv, view: { mode: "cockpit-look",
+        cockpitLookPose: { yaw: 0, pitch: 0, lateral: 2, longitudinal: 0, height: 0 } } })).status, 400);
       assert.equal(await exporter.jobs.size, 0);
     });
 
@@ -339,7 +341,8 @@ describe("video export HTTP contract", () => {
       const closedBefore = closedRenderers;
       await fs.writeFile(path.join(recordingsRoot, "flight_test.wav"), makeWav(DURATION));
 
-      const start = await startExport({ csv, filename: "flight_test.csv" });
+      const start = await startExport({ csv, filename: "flight_test.csv",
+        view: { mode: "first-person", audioTuning: { front: 0.35, presenceHighHz: 650 } } });
       assert.equal(start.status, 202);
       const { id } = await start.json();
       const job = await waitForJob(id);
@@ -362,6 +365,8 @@ describe("video export HTTP contract", () => {
       assert.ok(job.encoderArgs.includes("rawvideo"));
       assert.ok(!job.encoderArgs.some((argument) => /png/i.test(argument)));
       assert.equal(lastRendererOptions.visible, false);
+      const exportedView = JSON.parse(new URL(lastRendererOptions.sourceUrl).searchParams.get("exportView"));
+      assert.deepEqual(exportedView.audioTuning, { front: 0.35, presenceHighHz: 650 });
       assert.equal(job.compositor.backend, "mock-compositor");
       console.log(`[t23] raw-frame pipe: input=${job.frameStream.inputFormat}/${job.frameStream.pixelFormat} ` +
         `frames=${job.frameStream.frames} bytes=${job.frameStream.bytes} pngSignatureSeen=${job.frameStream.pngSignatureSeen} ` +

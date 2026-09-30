@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cstdint>
 #include <cwchar>
+#include "PlaneDamage.h"
 
 // Temporarily disabled for V1.1. Set to 1 to resume recording the original camera trace.
 #define FLIGHT_RECORDER_CAMERA_DEBUG 0
@@ -140,6 +141,7 @@ struct Sample {
     int color_primary, color_secondary, color_tertiary, color_quaternary;
     float landing_gear_status;
     int q, a, e, d, up, down;
+    int w, keyS, left, right, keyboardStateValid;
     int game_hour, game_minute, game_second;
     int weather_new, weather_old, weather_forced;
     unsigned nodeStatus;         // bit i set => node i frame readable
@@ -153,6 +155,7 @@ struct Sample {
     unsigned propNodeStatus;
     float propNodeQuat[kPropNodeCount][4];
     int smokeActive;
+    plane_damage::Snapshot surfaceDamage;
 #if FLIGHT_RECORDER_CAMERA_DEBUG
     CameraDebug camera;
 #endif
@@ -207,7 +210,40 @@ bool readAt(const void* base, size_t offset, T& out) {
 }
 
 bool keyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
+template <typename Down>
+void captureKeyboard(Sample& s, bool foreground, Down down) {
+    s.keyboardStateValid = foreground ? 1 : 0;
+    s.q = s.a = s.e = s.d = s.up = s.down = 0;
+    s.w = s.keyS = s.left = s.right = -1;
+    if (!foreground) return;
+    s.q = down('Q'); s.w = down('W'); s.e = down('E');
+    s.a = down('A'); s.keyS = down('S'); s.d = down('D');
+    s.up = down(VK_UP); s.down = down(VK_DOWN); s.left = down(VK_LEFT); s.right = down(VK_RIGHT);
+}
+bool gameHasKeyboardFocus() {
+    DWORD process = 0;
+    GetWindowThreadProcessId(GetForegroundWindow(), &process);
+    return process == GetCurrentProcessId();
+}
 bool isTrackedModel(int model) { return model == 476 || model == 520; } // Rustler / Hydra
+
+bool surfaceDamageLayoutVerified() {
+    return plane_damage::verifiedLayout([](uintptr_t address, const unsigned char* code, size_t size) {
+        const auto* actual = reinterpret_cast<const void*>(address);
+        return readable(actual, size) && std::memcmp(actual, code, size) == 0;
+    });
+}
+
+void captureSurfaceDamage(Sample& s, bool layoutVerified) {
+    s.surfaceDamage = {};
+    s.surfaceDamage.layoutVerified = layoutVerified;
+    if (!layoutVerified || !isTrackedModel(s.model)) return;
+    uint32_t panels = 0;
+    if (!readAt(s.vehicle, plane_damage::kPanelsOffset, panels)) return;
+    s.surfaceDamage.raw = panels;
+    s.surfaceDamage.valid = plane_damage::kAllSurfaces;
+    for (int i = 0; i < kSurfaceCount; ++i) s.surfaceDamage.states[i] = plane_damage::decode(panels, i);
+}
 
 void timestamp(char* out, size_t size) {
     SYSTEMTIME t{}; GetLocalTime(&t);
@@ -388,18 +424,14 @@ void startAudioCapture(const char* csvPath, long long sessionQpc) {
     debugLog("audio helper launched");
 }
 
-void startSession(const Sample& s, LONGLONG sessionQpc) {
-    CreateDirectoryA("flight_recordings", nullptr);
-    SYSTEMTIME t{}; GetLocalTime(&t);
-    char path[MAX_PATH];
-    _snprintf_s(path, sizeof(path), _TRUNCATE,
-        "flight_recordings\\flight_%04u%02u%02u_%02u%02u%02u_%03u_m%d_%03d.csv",
-        t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, t.wMilliseconds, s.model, ++gSequence);
-    gFile = std::fopen(path, "wb");
-    if (!gFile) return;
+void writeRecordingHeader(const Sample& s) {
     char now[32]; timestamp(now, sizeof(now));
-    std::fprintf(gFile, "# gtasa_flight_recorder,version=9,sample_hz=25,camera_debug=%d,center_gear_debug=1\n",
+    std::fprintf(gFile, "# gtasa_flight_recorder,version=11,sample_hz=25,camera_debug=%d,center_gear_debug=1\n",
         FLIGHT_RECORDER_CAMERA_DEBUG);
+    std::fprintf(gFile, "# keyboard_contract: Q/W/E/A/S/D/UP/DOWN/LEFT/RIGHT; Win32 GetAsyncKeyState high bit, sampled at 25 Hz only while game process owns foreground; keyboard_state_valid=0 means unknown, new keys=-1; physical default-key states, not remapped game actions\n");
+    std::fprintf(gFile, "# surface_damage_contract: frames=16/17/18/19/20; 2-bit aircraft states, 0=intact,1=damaged,2=detached,3=raw_other; -1=unknown; valid bits 0..4; source=game_memory only after code-signature validation\n");
+    std::fprintf(gFile, "# surface_damage_layout=%s; panels_offset=0x5A0+0x14; getter=0x6C2300; caller=0x6CB990\n",
+        s.surfaceDamage.layoutVerified ? "verified" : "unsupported");
     std::fprintf(gFile, "# node_columns=rudder,elevator_l,elevator_r,aileron_l,aileron_r,gear_l,gear_r\n");
     std::fprintf(gFile, "# center_gear_columns=misc_a,misc_b; local frame rotation and position; status bits 0,1\n");
     std::fprintf(gFile, "# surface_source: real=read from CPlane node frames, partial=some nodes, inferred=not available (keys only)\n");
@@ -415,7 +447,22 @@ void startSession(const Sample& s, LONGLONG sessionQpc) {
     std::fprintf(gFile, ",camera_valid,camera_matrix_valid,camera_active,camera_mode,camera_zoom,camera_zoom_smoothed,camera_alpha,camera_beta,camera_fov,camera_source_x,camera_source_y,camera_source_z,camera_front_x,camera_front_y,camera_front_z,camera_up_x,camera_up_y,camera_up_z,camera_matrix_x,camera_matrix_y,camera_matrix_z,camera_matrix_right_x,camera_matrix_right_y,camera_matrix_right_z,camera_matrix_forward_x,camera_matrix_forward_y,camera_matrix_forward_z,camera_matrix_up_x,camera_matrix_up_y,camera_matrix_up_z");
 #endif
     std::fprintf(gFile, ",center_gear_status,misc_a_qx,misc_a_qy,misc_a_qz,misc_a_qw,misc_a_x,misc_a_y,misc_a_z,misc_b_qx,misc_b_qy,misc_b_qz,misc_b_qw,misc_b_x,misc_b_y,misc_b_z");
-    std::fprintf(gFile, ",nozzle_rotation,nozzle_rotation_previous,prop_node_status,prop_12_qx,prop_12_qy,prop_12_qz,prop_12_qw,prop_13_qx,prop_13_qy,prop_13_qz,prop_13_qw,prop_14_qx,prop_14_qy,prop_14_qz,prop_14_qw,prop_15_qx,prop_15_qy,prop_15_qz,prop_15_qw,smoke_active,capture_elapsed_s,transmission_gear_inferred,transmission_gear_source,engine_load_inferred,engine_load_source\n");
+    std::fprintf(gFile, ",nozzle_rotation,nozzle_rotation_previous,prop_node_status,prop_12_qx,prop_12_qy,prop_12_qz,prop_12_qw,prop_13_qx,prop_13_qy,prop_13_qz,prop_13_qw,prop_14_qx,prop_14_qy,prop_14_qz,prop_14_qw,prop_15_qx,prop_15_qy,prop_15_qz,prop_15_qw,smoke_active,capture_elapsed_s,transmission_gear_inferred,transmission_gear_source,engine_load_inferred,engine_load_source");
+    std::fprintf(gFile, ",surface_damage_valid,surface_damage_source,plane_damage_raw,rudder_damage,elevator_l_damage,elevator_r_damage,aileron_l_damage,aileron_r_damage");
+    std::fprintf(gFile, ",key_w,key_s,key_left,key_right,keyboard_state_valid\n");
+}
+
+void startSession(const Sample& s, LONGLONG sessionQpc) {
+    CreateDirectoryA("flight_recordings", nullptr);
+    SYSTEMTIME t{}; GetLocalTime(&t);
+    char path[MAX_PATH];
+    _snprintf_s(path, sizeof(path), _TRUNCATE,
+        "flight_recordings\\flight_%04u%02u%02u_%02u%02u%02u_%03u_m%d_%03d.csv",
+        t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, t.wMilliseconds, s.model, ++gSequence);
+    gFile = std::fopen(path, "wb");
+    if (!gFile) return;
+    writeRecordingHeader(s);
+    debugLog(s.surfaceDamage.layoutVerified ? "surface damage layout verified" : "surface damage layout unsupported; recording unknown");
     gVehicle = s.vehicle;
     gSessionQpc = sessionQpc;
     LARGE_INTEGER frequency{};
@@ -491,7 +538,12 @@ void writeSample(const Sample& s, std::chrono::steady_clock::time_point sampleTi
     }
     std::fprintf(gFile, ",%d,%.6f,%d,inferred,%.6f,inferred", s.smokeActive, sessionSeconds(sampleQpc),
         s.transmissionGearInferred, s.engineLoadInferred);
-    std::fprintf(gFile, "\n");
+    const auto& damage = s.surfaceDamage;
+    std::fprintf(gFile, ",%u,%s", damage.valid, damage.valid ? "game_memory" : "unknown");
+    if (damage.valid) std::fprintf(gFile, ",%u", damage.raw);
+    else std::fprintf(gFile, ",-1");
+    for (int i = 0; i < kSurfaceCount; ++i) std::fprintf(gFile, ",%d", damage.states[i]);
+    std::fprintf(gFile, ",%d,%d,%d,%d,%d\n", s.w, s.keyS, s.left, s.right, s.keyboardStateValid);
     std::fflush(gFile);
     writeCollisionEvent(s, elapsedSeconds, std::sqrt(ax * ax + ay * ay + az * az), sampleQpc);
     gPrevious = s; gPreviousSampleTime = sampleTime; gHasPrevious = true;
@@ -591,9 +643,9 @@ bool captureSample(Sample& s) {
             (s.forward_x = matrix->forward.x), (s.forward_y = matrix->forward.y), (s.forward_z = matrix->forward.z),
             (s.heading = std::atan2(-matrix->forward.x, matrix->forward.y) * 57.2957795f),
             (s.vx = speed.x), (s.vy = speed.y), (s.vz = speed.z),
-            (s.q = keyDown('Q')), (s.a = keyDown('A')), (s.e = keyDown('E')), (s.d = keyDown('D')),
-            (s.up = keyDown(VK_UP)), (s.down = keyDown(VK_DOWN)), true);
+            captureKeyboard(s, gameHasKeyboardFocus(), keyDown), true);
     if (!captured) return false;
+    captureSurfaceDamage(s, surfaceDamageLayoutVerified());
     const float speedMagnitude = std::sqrt(s.vx * s.vx + s.vy * s.vy + s.vz * s.vz);
     const float driveInput = std::fmin(1.0f, std::fabs(s.throttle));
     if (speedMagnitude < 0.01f && driveInput < 0.05f) s.transmissionGearInferred = 0;

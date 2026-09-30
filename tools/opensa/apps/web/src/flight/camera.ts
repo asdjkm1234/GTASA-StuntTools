@@ -18,6 +18,7 @@ export interface CameraFrame {
   aspect: number;
   /** Aspect of the GTA display whose camera projection is being reproduced. */
   gameAspect?: number;
+  /** Driver eye in engine space; the aircraft remains visible in cockpit mode. */
   cockpitPosition?: Vec3;
   dt: number;
   forward: Vec3;
@@ -112,7 +113,7 @@ export class ReplayCamera {
 
     if (this.mode === 'cockpit') {
       const base = frame.cockpitPosition ?? position;
-      const desiredPosition: Vec3 = [
+      const desiredPosition: Vec3 = frame.cockpitPosition ?? [
         base[0] + forward[0] * COCKPIT_AHEAD + up[0] * COCKPIT_UP,
         base[1] + forward[1] * COCKPIT_AHEAD + up[1] * COCKPIT_UP,
         base[2] + forward[2] * COCKPIT_AHEAD + up[2] * COCKPIT_UP,
@@ -135,7 +136,7 @@ export class ReplayCamera {
         eye: [base[0] + this.pose.positionOffset[0], base[1] + this.pose.positionOffset[1], base[2] + this.pose.positionOffset[2]],
         far: 12000,
         fovYRad: (68 * Math.PI) / 180,
-        near: 0.5,
+        near: 0.03,
         target: [base[0] + this.pose.targetOffset[0], base[1] + this.pose.targetOffset[1], base[2] + this.pose.targetOffset[2]],
         up,
       };

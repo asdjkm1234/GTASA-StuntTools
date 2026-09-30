@@ -1,6 +1,6 @@
 /**
  * Acceptance test for the free-camera fly-to (`apps/web/src/flight/free-camera.ts` `flyTo`/`advance`) as it is
- * wired to marker selection (pick -> heatmap focus -> `FlightAnalysisOverlay.onEndpointSelected`).
+ * wired to marker selection (pick -> heatmap focus -> `ReplayNavigation.onEndpointSelected`).
  *
  * Success is asserted from NUMBERS, never from the screenshot: the `window.__flight` probe carries
  * `flyActive`/`flyProgress`, and the camera eye/target the last frame was drawn with. The test checks that a

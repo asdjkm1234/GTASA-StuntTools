@@ -4,9 +4,11 @@ Local **GTA:SA stunt-flight recorder + WebGPU replay**. Full detail in **[`HANDO
 file is the fast onboarding for a new AI session. Do not distribute game assets; OpenSA is AGPL-3.0.
 
 ## What it is
-- **Recorder**: standalone ASI `recorder/src/FlightRecorderASI.cpp` — records Hydra(520)/Rustler(476) to v8 CSV at
+- **Recorder**: standalone ASI `recorder/src/FlightRecorderASI.cpp` — records Hydra(520)/Rustler(476) to v11 CSV at
   25 Hz, with Hydra nozzle, smoke, explosion events and a same-name game-process WAV captured by
-  `GameAudioCapture.exe`. Older v4–v7 CSVs still load; camera debug capture remains disabled.
+  `GameAudioCapture.exe`, plus five measured surface-damage slots after runtime layout validation.
+  v11 adds W/S/Left/Right and keyboard focus validity; all ten default keys are sampled at 25 Hz.
+  Older v4–v10 CSVs still load (pre-v10 damage unknown, pre-v11 new keys unknown); camera debug capture remains disabled.
 - **Replay**: OpenSA WebGPU engine in the browser, streaming a **locally baked map pak** (Route A). The
   raw-install live-welding path was removed (HANDOFF §8) — a pak is required.
 - Everything runs on this machine. Baking reads the user's own install; replay reads the baked pak and CSV/WAV only.
@@ -34,7 +36,8 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 ## Architecture
 - App entry: `tools/opensa/apps/web/src/standalone/flight-replay.ts`
   + `apps/web/src/flight/`: `pak-world.ts` (stream the pak), `pak-resources.ts` (aircraft/data),
-  `camera.ts`, `csv.ts`, `aircraft.ts`, `math.ts`, `fx.ts`, `free-camera.ts`, `analysis-overlay.ts`,
+  `camera.ts`, `csv.ts`, `aircraft.ts`, `math.ts`, `fx.ts`, `free-camera.ts`, `replay-navigation.ts`,
+  `cockpit-instrument-data.ts`, `cockpit-instrument-mesh.ts`, `cockpit-instruments.ts`,
   `replay-audio.ts`. `map-source.ts` and `asset-store.ts` serve the baker.
 - Baker: `tools/opensa/scripts/bake-map.mts` → `map-pak/{index.json,cells,collision,textures,data,aircraft}`;
   `aircraft` contains only 520/476 plus their shared `vehicle.txd`; `fx` contains local effects. `replayAssets.version=2` is required;
@@ -66,3 +69,19 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 Route pak baking and its HUD button are implemented; see HANDOFF §14. Route pak has a shorter 1200-unit
 far horizon, and its size varies with the recording path.
+
+Hydra cockpit instruments are implemented (HANDOFF §46): stock-model guarded geometry, dedicated
+in-place RGBA atlas updates, green sight-glass heading, real v10 surface warning lamps. The floating
+analysis HUD is deleted. `THROTTLE *` uses default W/S keys at 0/50/100% in v11 (unknown without focus);
+older all-zero throttle tracks use a separately marked legacy control-input proxy.
+`GAME km/h` is positional game velocity, not aerodynamic IAS. Rustler cockpit placement remains pending.
+Gauge ranges (HANDOFF §48): speed 0–300 km/h with two capture-time damping stages (0.25 s each),
+altitude 0–1000 m with a stock 800 m reference mark. Out-of-range numbers remain visible; needles do not wrap.
+Display-only health/throttle transitions (HANDOFF §49) take 0.4/0.28 s, using capture time and cached
+causal easing. Raw health/throttle and damage warnings remain immediate; unknown throttle clears at once.
+Speed's filled green scale arc follows the same damped needle value for peripheral reading (HANDOFF §50).
+Hydra's translucent stick now pivots with recorded elevator/aileron travel (HANDOFF §51), with per-axis
+key fallback when nodes are missing. Motion is display-only, bounded to 18 degrees and deterministic
+for pause/scrub/export; stock geometry guards still skip incompatible mods and Rustler.
+Hydra also has procedural rudder pedals below the dashboard (HANDOFF §52): recorded native-Z rudder
+twist drives opposite 7 cm fore/aft travel, with Q/E fallback only when the node is missing.

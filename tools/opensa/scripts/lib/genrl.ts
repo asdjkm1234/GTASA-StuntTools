@@ -40,11 +40,19 @@ export interface GenrlEngineLayer {
 }
 
 /**
- * The role one baked engine layer plays in the synthesized engine. A jet turbine is a LAYERED sound (a
- * broadband turbine, a high-frequency whine and a far-field layer), not an accelerate/decelerate crossfade;
- * a propeller aircraft keeps the game's accelerator/decelerator pair.
+ * The role one baked engine layer plays in the synthesized engine. The Hydra player jet uses the GENRL
+ * HARRIER_FRONT/REAR, THRUST and JET_DIST sounds called by ProcessGenericJet in the local game executable.
+ * A player propeller aircraft uses front/rear loops from FASTPROP plus near/distant generic layers.
  */
-export type GenrlEngineRole = 'accelerate' | 'decelerate' | 'distance' | 'lift' | 'turbine' | 'whine';
+export type GenrlEngineRole =
+  | 'accelerate'
+  | 'decelerate'
+  | 'distance'
+  | 'front'
+  | 'near'
+  | 'prop-distance'
+  | 'rear'
+  | 'turbine';
 
 /** One engine loop's exact bank/slot/sound provenance. */
 export interface GenrlEngineSlot {
@@ -67,7 +75,7 @@ export interface GenrlEngineSlot {
  */
 export interface GenrlEngineSource {
   readonly kind: GenrlEngineKind;
-  /** The layers mixed into the model's engine. Prop models carry the accelerator/decelerator pair. */
+  /** The layers mixed into the model's engine. Player props use front/rear/near/distant layers. */
   readonly layers: readonly GenrlEngineLayer[];
   readonly model: number;
   /** Why these ids are the right banks for this model — recorded in the pak manifest as provenance. */
@@ -133,7 +141,7 @@ export class GenrlDecodeError extends Error {
   }
 }
 
-/** The playback-rate anchors each engine loop is baked at; the runtime crossfades the two neighbours. */
+/** Playback-rate anchors retained in the pak; both aircraft select the rate-1 source at playback. */
 export const ENGINE_STEP_RATES = [0.7, 1, 1.4] as const;
 
 /** The manifest `category` string for each engine layer role (one stable label per role). */
@@ -141,33 +149,57 @@ export const GENRL_ENGINE_CATEGORY: Record<GenrlEngineRole, string> = {
   accelerate: 'engine accelerate',
   decelerate: 'engine decelerate',
   distance: 'engine distance',
-  lift: 'engine lift',
+  front: 'engine front',
+  near: 'engine near',
+  'prop-distance': 'engine prop distance',
+  rear: 'engine rear',
   turbine: 'engine turbine',
-  whine: 'engine whine',
 };
 
 /** Shared provenance for the per-model engine banks (recorded verbatim per sample in the manifest). */
 const ENGINE_PROVENANCE =
-  'gta-reversed eSoundBank.h (bank ids/names) + AEVehicleAudioEntity.VehicleAudioSettings.h (model index = ' +
-  'model - 400 -> accelerate `_P` bank / decelerate `_D` bank) + eSoundBankSlot.h (bank slots) + SoundIDs.h ' +
-  '(sound names). Hydra (520): VehicleAudioSettings[520-400] is AE_AIRCRAFT_PLANE, handled by ProcessPlayerJet ' +
-  '-> ProcessGenericJet, whose layers live in SND_BANK_GENRL_VEHICLE_GEN / SND_BANK_SLOT_VEHICLE_GEN: THRUST ' +
-  '(0x1A, broadband turbine), WHINE (0x1D, high-frequency spool), JET_DIST (0x0E, far-field body) and ' +
-  'LIFT_LOOP (0x0F, Harrier VTOL lift). Rustler (476): VehicleAudioSettings[476-400] = SND_BANK_GENRL_FASTPROP ' +
-  '(accelerate) + SND_BANK_GENRL_FASTPROP_D (decelerate). ProcessGenericJet is NOT reversed, so the jet LAYER ' +
-  'roles and their mixes are INFERRED, not measured; the bank/slot/sound ids and names are the game tables.';
+  'gta-reversed eSoundBank.h, eSoundBankSlot.h and SoundIDs.h identify the named GENRL banks and sounds. ' +
+  'For the local gta_sa.exe SHA1 185b73fbceaa05d66452691fc0d15c8d61b92a7e, the Hydra (520) branch of ' +
+  'ProcessGenericJet at 0x4FF900 calls PlayAircraftSound for VEHICLE_GEN slot 19 sounds HARRIER_FRONT 10, ' +
+  'HARRIER_REAR 11, THRUST 26 and JET_DIST 14. This is static code evidence; runtime levels and inputs are ' +
+  'INFERRED in the replay. Rustler (476): gta-reversed ProcessDummyOrPlayerProp plays FASTPROP sounds 0/1 ' +
+  'as FRONT/REAR plus VEHICLE_GEN PROP_NEAR 17 and PROP_DIST 16. FASTPROP_D is not its player path.';
 
 /**
  * The per-model engine layers the replay plays. The banks/slots/sounds are the game's own hardcoded ids —
- * selected by NAME via `GENRL_BANK_NAMES` and `SoundIDs.h`, never guessed. A jet is a LAYERED turbine (THRUST
- * turbine + WHINE spool + JET_DIST far field + LIFT_LOOP VTOL), not an accelerate/decelerate crossfade; a prop
- * keeps the accelerator/decelerator pair. Each layer bakes {@link ENGINE_STEP_RATES} rate-steps so the pitch
- * sweep is a table blend instead of a single drone.
+ * selected by NAME via `GENRL_BANK_NAMES` and `SoundIDs.h`, then checked against the local game call sites.
+ * Hydra plays HARRIER_FRONT/REAR + THRUST + JET_DIST; Rustler keeps its player front/rear/near/distant path.
+ * Each layer retains {@link ENGINE_STEP_RATES} for manifest compatibility while playback varies one original
+ * rate-1 loop per layer to avoid phase beats.
  */
 export const GENRL_ENGINE_SOURCES: readonly GenrlEngineSource[] = [
   {
     kind: 'jet',
     layers: [
+      {
+        mix: 0.7,
+        role: 'front',
+        slot: {
+          bankName: 'SND_BANK_GENRL_VEHICLE_GEN',
+          globalBankId: 138,
+          slotId: 19,
+          slotName: 'SND_BANK_SLOT_VEHICLE_GEN',
+          soundIndex: 10,
+          soundName: 'SND_GENRL_VEHICLE_GEN_HARRIER_FRONT',
+        },
+      },
+      {
+        mix: 0.7,
+        role: 'rear',
+        slot: {
+          bankName: 'SND_BANK_GENRL_VEHICLE_GEN',
+          globalBankId: 138,
+          slotId: 19,
+          slotName: 'SND_BANK_SLOT_VEHICLE_GEN',
+          soundIndex: 11,
+          soundName: 'SND_GENRL_VEHICLE_GEN_HARRIER_REAR',
+        },
+      },
       {
         mix: 1,
         role: 'turbine',
@@ -178,18 +210,6 @@ export const GENRL_ENGINE_SOURCES: readonly GenrlEngineSource[] = [
           slotName: 'SND_BANK_SLOT_VEHICLE_GEN',
           soundIndex: 26,
           soundName: 'SND_GENRL_VEHICLE_GEN_THRUST',
-        },
-      },
-      {
-        mix: 0.35,
-        role: 'whine',
-        slot: {
-          bankName: 'SND_BANK_GENRL_VEHICLE_GEN',
-          globalBankId: 138,
-          slotId: 19,
-          slotName: 'SND_BANK_SLOT_VEHICLE_GEN',
-          soundIndex: 29,
-          soundName: 'SND_GENRL_VEHICLE_GEN_WHINE',
         },
       },
       {
@@ -204,18 +224,6 @@ export const GENRL_ENGINE_SOURCES: readonly GenrlEngineSource[] = [
           soundName: 'SND_GENRL_VEHICLE_GEN_JET_DIST',
         },
       },
-      {
-        mix: 0.4,
-        role: 'lift',
-        slot: {
-          bankName: 'SND_BANK_GENRL_VEHICLE_GEN',
-          globalBankId: 138,
-          slotId: 19,
-          slotName: 'SND_BANK_SLOT_VEHICLE_GEN',
-          soundIndex: 15,
-          soundName: 'SND_GENRL_VEHICLE_GEN_LIFT_LOOP',
-        },
-      },
     ],
     model: 520,
     provenance: ENGINE_PROVENANCE,
@@ -225,7 +233,7 @@ export const GENRL_ENGINE_SOURCES: readonly GenrlEngineSource[] = [
     layers: [
       {
         mix: 1,
-        role: 'accelerate',
+        role: 'front',
         slot: {
           bankName: 'SND_BANK_GENRL_FASTPROP',
           globalBankId: 53,
@@ -237,14 +245,38 @@ export const GENRL_ENGINE_SOURCES: readonly GenrlEngineSource[] = [
       },
       {
         mix: 1,
-        role: 'decelerate',
+        role: 'rear',
         slot: {
-          bankName: 'SND_BANK_GENRL_FASTPROP_D',
-          globalBankId: 54,
-          slotId: 7,
-          slotName: 'SND_BANK_SLOT_DUMMY_ENGINE_0',
-          soundIndex: 0,
+          bankName: 'SND_BANK_GENRL_FASTPROP',
+          globalBankId: 53,
+          slotId: 40,
+          slotName: 'SND_BANK_SLOT_PLAYER_ENGINE_P',
+          soundIndex: 1,
           soundName: '',
+        },
+      },
+      {
+        mix: 0.3,
+        role: 'near',
+        slot: {
+          bankName: 'SND_BANK_GENRL_VEHICLE_GEN',
+          globalBankId: 138,
+          slotId: 19,
+          slotName: 'SND_BANK_SLOT_VEHICLE_GEN',
+          soundIndex: 17,
+          soundName: 'SND_GENRL_VEHICLE_GEN_PROP_NEAR',
+        },
+      },
+      {
+        mix: 0.2,
+        role: 'prop-distance',
+        slot: {
+          bankName: 'SND_BANK_GENRL_VEHICLE_GEN',
+          globalBankId: 138,
+          slotId: 19,
+          slotName: 'SND_BANK_SLOT_VEHICLE_GEN',
+          soundIndex: 16,
+          soundName: 'SND_GENRL_VEHICLE_GEN_PROP_DIST',
         },
       },
     ],
@@ -256,7 +288,8 @@ export const GENRL_ENGINE_SOURCES: readonly GenrlEngineSource[] = [
 /**
  * Every sample the replay audio lane bakes, with its exact GENRL provenance. The engine loops are the
  * per-model {@link GENRL_ENGINE_SOURCES} layers expanded into {@link ENGINE_STEP_RATES} rate-steps;
- * collisions and explosions take sound 0 of their sets (72 and 5 sounds respectively behind them).
+ * Inferred vehicle collisions use the actual CAR surface sound range (20..28), rather than an unrelated
+ * representative member of the collision bank. The recording has no measured contact material.
  */
 export const GENRL_SAMPLE_SPECS: readonly GenrlSampleSpec[] = [
   ...GENRL_ENGINE_SOURCES.flatMap((source) =>
@@ -280,15 +313,18 @@ export const GENRL_SAMPLE_SPECS: readonly GenrlSampleSpec[] = [
       })),
     ),
   ),
-  {
-    bankName: 'SND_BANK_GENRL_COLLISIONS',
-    category: 'collision set',
-    file: 'collision-set.wav',
-    globalBankId: 39,
-    slotId: 2,
-    slotName: 'COLLISIONS',
-    soundIndex: 0,
-  },
+  ...[1, 3, 4, 5, 6, 8, 9, 10, 12].map(
+    (carSound, index): GenrlSampleSpec => ({
+      bankName: 'SND_BANK_GENRL_COLLISIONS',
+      category: 'collision set',
+      file: `collision-car-${index + 20}.wav`,
+      globalBankId: 39,
+      slotId: 2,
+      slotName: 'COLLISIONS',
+      soundIndex: index + 20,
+      soundName: `SND_GENRL_COLLISIONS_COLCAR${String(carSound).padStart(2, '0')}`,
+    }),
+  ),
   {
     bankName: 'SND_BANK_GENRL_EXPLOSIONS',
     category: 'explosion set',
@@ -421,6 +457,10 @@ export function resamplePcm16(pcm: Uint8Array, rate: number): Uint8Array {
 
 /** Tail->head crossfade length (seconds) used to make a baked engine loop seamless. */
 export const ENGINE_LOOP_CROSSFADE_SECONDS = 0.02;
+/** Short equal-power join for the original Hydra HARRIER_FRONT/REAR loops. */
+export const ENGINE_JET_MAIN_CROSSFADE_SECONDS = 0.005;
+/** The player prop front/rear sources already have close endpoints; a long blend makes a periodic volume dip. */
+export const ENGINE_PROP_MAIN_CROSSFADE_SECONDS = 0.002;
 
 /**
  * Turn a raw GENRL loop into a SEAMLESS loop: crossfade the last `crossfadeFrames` frames into the first
@@ -428,7 +468,11 @@ export const ENGINE_LOOP_CROSSFADE_SECONDS = 0.02;
  * loop the whole buffer without cycling an attack or a seam discontinuity. `crossfadeFrames` is clamped to a
  * quarter of the loop, and a loop too short to blend is copied unchanged.
  */
-export function makeSeamlessLoop(pcm: Uint8Array, crossfadeFrames: number): Uint8Array {
+export function makeSeamlessLoop(
+  pcm: Uint8Array,
+  crossfadeFrames: number,
+  mode: 'equal-power' | 'linear' = 'linear',
+): Uint8Array {
   if (pcm.length === 0 || pcm.length % 2 !== 0) {
     throw new Error('PCM16 must have a non-zero, even byte length');
   }
@@ -445,9 +489,11 @@ export function makeSeamlessLoop(pcm: Uint8Array, crossfadeFrames: number): Uint
   for (let index = 0; index < outputFrames; index += 1) {
     let value: number;
     if (index < blend) {
-      const weight = index / blend;
+      const phase = index / blend;
+      const headWeight = mode === 'equal-power' ? Math.sin((phase * Math.PI) / 2) : phase;
+      const tailWeight = mode === 'equal-power' ? Math.cos((phase * Math.PI) / 2) : 1 - phase;
       value =
-        source.getInt16(index * 2, true) * weight + source.getInt16((outputFrames + index) * 2, true) * (1 - weight);
+        source.getInt16(index * 2, true) * headWeight + source.getInt16((outputFrames + index) * 2, true) * tailWeight;
     } else {
       value = source.getInt16(index * 2, true);
     }

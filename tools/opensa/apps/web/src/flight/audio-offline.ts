@@ -1,3 +1,4 @@
+import type { AudioMixTuning } from './audio-tuning';
 import type { FlightTrack } from './csv';
 
 /**
@@ -35,6 +36,8 @@ import {
   buildAudioTimeline,
   type EngineVoiceCue,
   type EventCue,
+  JET_THRUST_PRESENCE_HIGH_HZ,
+  JET_THRUST_PRESENCE_LOW_HZ,
   type TimelineEvent,
 } from './audio-engine';
 
@@ -85,6 +88,8 @@ export interface OfflineRenderOptions {
   readonly reverb?: boolean;
   /** Output rate; defaults to {@link OFFLINE_SAMPLE_RATE}. */
   readonly sampleRate?: number;
+  /** The same user mix used by the live Web Audio timeline. */
+  readonly tuning?: AudioMixTuning;
 }
 
 export interface OfflineRenderResult {
@@ -102,9 +107,22 @@ export interface OfflineRenderResult {
   readonly wav: Uint8Array;
 }
 
+interface BiquadState {
+  readonly a1: number;
+  readonly a2: number;
+  readonly b0: number;
+  readonly b1: number;
+  readonly b2: number;
+  x1: number;
+  x2: number;
+  y1: number;
+  y2: number;
+}
+
 interface EngineVoice {
   /** One read position per rate-step layer (parallel to `EngineVoiceCue.layers`). */
   phases: number[];
+  presence?: { highpass: BiquadState; lowpass: BiquadState }[];
 }
 
 interface OneShotVoice {
@@ -266,7 +284,7 @@ export function renderOfflineWav(
   bank: OfflineSampleBank = EMPTY_SAMPLE_BANK,
   options: OfflineRenderOptions,
 ): OfflineRenderResult {
-  const timeline = buildAudioTimeline(track, manifest, { eventWindow: options.eventWindow });
+  const timeline = buildAudioTimeline(track, manifest, { eventWindow: options.eventWindow, tuning: options.tuning });
 
   return renderOfflineTimeline(timeline, bank, options);
 }
@@ -287,8 +305,40 @@ function advanceLoop(position: number, step: number, sample: OfflineSample): num
   return span > 0 ? loopStart + ((next - loopStart) % span) : 0;
 }
 
+function applyBiquad(state: BiquadState, sample: number): number {
+  const output =
+    state.b0 * sample + state.b1 * state.x1 + state.b2 * state.x2 - state.a1 * state.y1 - state.a2 * state.y2;
+  state.x2 = state.x1;
+  state.x1 = sample;
+  state.y2 = state.y1;
+  state.y1 = output;
+
+  return output;
+}
+
 function clamp(value: number, low: number, high: number): number {
   return Math.max(low, Math.min(high, value));
+}
+
+/** RBJ 2-pole Butterworth coefficients, matching the live Web Audio high/low-pass nodes. */
+function createBiquad(type: 'highpass' | 'lowpass', frequency: number, sampleRate: number): BiquadState {
+  const omega = (2 * Math.PI * Math.min(frequency, sampleRate * 0.49)) / sampleRate;
+  const cosine = Math.cos(omega);
+  const alpha = Math.sin(omega) / (2 * Math.SQRT1_2);
+  const a0 = 1 + alpha;
+  const base = type === 'highpass' ? 1 + cosine : 1 - cosine;
+
+  return {
+    a1: (-2 * cosine) / a0,
+    a2: (1 - alpha) / a0,
+    b0: base / (2 * a0),
+    b1: (type === 'highpass' ? -base : base) / a0,
+    b2: base / (2 * a0),
+    x1: 0,
+    x2: 0,
+    y1: 0,
+    y2: 0,
+  };
 }
 
 /** Resolve one timeline event's cue through the core at its own instant (the deterministic selection). */
@@ -358,8 +408,21 @@ function renderEngineVoice(
     const phase = voice.phases[layerIndex] ?? 0;
     const value = sampleFrame(sample, phase);
     const layerGain = voiceGain * weight;
-    left[index] += value * layerGain * panLeft;
-    right[index] += value * layerGain * panRight;
+    let mixed = value;
+    if ((cue.presenceGain ?? 0) > 0) {
+      const filters = voice.presence ?? (voice.presence = []);
+      const presence =
+        filters[layerIndex] ??
+        (filters[layerIndex] = {
+          highpass: createBiquad('highpass', cue.presenceHighHz ?? JET_THRUST_PRESENCE_HIGH_HZ, outputRate),
+          lowpass: createBiquad('lowpass', cue.presenceLowHz ?? JET_THRUST_PRESENCE_LOW_HZ, outputRate),
+        });
+      mixed +=
+        applyBiquad(presence.lowpass, applyBiquad(presence.highpass, value)) *
+        clamp(finiteOr(cue.presenceGain, 0), 0, 8);
+    }
+    left[index] += mixed * layerGain * panLeft;
+    right[index] += mixed * layerGain * panRight;
     voice.phases[layerIndex] = advanceLoop(phase, step, sample);
   }
 }

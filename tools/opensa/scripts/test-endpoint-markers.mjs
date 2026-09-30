@@ -487,7 +487,6 @@ async function renderAndShoot(page, seconds, path) {
   });
   await page.evaluate(() => globalThis.__flightVideoExport.ready());
   await page.evaluate((value) => globalThis.__flightVideoExport.renderFrame(value), seconds);
-  await page.evaluate(() => document.querySelector('.analysis-hud__collapse')?.click());
   await sleep(300);
   await page.locator('#canvas').screenshot({ path });
   const state = await probe(page);

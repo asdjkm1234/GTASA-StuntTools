@@ -5410,8 +5410,7 @@ struct RigidVsIn {
   @location(2) uv: vec2f,
   @location(3) color: vec4f,
   @location(4) slots: vec4<u32>,
-  // Reflection slots straight from the DFF material-effect plugins (B5r): env layer, env coefficient,
-  // SA reflection intensity, SA specular level. x = 0 means the material is simply not reflective.
+  // DFF reflection slots; replay canopy materials instead pack two signed fixed-point detail UVs.
   @location(5) reflect: vec4<u32>,
   // The NIGHT vertex colours (opensa-pack 003 phase 5g). SA bakes the map's lighting into the prelit set
   // and ships a second, darker one for night; a map object drawn by name is the case this serves — a car
@@ -5425,8 +5424,10 @@ struct RigidVsOut {
   @location(1) normal: vec3f,
   @location(2) world: vec3f,
   @location(3) color: vec4f,
-  @location(4) @interpolate(flat) layer: u32,
-  @location(5) @interpolate(flat) nightLayer: u32,
+  // Pack both flat texture indices together: front_facing also counts against the 16-input limit.
+  @location(4) @interpolate(flat) layers: vec2u,
+  // Circumferential arc length / longitudinal detail UVs (metres), decoded before interpolation.
+  @location(5) canopyUv: vec2f,
   // slots.w LOW nibble: 0 = body, 1 = head lamp, 2 = tail lamp; lamps = [headlights, brakes, intensity].
   @location(6) @interpolate(flat) lampTag: u32,
   // xyz = lamp state. w = the LICENSE-PLATE layer this submesh samples (plan 082/03) — the text-atlas slot
@@ -5435,10 +5436,10 @@ struct RigidVsOut {
   // locations, and this one was per-instance state with a spare component — the same reason local.w
   // carries sky occlusion.
   @location(7) @interpolate(flat) lamps: vec4f,
-  // [env coefficient, SA reflection intensity, SA specular level] — all 0..1, all authored per material.
-  // There is no env LAYER beside them: the DFF names an env texture, but this pipe reflects the live probe
-  // (rigidEnv), so the name only ever acted as a flag. Location 8 is free again.
-  @location(9) @interpolate(flat) reflect: vec3f,
+  // Matrix row for the local cockpit ray scene; the last free location (front_facing also counts).
+  @location(8) @interpolate(flat) matrixRow: u32,
+  // xyz = normalized [env coefficient, reflection intensity, specular]; w = optional env texture layer.
+  @location(9) @interpolate(flat) reflect: vec4f,
   // MODEL-space position (xyz): the flake hash is anchored to the CAR, so the sparkle rides with it. A
   // world-space hash would make the flakes crawl across the paint as the car drives.
   // w = the model's own SKY OCCLUSION (plan 084), which rides here rather than in a location of its own:
@@ -5487,10 +5488,13 @@ struct RigidVsOut {
 // selects the submesh's slot out of the model's own animation list; slot 0 is (0,0,1,1), so a car — and
 // every static submesh of an animated model — runs the identity and comes out bit-identical.
 @group(1) @binding(10) var<uniform> rigidUvAnim: vec4f;
+// Optional static interior BVH. Other rigid models bind one zero header, so they never trace rays.
+@group(1) @binding(11) var<storage, read> canopyScene: array<vec4f>;
 
 // MaterialClass — the high nibble of slots.w. Kept in sync with renderware/vehicle/types.ts.
 const MAT_PLATE_BACK: u32 = 4u;
 const MAT_PLATE_FACE: u32 = 5u;
+const MAT_CANOPY: u32 = 6u;
 
 // skyVisibility / AMBIENT_GROUND / DYNAMIC_INDIRECT are shared dynamic-model lighting helpers — they live in
 // <frame> now (next to localLightStatic) so the ped path reuses the exact same indirect term (plan 087 ped).
@@ -5504,6 +5508,7 @@ fn vsRigid(in: RigidVsIn) -> RigidVsOut {
   out.uv = in.uv * rigidUvAnim.zw + rigidUvAnim.xy;
   out.normal = normalize((model * vec4f(in.normal, 0.0)).xyz);
   out.world = world.xyz;
+  out.matrixRow = in.instance;
   // Day → night on the prelit set, BEFORE the paint override: a car's night set is its day set (no prelit,
   // nothing to darken — its light comes from the world), and mixing after paint would wash the panel out
   // toward the unpainted material colour at midnight.
@@ -5516,8 +5521,7 @@ fn vsRigid(in: RigidVsIn) -> RigidVsOut {
   let nightDeltaRgb = in.night.rgb - in.color.rgb;
   let nightDelta = max(max(nightDeltaRgb.r, nightDeltaRgb.g), nightDeltaRgb.b);
   out.glow = in.night.rgb * (smoothstep(0.05, 0.32, nightDelta) * frame.params.w * frame.params.x);
-  out.layer = in.slots.x;
-  out.nightLayer = in.slots.y;
+  out.layers = in.slots.xy;
   out.lampTag = in.slots.w & 0xFu;
   out.matClass = in.slots.w >> 4u;
   // The plate row is read HERE, where the instance index still exists, and only the one layer this submesh
@@ -5539,7 +5543,14 @@ fn vsRigid(in: RigidVsIn) -> RigidVsOut {
   let lampOut = (out.lampTag == 1u && (smashed & 0x3u) == 0x3u) ||
                 (out.lampTag == 2u && (smashed & 0xCu) == 0xCu);
   out.lamps = vec4f(select(lampRow.xyz, vec3f(0.0, 0.0, lampRow.z), lampOut), plateLayer);
-  out.reflect = vec3f(in.reflect.yzw) / 255.0;
+  out.reflect = vec4f(vec3f(in.reflect.yzw) / 255.0, f32(in.reflect.x));
+  out.canopyUv = vec2f(0.0);
+  if (matClass == MAT_CANOPY) {
+    // The canopy's otherwise unused reflection bytes hold two metre-scale detail coordinates.
+    // Decode HERE, before interpolating: interpolating low/high bytes separately would create seams.
+    out.canopyUv = (vec2f(f32(in.reflect.x + 256u * in.reflect.y), f32(in.reflect.z + 256u * in.reflect.w)) - vec2f(32768.0)) / 4096.0;
+    out.reflect = vec4f(f32(any(in.reflect != vec4u(0u))), 0.0, 0.0, 0.0);
+  }
   // The night set's ALPHA is the self-occlusion the builder wrote (vehicle/sky-occlusion.ts). A fixture
   // from before it simply carries the material alpha there, which is 1 on everything opaque - no change.
   out.local = vec4f(in.position, in.night.a);
@@ -5581,8 +5592,8 @@ fn rigidTexel(in: RigidVsOut) -> vec4f {
   if (in.matClass == MAT_PLATE_BACK) {
     return textureSampleGrad(plateBackTexture, rigidSampler, in.uv, u32(in.lamps.w), uvDdx, uvDdy);
   }
-  let lampsOn = in.lamps.x > 0.5 && in.nightLayer != 0u;
-  let layer = select(in.layer, in.nightLayer, lampsOn);
+  let lampsOn = in.lamps.x > 0.5 && in.layers.y != 0u;
+  let layer = select(in.layers.x, in.layers.y, lampsOn);
   return textureSampleGrad(rigidTexture, rigidSampler, in.uv, layer, uvDdx, uvDdy);
 }
 
@@ -5732,6 +5743,11 @@ fn rigidShade(in: RigidVsOut, texel: vec4f) -> vec3f {
   let sunNdl = max(dot(normal, frame.sunDir.xyz), 0.0);
   let moonNdl = clamp((dot(normal, frame.moonDir.xyz) + 0.6) / 1.6, 0.0, 1.0);
   let base = texel.rgb * debugPrelit(in.color.rgb);
+  // Replay gauge faces and transparent heading markings. Depth-tested rigid geometry, with subdued
+  // panel illumination at night rather than the headlamp's HDR glow or a camera-space overlay.
+  if (in.matClass == 7u) {
+    return base * mix(0.85, 0.55, frame.params.x);
+  }
   // A LIT lamp is a SOURCE, not a surface: it emits, and its diffuse response is irrelevant. Shading it like
   // painted metal is what "cropped" the tail lights — the lens wraps around the car's corner, so its normal
   // swings ~90° across the lens, and a nearby street lamp painted that swing straight onto the glass as a
@@ -5781,6 +5797,164 @@ fn fsRigid(in: RigidVsOut) -> @location(0) vec4f {
   return vec4f(color, 1.0);
 }
 
+// Fine grooves on the fitted canopy surface, in metres. Random short curves and a few longer wipes
+// are fixed to the glass, not the camera or a world-space/time-driven projection.
+fn canopyScratch(uv: vec2f, frequency: f32, seed: f32, density: f32) -> vec4f {
+  let p = uv * frequency;
+  let cell = floor(p);
+  let hash = flakeHash(vec3f(cell, seed));
+  let q = fract(p) - (vec2f(0.5) + (hash.xy - vec2f(0.5)) * 0.16);
+  let angle = hash.x * 17.0 + hash.y * 9.0;
+  let direction = vec2f(cos(angle), sin(angle));
+  let across = vec2f(-direction.y, direction.x);
+  let along = dot(q, direction);
+  let bend = (hash.z - 0.5) * 0.9;
+  let distance = dot(q, across) - bend * along * along;
+  let width = frequency * (0.00007 + 0.00010 * hash.z);
+  let aa = max(fwidth(distance) * 0.7, width * 0.25);
+  // Average subpixel coverage instead of expanding every microscopic groove into a white pixel.
+  let line = (1.0 - smoothstep(width, width + aa, abs(distance))) * width / (width + aa * 0.5);
+  let halfLength = 0.15 + hash.y * 0.25;
+  let ends = 1.0 - smoothstep(halfLength * 0.65, halfLength, abs(along));
+  let selected = step(1.0 - density, fract(hash.x * 23.7 + hash.y * 10.19));
+  let tangent = normalize(direction + across * (2.0 * bend * along));
+  let slope = clamp(distance / max(width + aa, 0.0001), -1.0, 1.0) * 0.12;
+  return vec4f(line * ends * selected, tangent, slope);
+}
+
+struct CanopyDetail {
+  coverage: f32,
+  tangent: vec3f,
+  across: vec3f,
+  normal: vec3f,
+};
+
+fn canopySurface(in: RigidVsOut) -> CanopyDetail {
+  let uv = in.canopyUv;
+  let fine = canopyScratch(uv, 32.0, 41.0, 0.78);
+  let coarse = canopyScratch(uv, 8.0, 97.0, 0.45) * vec4f(0.45, 1.0, 1.0, 1.0);
+  let groove = select(fine, coarse, coarse.x > fine.x);
+  // Derivatives run before face/material branches. Tangents follow the real curved surface,
+  // while the interpolated authored normal avoids highlighting each low-poly triangle separately.
+  let dx = dpdx(in.world);
+  let dy = dpdy(in.world);
+  let ux = dpdx(uv);
+  let uy = dpdy(uv);
+  let determinant = ux.x * uy.y - ux.y * uy.x;
+  let safeDet = select(-1.0, 1.0, determinant >= 0.0) * max(abs(determinant), 1e-12);
+  let du = (dx * uy.y - dy * ux.y) / safeDet;
+  let dv = (dy * ux.x - dx * uy.x) / safeDet;
+  let n = normalize(in.normal);
+  let axis = select(vec3f(0.0, 1.0, 0.0), vec3f(1.0, 0.0, 0.0), abs(n.y) > 0.9);
+  let fallback = normalize(cross(axis, n));
+  let projected = du - n * dot(du, n);
+  let t = normalize(select(fallback, projected, dot(projected, projected) > 1e-12));
+  let b = cross(n, t) * select(-1.0, 1.0, dot(cross(n, t), dv) >= 0.0);
+  var detail: CanopyDetail;
+  detail.coverage = max(fine.x, coarse.x);
+  detail.tangent = normalize(t * groove.y + b * groove.z);
+  detail.across = normalize(cross(n, detail.tangent));
+  detail.normal = normalize(n + detail.across * groove.w);
+  return detail;
+}
+
+// Thin-shell real-time approximation, not a full refractive/wave-optical BSDF.
+// Interior sunlight comes through the cover: its forward scattering is a separate response from
+// same-side reflection. A plain Blinn highlight on an inward-facing normal cannot reproduce it.
+fn canopyLight(in: RigidVsOut, detail: CanopyDetail, toLight: vec3f) -> f32 {
+  let view = normalize(frame.camera.xyz - in.world);
+  let n = normalize(in.normal);
+  let incidence = abs(dot(n, toLight));
+  let grazing = 1.0 - abs(dot(n, view));
+  let mismatch = toLight + view;
+  let along = dot(mismatch, detail.tangent);
+  let across = dot(mismatch, detail.across);
+  let spread = 0.24 + 0.10 * grazing;
+  let anisotropy = exp(-0.5 * (along * along / 0.0225 + across * across / (spread * spread)));
+  let forward = pow(max(dot(-view, toLight), 0.0), 8.0) * anisotropy;
+  let halfVector = normalize(toLight + view + vec3f(1e-7));
+  let reflected = pow(abs(dot(detail.normal, halfVector)), 72.0) *
+    f32(dot(n, toLight) * dot(n, view) > 0.0);
+  return (forward * (0.35 + 0.65 * sqrt(incidence)) + reflected * 0.12) * (1.0 + 0.35 * grazing);
+}
+
+// Exact near-field intersections against the selected static cockpit, rather than a single-origin image.
+// Bounded threaded traversal has no recursion/stack, no extra capture pass, and samples the stock TXD.
+fn canopyReflection(in: RigidVsOut, frontFacing: bool) -> vec4f {
+  let header = canopyScene[0];
+  if (frontFacing || header.x < 1.0) { return vec4f(0.0); }
+  let row = in.matrixRow - in.matrixRow % u32(header.w) + u32(header.z);
+  let transform = rigidMatrices[row];
+  let basis = mat3x3f(transform[0].xyz, transform[1].xyz, transform[2].xyz);
+  // Chassis is rigid; divide by squared axis length to support its uniform scale as well.
+  let inverse = transpose(basis);
+  let scale = vec3f(dot(basis[0], basis[0]), dot(basis[1], basis[1]), dot(basis[2], basis[2]));
+  let n = normalize(in.normal);
+  let incident = normalize(in.world - frame.camera.xyz);
+  let direction = normalize((inverse * reflect(incident, n)) / scale);
+  let origin = (inverse * (in.world - transform[3].xyz)) / scale + direction * 0.003;
+  let safeDirection = select(vec3f(-1.0), vec3f(1.0), direction >= vec3f(0.0)) * max(abs(direction), vec3f(1e-7));
+  let reciprocal = 1.0 / safeDirection;
+  var closest = 4.0;
+  var hit = -1.0;
+  var bary = vec2f(0.0);
+  var node = 0u;
+  let nodeCount = u32(header.x);
+  let triangleBase = u32(header.y);
+  // CPU cap: 512 triangles -> at most 1023 nodes. Even a miss or malformed escape cannot hang the GPU.
+  for (var step = 0u; step < 1024u; step += 1u) {
+    if (node >= nodeCount) { break; }
+    let lower = canopyScene[1u + node * 2u];
+    let upper = canopyScene[2u + node * 2u];
+    let aabbA = (lower.xyz - origin) * reciprocal;
+    let aabbB = (upper.xyz - origin) * reciprocal;
+    let nearAxis = min(aabbA, aabbB);
+    let farAxis = max(aabbA, aabbB);
+    let nearT = max(max(nearAxis.x, nearAxis.y), max(nearAxis.z, 0.0));
+    let farT = min(min(farAxis.x, farAxis.y), min(farAxis.z, closest));
+    if (nearT > farT) { node = u32(lower.w); continue; }
+    if (upper.w < 0.0) { node += 1u; continue; }
+    let at = triangleBase + u32(upper.w) * 8u;
+    let point = canopyScene[at].xyz;
+    let edgeA = canopyScene[at + 1u].xyz;
+    let edgeB = canopyScene[at + 2u].xyz;
+    let p = cross(direction, edgeB);
+    let determinant = dot(edgeA, p);
+    if (abs(determinant) > 1e-8) {
+      let offset = origin - point;
+      let u = dot(offset, p) / determinant;
+      let q = cross(offset, edgeA);
+      let v = dot(direction, q) / determinant;
+      let distance = dot(edgeB, q) / determinant;
+      if (u >= 0.0 && v >= 0.0 && u + v <= 1.0 && distance > 0.003 && distance < closest) {
+        closest = distance;
+        hit = upper.w;
+        bary = vec2f(u, v);
+      }
+    }
+    node = u32(lower.w);
+  }
+  if (hit < 0.0) { return vec4f(0.0); }
+  let at = triangleBase + u32(hit) * 8u;
+  let uv01 = canopyScene[at + 4u];
+  let uv2 = canopyScene[at + 5u].xy;
+  let uv = uv01.xy * (1.0 - bary.x - bary.y) + uv01.zw * bary.x + uv2 * bary.y;
+  let texel = textureSampleLevel(rigidTexture, rigidSampler, uv, i32(canopyScene[at].w), 0.0);
+  let material = mix(canopyScene[at + 6u].rgb, canopyScene[at + 7u].rgb, frame.params.x);
+  let hitNormal = normalize(basis * canopyScene[at + 3u].xyz);
+  let ambient = frame.params.y * DYNAMIC_INDIRECT * skyVisibility(hitNormal) * canopyScene[at + 3u].w;
+  let lighting = vec3f(ambient) + frame.sunColor.rgb * (max(dot(hitNormal, frame.sunDir.xyz), 0.0) * frame.params.z)
+    + frame.moonColor.rgb * clamp((dot(hitNormal, frame.moonDir.xyz) + 0.6) / 1.6, 0.0, 1.0);
+  // Restrained Fresnel response. Dark unlit furniture stays dark, without a gamma/midtone boost.
+  let fresnel = 0.04 + 0.96 * pow(1.0 - abs(dot(n, incident)), 5.0);
+  let reflectedColor = texel.rgb * material * lighting;
+  // Visibility adaptation: nearly black furniture must not reintroduce a smoke silhouette over the view.
+  // This artistic suppression only reduces the physically lit reflection; it never brightens dark texels.
+  let visibility = smoothstep(0.001, 0.020, dot(reflectedColor, vec3f(0.2126, 0.7152, 0.0722)));
+  let weight = min(fresnel, 0.12) * 0.75 * visibility * mix(1.0, 0.20, frame.params.x);
+  return vec4f(reflectedColor, weight);
+}
+
 @fragment
 fn fsRigidBlend(in: RigidVsOut, @builtin(front_facing) frontFacing: bool) -> @location(0) vec4f {
   // Premultiplied for the (one, 1−src-α) pipeline; fog scales the pair (068 semantics for blends).
@@ -5788,21 +5962,41 @@ fn fsRigidBlend(in: RigidVsOut, @builtin(front_facing) frontFacing: bool) -> @lo
   // carry it in the TEXEL. Taking only the material's would render a decal opaque — its transparent black
   // texels then paint a black panel over the door.
   let texel = rigidTexel(in);
+  let surface = canopySurface(in);
   let fog = rigidFog(in.world);
   let viewDir = normalize(in.world - frame.camera.xyz);
   let normal = normalize(in.normal);
-  // The reflection belongs to the OUTER surface only: glass is drawn double-sided, and adding the mirrored
-  // world onto BACK faces painted warped ghosts over the view from inside the car ("dioptric glass" —
-  // bench round 3). A branch-free gate; back faces keep plain tinted transparency.
+  // Keep derivative-based generic glass sampling in uniform control flow, before the canopy return.
   let outside = f32(frontFacing);
   let toEye = normalize(frame.camera.xyz - in.world);
-  // GLASS on the neo curve: plain normal (no flakes), a near-sharp probe mip. The neo amount drives BOTH
-  // the mirrored colour and the opacity swell — glass turns mirror at grazing angles, and a windscreen you
-  // can see straight through from every angle looks like a hole in the car.
   let amount = neoReflAmount(dot(normal, toEye), in.reflect.x) * GLASS_REFLECT * outside;
   let alpha = clamp(texel.a * in.color.a + amount, 0.0, 1.0);
   let env = rigidEnv(in, normal, normal, PROBE_GLASS_LOD);
   let specular = (rigidSpecular(in, normal, in.reflect.z * frame.params4.z) + in.poolSpec) * outside;
+  if (in.matClass == MAT_CANOPY) {
+    // The outward face keeps the authored smoke tint; the inward face preserves the clear pilot view.
+    // Use mesh facing, not camera mode, so free cameras and other aircraft also see the correct side.
+    let authoredAlpha = clamp(texel.a * in.color.a, 0.0, 1.0);
+    let tintAlpha = select(authoredAlpha * 0.04, 1.0 - pow(1.0 - authoredAlpha, 1.5), frontFacing);
+    var wear = vec3f(0.0);
+    if (in.reflect.x > 0.0 && !frontFacing) {
+      let scratchSun = canopyLight(in, surface, frame.sunDir.xyz);
+      let scratchMoon = canopyLight(in, surface, frame.moonDir.xyz);
+      let sunlight = frame.sunColor.rgb * frame.params.z * smoothstep(-0.03, 0.06, frame.sunDir.y);
+      // Background wear stays faint; many grooves become individually visible near a strong light.
+      wear = surface.coverage * (vec3f(mix(0.0012, 0.0001, frame.params.x)) +
+        sunlight * scratchSun * 1.60 + frame.moonColor.rgb * scratchMoon * 0.20);
+    }
+    let canopyAlpha = tintAlpha;
+    let clearGlassLight = (frame.skyTop.rgb + frame.skyHorizon.rgb) * 0.5;
+    let canopyTint = select(clearGlassLight, texel.rgb * in.color.rgb, frontFacing);
+    let canopyColor = canopyTint * tintAlpha + wear;
+    let reflection = canopyReflection(in, frontFacing);
+    let combinedAlpha = canopyAlpha + (1.0 - canopyAlpha) * reflection.a;
+    let combinedColor = canopyColor * (1.0 - reflection.a) + reflection.rgb * reflection.a;
+    return vec4f(mix(combinedColor, fogColorFor(viewDir, fog) * combinedAlpha, fog), combinedAlpha);
+  }
+  // Generic glass keeps exterior-only world reflections; its inner face remains tinted transparency.
   // Premultiplied compositing: the reflected env replaces the tinted glass by its amount, then fog takes
   // the finished pair (068 semantics).
   let glass = mix(rigidShade(in, texel) * alpha, env, amount) + specular;

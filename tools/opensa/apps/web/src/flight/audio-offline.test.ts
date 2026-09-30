@@ -8,7 +8,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
-import type { AudioBankManifest } from './audio-engine';
+import type { AudioBankManifest, AudioFrame } from './audio-engine';
 import type { FlightTrack } from './csv';
 
 import { buildAudioTimeline } from './audio-engine';
@@ -23,6 +23,7 @@ import {
   renderOfflineTimeline,
   renderOfflineWav,
 } from './audio-offline';
+import { DEFAULT_AUDIO_MIX_TUNING, normalizeAudioMixTuning } from './audio-tuning';
 import { parseFlightCsv } from './csv';
 
 const RENDER_RATE = 8000;
@@ -130,6 +131,32 @@ function oneShotSample(hz: number, frames: number): OfflineSample {
   return { frames: tone(frames, hz), loop: false, loopStartFrame: 0, sampleRateHz: RENDER_RATE };
 }
 
+function renderPresenceTone(hz: number, presenceGain: number): number {
+  const base = buildAudioTimeline(makeTrack('presence', []), MANIFEST);
+  const timeline = {
+    ...base,
+    frameAt: (seconds: number, listener?: Parameters<typeof base.frameAt>[1]): AudioFrame => {
+      const frame = base.frameAt(seconds, listener);
+
+      return frame.engine
+        ? {
+            ...frame,
+            engine: {
+              ...frame.engine,
+              layers: frame.engine.layers.map((layer) => ({ ...layer, presenceGain })),
+            },
+          }
+        : frame;
+    },
+  };
+  const sample = { frames: tone(400, hz, 0.05), loop: true, loopStartFrame: 0, sampleRateHz: RENDER_RATE };
+  const bank: OfflineSampleBank = { get: (file): null | OfflineSample => (file.startsWith('engine-') ? sample : null) };
+  const pcm = renderOfflineTimeline(timeline, bank, { duration: 0.5, reverb: false, sampleRate: RENDER_RATE }).pcm;
+  const steady = pcm.subarray(Math.round(0.1 * RENDER_RATE) * 2);
+
+  return Math.sqrt(steady.reduce((sum, value) => sum + value * value, 0) / steady.length);
+}
+
 function sha256(bytes: Uint8Array): string {
   return createHash('sha256').update(Buffer.from(bytes)).digest('hex');
 }
@@ -142,7 +169,7 @@ function syntheticBank(): OfflineSampleBank {
   const explosion = oneShotSample(60, 160);
 
   return {
-    get: (file) => {
+    get: (file): null | OfflineSample => {
       if (file.startsWith('engine-accelerate')) return engineAccelerate;
       if (file.startsWith('engine-decelerate')) return engineDecelerate;
       if (file === 'collision-set.wav') return collision;
@@ -163,6 +190,25 @@ function tone(frames: number, hz: number, amplitude = 0.5): Float32Array {
 }
 
 describe('offline PCM renderer (negative cases first)', () => {
+  it('uses the selected live mixer profile when rendering synthesized export audio', () => {
+    const track = makeTrack('mixer-export', []);
+    const baseline = renderOfflineWav(track, MANIFEST, syntheticBank(), { duration: 0.5, sampleRate: RENDER_RATE });
+    const muted = renderOfflineWav(track, MANIFEST, syntheticBank(), {
+      duration: 0.5,
+      sampleRate: RENDER_RATE,
+      tuning: normalizeAudioMixTuning({ ...DEFAULT_AUDIO_MIX_TUNING, master: 0 }),
+    });
+    expect(baseline.pcm.some((sample) => sample !== 0)).toBe(true);
+    expect(muted.pcm.every((sample) => sample === 0)).toBe(true);
+  });
+
+  it('the Hydra presence path adds middle frequencies while leaving bass nearly unchanged', () => {
+    const middle = renderPresenceTone(2000, 1.5) / renderPresenceTone(2000, 0);
+    const bass = renderPresenceTone(100, 1.5) / renderPresenceTone(100, 0);
+    expect(middle).toBeGreaterThan(1.8);
+    expect(bass).toBeLessThan(1.15);
+  });
+
   it('zero or non-finite duration yields an empty-but-valid WAV track', () => {
     const track = makeTrack('zero');
     for (const duration of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {

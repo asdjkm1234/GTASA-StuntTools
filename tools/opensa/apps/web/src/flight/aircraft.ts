@@ -12,10 +12,18 @@ import { parseDff } from '@opensa/renderware/parsers/binary/dff';
 import { parseVehicleDefs } from '@opensa/renderware/parsers/text/vehicle-defs.parser';
 import { buildVehicleModel } from '@opensa/renderware/vehicle/build-vehicle-model';
 import { VehicleTextures } from '@opensa/renderware/vehicle/textures';
+import { MaterialClass } from '@opensa/renderware/vehicle/types';
 
 import type { Quat, Vec3 } from './math';
 import type { PakResources } from './pak-resources';
 
+import { type CanopyPlane, prepareAircraftCanopy } from './aircraft-canopy';
+import { buildCanopyReflection } from './canopy-reflection';
+import { prepareCanopySurface } from './canopy-surface';
+import { fitsHydraDashboard } from './cockpit-instrument-mesh';
+import { type CockpitInstruments, createCockpitInstruments } from './cockpit-instruments';
+import { type CockpitPedals, createCockpitPedals } from './cockpit-pedals';
+import { COCKPIT_STICK_PART, cockpitStickMotion, prepareCockpitStick } from './cockpit-stick';
 import { NODE_NAMES, relativeNodeRotation } from './csv';
 import { conjugate, quatMultiply, rotateVec } from './math';
 import { axisAngleX, deriveNozzleAngle, PROP_NODE_NAMES } from './nozzle';
@@ -33,19 +41,24 @@ export interface AircraftHandle {
     gearStatus: number,
     inferred: { pitch: number; roll: number; yaw: number },
   ): void;
-  /** Apply recorded prop frame rotations only when a Hydra model actually contains those parts. */
-  applyProps(props: { nozzleRotation?: null | number; nodes?: (null | Quat)[] }): void;
   applyPaint(colors: readonly (null | number)[]): void;
   /** Apply a pose: model root in engine space from GTA position + orientation quaternion. */
   applyPose(positionGta: readonly [number, number, number], orientation: Quat): void;
+  /** Apply recorded prop frame rotations only when a Hydra model actually contains those parts. */
+  applyProps(props: { nodes?: (null | Quat)[]; nozzleRotation?: null | number }): void;
+  /** Closed canopy planes in aircraft-local coordinates, used to keep the pilot eye inside. */
+  canopyPlanes: readonly CanopyPlane[];
   data: VehicleModelData;
   dispose(): void;
   instance: VehicleInstance;
+  instruments: CockpitInstruments | null;
   modelId: VehicleModelId;
   /** DFF base name that actually loaded (for the readout). */
   name: string;
+  pedals: CockpitPedals | null;
   /** Hide the whole aircraft while the camera is inside the original first-person seat. */
   setVisible(visible: boolean): void;
+  stickMotion: null | ReturnType<typeof cockpitStickMotion>;
 }
 
 /** Load and upload the aircraft. Throws when the DFF or its TXD is missing. */
@@ -61,14 +74,37 @@ export async function loadAircraft(engine: Engine, resources: PakResources, mode
     throw new Error(`预烘焙地图缺少 ${name}.txd 或共享 vehicle.txd，请重新烘焙`);
   }
   const clump = parseDff(new Uint8Array(dff).buffer);
-  const data = buildVehicleModel(clump, new VehicleTextures([
-    new Uint8Array(txd).buffer,
-    new Uint8Array(genericTxd).buffer,
-  ]), {
-    wheelScale: wheelScaleFor(resources, name),
+  const data = buildVehicleModel(
+    clump,
+    new VehicleTextures([new Uint8Array(txd).buffer, new Uint8Array(genericTxd).buffer]),
+    {
+      wheelScale: wheelScaleFor(resources, name),
+    },
+  );
+  const canopyPlanes = prepareAircraftCanopy(data, model);
+  // Rustler's underside and lower control surfaces are the only stock paint with coefficient 255;
+  // the live sky probe turns those downward faces into a white, speckled stripe. Keep the authored
+  // colors and alpha, and leave all other aircraft paint as authored.
+  for (let vertex = 0; vertex < data.meta.length / 4; vertex += 1) {
+    const materialClass = data.meta[vertex * 4 + 3] >> 4;
+    if (materialClass === MaterialClass.canopy) {
+      // Canopy reflection bytes are reserved for metre-scale surface coordinates, not environment images.
+      data.reflect.fill(0, vertex * 4, vertex * 4 + 4);
+    }
+    const rustlerBelly = model === 476 && materialClass === MaterialClass.paint && data.reflect[vertex * 4 + 1] === 255;
+    if (materialClass === MaterialClass.glass || rustlerBelly) {
+      data.reflect.fill(0, vertex * 4, vertex * 4 + 4);
+    }
+  }
+  prepareCanopySurface(data, model);
+  prepareCockpitStick(data, model);
+  const modelId = engine.createVehicleModel({
+    ...toRigidModelInit(data),
+    canopyReflection: buildCanopyReflection(data, canopyPlanes),
   });
-  const modelId = engine.createVehicleModel(toRigidModelInit(data));
   const instance = engine.createVehicle(modelId);
+  const instruments = fitsHydraDashboard(data, model) ? createCockpitInstruments(engine) : null;
+  const pedals = fitsHydraDashboard(data, model) ? createCockpitPedals(engine) : null;
   let isVisible = true;
   // A raw engine instance starts with EVERY submesh visible. The DFF also contains a simplified `_vlo`
   // shell for distant rendering; drawing it over the HD body covers moving control surfaces and z-fights
@@ -87,6 +123,8 @@ export async function loadAircraft(engine: Engine, resources: PakResources, mode
 
     return [rotation[0], rotation[1], rotation[2], rotation[3]];
   });
+  const stickPart = instance.entity.partIndex(COCKPIT_STICK_PART);
+  let stickMotion: null | ReturnType<typeof cockpitStickMotion> = null;
 
   // The stock Hydra DFF has no prop meshes; these slots support a modded Hydra that authors them. The stock
   // Rustler does have prop meshes, so the model guard in applyProps is essential to keep its propeller fixed.
@@ -151,13 +189,18 @@ export async function loadAircraft(engine: Engine, resources: PakResources, mode
     if (model !== 520) return;
     const progress = Math.min(1, Math.abs(gearStatus));
     for (const [nodeIndex, wheel, angle] of [
-      [7, 'wheel_rf_dummy', -80 * Math.PI / 180],
-      [8, 'wheel_lf_dummy', 130 * Math.PI / 180],
+      [7, 'wheel_rf_dummy', (-80 * Math.PI) / 180],
+      [8, 'wheel_lf_dummy', (130 * Math.PI) / 180],
     ] as const) {
       const part = partFor[nodeIndex];
       const bind = bindFor[nodeIndex];
-      if (nodes[nodeIndex] || part === null || !bind ||
-        !childrenOf[part].some((child) => data.parts[child].name === wheel)) continue;
+      if (
+        nodes[nodeIndex] ||
+        part === null ||
+        !bind ||
+        !childrenOf[part].some((child) => data.parts[child].name === wheel)
+      )
+        continue;
       const half = (angle * progress) / 2;
       applyRotation(part, relativeNodeRotation(bind, [Math.sin(half), 0, 0, Math.cos(half)]));
     }
@@ -197,6 +240,36 @@ export async function loadAircraft(engine: Engine, resources: PakResources, mode
         applyRotation(part, [axisAngle[0] * side, axisAngle[1] * side, axisAngle[2] * side, axisAngle[3]]);
       });
       applyHydraCenterGear(gearStatus, nodes);
+      pedals?.update(nodes[0] ?? null, bindFor[0], inferred.yaw);
+      if (stickPart >= 0) {
+        stickMotion = cockpitStickMotion(nodes, bindFor, inferred);
+        const bind = data.parts[stickPart].localRotation;
+        applyRotation(stickPart, quatMultiply(quatMultiply(conjugate(bind), stickMotion.rotation), bind));
+      }
+    },
+    applyPaint(colors): void {
+      const rgb = resolvePaint(resources, colors);
+      if (rgb) {
+        instance.setPaint({
+          primary: rgb.primary,
+          quaternary: rgb.tertiary,
+          secondary: rgb.secondary,
+          tertiary: rgb.quaternary,
+        });
+      }
+    },
+    applyPose(positionGta, orientation): void {
+      // `orientation` maps the model's native axes (X=right, Y=forward, Z=up) to engine world, and for the
+      // identity pose it equals the engine's own ROOT basis (native Z-up → engine Y-up), which is the value
+      // the map/vehicle viewer uses. So the direct basis is the correct root.
+      const root = new Float32Array(16);
+      root.set(quatToMatrix(orientation), 0);
+      root[12] = positionGta[0];
+      root[13] = positionGta[2];
+      root[14] = -positionGta[1];
+      instance.entity.setRoot(root);
+      instruments?.setRoot(root);
+      pedals?.setRoot(root);
     },
     applyProps({ nodes, nozzleRotation }): void {
       if (model !== 520) return;
@@ -232,42 +305,30 @@ export async function loadAircraft(engine: Engine, resources: PakResources, mode
         applyRotation(part, sweep);
       }
     },
-    applyPaint(colors): void {
-      const rgb = resolvePaint(resources, colors);
-      if (rgb) {
-        instance.setPaint({
-          primary: rgb.primary,
-          quaternary: rgb.tertiary,
-          secondary: rgb.secondary,
-          tertiary: rgb.quaternary,
-        });
-      }
-    },
-    applyPose(positionGta, orientation): void {
-      // `orientation` maps the model's native axes (X=right, Y=forward, Z=up) to engine world, and for the
-      // identity pose it equals the engine's own ROOT basis (native Z-up → engine Y-up), which is the value
-      // the map/vehicle viewer uses. So the direct basis is the correct root.
-      const root = new Float32Array(16);
-      root.set(quatToMatrix(orientation), 0);
-      root[12] = positionGta[0];
-      root[13] = positionGta[2];
-      root[14] = -positionGta[1];
-      instance.entity.setRoot(root);
-    },
+    canopyPlanes,
     data,
     dispose(): void {
+      instruments?.dispose();
+      pedals?.dispose();
       engine.destroyVehicle(instance);
       engine.destroyVehicleModel(modelId);
     },
     instance,
+    instruments,
     modelId,
     name,
+    pedals,
     setVisible(visible): void {
       if (visible === isVisible) return;
       for (let submesh = 0; submesh < data.submeshes.length; submesh += 1) {
         instance.setSubmeshVisible(submesh, visible && hdVisible[submesh]);
       }
+      instruments?.setVisible(visible);
+      pedals?.setVisible(visible);
       isVisible = visible;
+    },
+    get stickMotion(): null | ReturnType<typeof cockpitStickMotion> {
+      return stickMotion;
     },
   };
 }

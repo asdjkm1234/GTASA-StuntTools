@@ -14,7 +14,7 @@
 GTASA-StuntTools/
   GTA San Andreas/                       游戏安装（录制器与 flight_recordings/ 在这里）
   recorder/                              独立 ASI 录制器（C++，25 Hz，无 CLEO opcode）
-    src/FlightRecorderASI.cpp            v9 录制源（真实节点、起落架、游戏时钟/天气、推断挡位/负载、推断碰撞事件）
+    src/FlightRecorderASI.cpp            v11 录制源（十个默认按键、真实节点、舵面损伤、起落架、游戏时钟/天气）
     build.ps1 / install.ps1              zig 编译、安装到游戏目录（覆盖前自动备份）
   web-replay/                            本地回放服务
     local-server.mjs                     静态页 + /game-src（Range）+ /local-recording/latest.csv
@@ -89,32 +89,43 @@ cd web-replay
 
 ### 音效回放
 
-- 烘焙时从本机安装的 `audio/SFX/GENRL` 解出 **20 个样本**写入 pak，且引擎 bank **按机型**选取：
-  Hydra 520 → `SND_BANK_GENRL_VEHICLE_GEN`（喷气**分层涡轮**，id 138 / slot 19：`THRUST`26 主涡轮 + `WHINE`29 高频啸叫 +
-  `JET_DIST`14 远场层 + `LIFT_LOOP`15 垂直起降升力，按速度门控）；
-  Rustler 476 → `SND_BANK_GENRL_FASTPROP`（螺旋桨，id 53 加速 / `_D` id 54 减速）。每层 3 个转速档
-  （`[0.7, 1, 1.4]`），外加 `collision-set.wav`、`explosion-set.wav`；喷气层样本名为
-  `engine-520-<layer>-<step>.wav`（如 `engine-520-turbine-1.wav`、`engine-520-whine-1.wav`），螺旋桨仍为
-  `engine-476-accelerate-<step>.wav` / `engine-476-decelerate-<step>.wav`。每个引擎 loop 在烘焙时做尾→首交叉淡化，
+- 烘焙时从本机安装的 `audio/SFX/GENRL` 解出 **34 个样本**写入 pak，且引擎 bank **按机型**选取：
+  Hydra 520 → `SND_BANK_GENRL_VEHICLE_GEN`（id 138 / slot 19：`HARRIER_FRONT`10 + `HARRIER_REAR`11 +
+  `THRUST`26 + `JET_DIST`14；已核对本机 `gta_sa.exe` 的 `ProcessGenericJet` 模型 520 分支）；
+  Rustler 476 → 玩家 `FASTPROP` bank 53 的前/后两个声音（0/1），加共享 bank 138 的近场 `PROP_NEAR`17 和远场 `PROP_DIST`16。每层 3 个转速档
+  （`[0.7, 1, 1.4]`），另有九个载具碰撞样本与 `explosion-set.wav`；样本名分别为
+  `engine-520-<layer>-<step>.wav` 和 `engine-476-<front|rear|near|prop-distance>-<step>.wav`。每个引擎 loop 在烘焙时做尾→首交叉淡化，
   整段无缝循环（`loopStartFrame=0`）。并写出 `manifest.json`（**逐样本**记录
   bank/slot/sound/soundName/采样率与 provenance）。bank 按**名字**从 gta-reversed `eSoundBank.h` 选取、音效按
   `SoundIDs.h` 名字选取，bake 时与安装逐一校验、不匹配即抛错（**绝不为 Hydra 静默回退到螺旋桨 bank**；
   该机型缺样本时如实上报 `engine: null`）。回放音效由
-  `apps/web/src/flight/audio-engine.ts` 按机型组装**分层**引擎（喷气：涡轮/啸叫/远场/升力；螺旋桨：加速/减速对）：
-  音高与亮度随推断负载/转速代理变化、油门/刹车只用于调制层、碰撞按推断冲击强度选样本、爆炸按固定频率循环，并叠加距离衰减与多普勒。
-- **推断边界**：喷气机的**分层与混音比例**是 **INFERRED**（`ProcessGenericJet` 未逆向）；bank/slot/sound 的 id 与名字
-  来自 gta-reversed 本体表，但“哪几层同时响、各占多少”未经实测。缺少 v9 推断列（v4–v8）时，负载/转速由**实测位置
+  `apps/web/src/flight/audio-engine.ts` 按机型组装**分层**引擎（喷气：前/后/推力/远场；螺旋桨：前/后/近/远）：
+  Hydra 前后层的音高和响度随推断 W/松开/S 与已录位置速度变化；Rustler 前/后层音高按录制姿态与推断 W/松开/S 控制计算。
+  碰撞按推断冲击强度选样本、爆炸按固定频率循环，并叠加距离衰减与多普勒。
+- **推断边界**：本机程序静态调用证实 Hydra 的四个 sound id，公开 `gta-reversed` 提供对应名字；实际声层增益、音高、听者位置及输入仍是 **INFERRED**，尚无逐帧运行时日志。缺少 v9 推断列（v4–v8）时，负载/转速由**实测位置
   速度**推导（仍标注 inferred）；3 个转速档是同一 loop 的**离线重采样**，不是游戏额外样本（原版在运行时对同一 loop 变调）。
 - **诚实声明**：音效是与原版**参数化忠实（parameterization-faithful）**的重建，**不是原版混音的逐位一致
   （NOT bit-exact）**；推断输入一律标注为 inferred，绝不呈现为实测。G3 为 **NO-GO**（本机 `gta_sa.exe` 不是 SDK
-  验证的 1.0-US 指纹），发动机 rev/RPM 因此仍未采集，音频改用挡位+负载代理。
+  验证的 1.0-US 指纹），发动机 rev/RPM 与 Rustler 的实际 `m_fPropSpeed` 因此仍未采集。当前机型 v9 录像的 `throttle` 一直是零、`brake` 为 W=0/松开=0.5/S=1；音频根据 `1-brake` 推断推力，**不是实测发动机负载**。
 - 该版 pak 的 `replayAssets.version` 为 3（新增 `data/handling.cfg` 与 audio lane）；旧 pak 必须重新烘焙。
+- 音频清单 v4 时新增载具碰撞层；当前 v8 仍从本机烘焙 `COLCAR` 的 20–28 号九个样本。v9 录像缺少实测接触材质，因此只选择载具表面样本，接触材质仍为未知，冲击强度仍为推断。发动机音高加入录制采样时间轴上的升降速惯性及原版健康度分段修正，各音层使用不同距离响应；这些改进不代表已取得原版完整混音公式。Rustler 保持开放空间混响；Hydra 的额外混响发送已关闭。
+- **当前音频清单 v8**：Rustler 玩家层按 `gta-reversed:ProcessDummyOrPlayerProp` 使用前/后/近/远四层；`_D` bank 属于另一条路径，不作为玩家收油样本。其前后层仍用约 2 ms 等功率接缝，低速断续掉声仍为**推断**。Hydra 改用本机程序调用的 HARRIER_FRONT/REAR、THRUST、JET_DIST；新前后样本使用约 5 ms 等功率接缝。两机实时与导出各只播放一份原速循环并连续变调。旧整图/航迹 pak 的音频清单都须重新烘焙；已有 v7 整图 pak 可在 `tools/opensa` 下运行 `node node_modules/tsx/dist/cli.mjs scripts/bake-map.mts map-pak --audio-only`，只更新本机音频与 index 的音频文件列表，保留地图单元及贴图。
+- Rustler 持续加力时的变速改用公开玩家螺旋桨路径的姿态公式，所有 Rustler 引擎层各播放一份原速样本；录像没有原版音频输入和 tick，按键映射与平滑速率仍是 **inferred**。用户试听确认 Rustler 的循环感已不易察觉。
+- 旧的 WHINE 参数曾把约 4.4 kHz 尖峰调到原版位置，但周围宽带结构无法匹配。v8 改用真实调用的 HARRIER_FRONT/REAR，默认关闭旧 THRUST 中频补偿；全程第一人称 v9 WAV 对照的起飞 1–4s 六个频段误差约 0.06–0.67 dB，巡航 5–10s 约 0.37–1.03 dB。原版 WAV 含全部游戏声音，这些指标只证实当前比较条件下的频谱接近；用户随后确认 Hydra 音色修复。见 `HANDOFF.md` §27。
+- Hydra 高速 W/松开/S 响度响应在音色修复后继续微调：原版 v9 完整混音在约 63–75 m/s 的松开 W 边沿宽频下降约 1.5–2.2 dB，旧合成常偏小；当前在巡航时对松开/S 的主声源加入平滑的推断降益，满 W 基准、样本、音高及 Rustler 路径不变。高速按 W 的原版完整混音边沿有时反而下降，不能用单条录像确定单独发动机的真实增益公式；见 `HANDOFF.md` §28。
+- 回放控制栏的“调音台”可按 Hydra/Rustler 分别实时调整响度、声层比例、整体和分层音高；Hydra 另有带精确数值的“油门响度变化”滑块（默认 1.00×），当前显示 HARRIER_FRONT/REAR、THRUST 和 JET_DIST 的实际声层，也可调 THRUST 中频诊断支路（基准关闭）。每个滑块显示精确值，“复制参数”输出当前载具全部滑块数值及 JSON；Rustler 原保存值会迁移，旧 Hydra WHINE/LIFT 设置保存在 v1 localStorage 键中供参考，新 Hydra 从 v2 基准开始。合成音频导出使用打开导出时的参数快照，录制 WAV 不受影响。
 
 ### 三维终点标记与分析
 
 - 每个已加载航迹的终点都会在 3D 世界里放置标记（**3D world endpoint markers**）；**every track endpoint** 都有标记。
   密度光环（**density halo**）只表达聚集程度，**绝不遮住任何一个点（never hides a point）**。
-- 旧的平面 2D 分析面板已退役（**flat 2D panel retired**）；分析 HUD 的仪表仍可逐项隐藏。
+- 平面分析面板及浮动飞行分析 HUD 已删除；自由视角、航迹列表和三维终点标记继续保留。
+- Hydra 原版摇杆在回放中为半透明，保留其几何形状，让仪表台更容易看清；不修改游戏安装或地图包。
+- Hydra 原版座舱已内嵌速度、姿态、海拔三只圆表；下方为机身健康、方向舵/左右升降舵/左右副翼灯，以及油门、喷口、起落架。方位显示在既有绿色瞄准玻璃上，视频导出同步带上这些仪表；Rustler 座舱位置仍待适配。
+- 速度表为 0–300 km/h，指针/数字按录像时间两级阻尼，响应约延后半秒以抑制采样抖动；海拔表为 0–1000 m，800 m 黄线参考原版升限阈值。超量程保留实际数字并显示 `OVR`，负海拔显示 `LOW`，指针停在端点，不绕回零；MOD 可改变实际升限。
+- 速度刻度内有从 0 延伸到当前指针的绿色高亮弧带，随同一平滑速度伸缩，便于余光判断快慢；超 300 km/h 弧带填满并变黄。
+- 健康值/填充条以 0.4 秒、油门数字/填充条以 0.28 秒作减速过渡，中途变化从当前显示位置接着动。动画按录像时间运行；暂停冻结，倒拖和视频导出可复现。真实健康/三档油门数据保留，受损灯和危险颜色仍立即响应，失焦油门立即显示未知。
+- `GAME km/h` 由位置与录制时间换算三维运动速度，不能当作真实航空 IAS；海拔为游戏世界 Z。v11 的 `THROTTLE *` 由默认 W/S 键推断：W=100%、S=0%、都不按或同时按=50%；失去游戏焦点为未知 `--`。旧录像油门全零时按已有 brake 控制代理量归到 0/50/100%，星号表示推断。喷口为原始 0–5000 控制的百分比，起落架按绝对值显示 DOWN/TRANSIT/UP。
 
 ### 视频导出
 
@@ -123,12 +134,12 @@ cd web-replay
 - **诚实声明：不要声称实时导出（do NOT claim realtime export）。** 本机 Intel Arc A380 实测：60 秒片段在 60 fps
   约 65–68 秒（≈1.1x 片长），在 120 fps 约 122–141 秒（≈2-2.3x 片长）。120 fps 导出结果正确，但**慢于实时**：固定
   每帧成本约 17 ms，超过 120 fps 的 8.33 ms 预算；编码器本身远快于实时（流水线 lane：60 秒片段在 60 fps 仅 12.8 秒）。
-- 导出的 HUD 是页面 DOM 仪表的 canvas 镜像（**canvas mirror**），信息等价但**不是逐像素一致（not pixel-identical）**。
+- 视频导出直接使用三维场景画面，不再叠加已删除的飞行分析 HUD。
 - 120 fps 只改善节奏（**cadence**），**无法恢复超过 25 Hz 录制器 12.5 Hz 极限的运动**。
 
 ## 三、CSV 数据格式
 
-按列名读取，**兼容 v4/v5/v6/v7/v8/v9**（缺列为 `null`）。以下是 v6 起保留的基础列：
+按列名读取，**兼容 v4/v5/v6/v7/v8/v9/v10**（缺列为 `null`）。以下是 v6 起保留的基础列：
 
 ```
 local_timestamp,model,health,x,y,z,heading_deg,
@@ -178,6 +189,10 @@ inferred 的启发式值，**推断值绝不当成实测值**。
 - `surface_source` = `real`（5 舵面全读到）/ `partial` / `inferred`（读不到，回放端只能按键推测）。
   按键推测值**只**写按键列，绝不写进真实节点列。
 - 文件以 `# session_start,…` 开头、`# session_end,<reason>,…` 结束。
+
+v10 新增 Hydra/Rustler 的方向舵、左右升降舵、左右副翼五个独立损伤状态，以及有效位、来源和原始损伤字。
+运行时验证本机相关代码签名后才从游戏内存读取；校验失败及旧录像为未知。回放「原始数据」可查看，
+Hydra 座舱损伤灯已接入：完好为暗绿，受损/其他状态为黄，脱落为红，未知为灰；CTRL 为总告警。破损模型外观尚未接入。新 ASI 需重启游戏生效。
 
 详细录制字段与规则见 `recorder/README.md`；回放用法见 `web-replay/README.md`。
 

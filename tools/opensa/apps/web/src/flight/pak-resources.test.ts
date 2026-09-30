@@ -28,7 +28,7 @@ const AUDIO_MANIFEST = {
     },
   ],
   source: 'audio/SFX/GENRL',
-  version: 1,
+  version: 8,
 };
 
 function stubRoutes(routes: Record<string, string | Uint8Array>): void {
@@ -67,6 +67,46 @@ describe('PakResources.load', () => {
       });
 
       await expect(PakResources.load(BASE)).rejects.toThrow(/缺失[\s\S]*re-bake required/);
+    });
+
+    it('rejects the old single-sample collision audio lane and asks for a re-bake', async () => {
+      stubRoutes({
+        [`${BASE}/audio/manifest.json`]: JSON.stringify({ ...AUDIO_MANIFEST, version: 3 }),
+        ...Object.fromEntries(
+          ['carcols.dat', 'handling.cfg', 'timecyc.dat', 'vehicles.ide', 'water.dat'].map((name) => [
+            `${BASE}/data/${name}`,
+            name,
+          ]),
+        ),
+        [`${BASE}/index.json`]: JSON.stringify({
+          replayAssets: {
+            aircraft: { '476': 'rustler', '520': 'hydra' },
+            audio: { manifest: 'manifest.json' },
+            version: 3,
+          },
+        }),
+      });
+      await expect(PakResources.load(BASE)).rejects.toThrow(/音效包版本过旧/);
+    });
+
+    it.each([5, 6, 7])('rejects stale v%s engine samples and requires a re-bake', async (version) => {
+      stubRoutes({
+        [`${BASE}/audio/manifest.json`]: JSON.stringify({ ...AUDIO_MANIFEST, version }),
+        ...Object.fromEntries(
+          ['carcols.dat', 'handling.cfg', 'timecyc.dat', 'vehicles.ide', 'water.dat'].map((name) => [
+            `${BASE}/data/${name}`,
+            name,
+          ]),
+        ),
+        [`${BASE}/index.json`]: JSON.stringify({
+          replayAssets: {
+            aircraft: { '476': 'rustler', '520': 'hydra' },
+            audio: { manifest: 'manifest.json' },
+            version: 3,
+          },
+        }),
+      });
+      await expect(PakResources.load(BASE)).rejects.toThrow(/音效包版本过旧/);
     });
 
     it('names the missing handling.cfg when a version-3 pak lacks it', async () => {

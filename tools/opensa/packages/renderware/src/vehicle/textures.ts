@@ -176,6 +176,16 @@ export class VehicleTextures {
     return this.ensureLayer(material.texture?.name.toLowerCase() ?? 'white');
   }
 
+  /** Optional env layer. Resolve the base first so 0 remains the missing-map sentinel. */
+  resolveEnvMap(material: RWMaterial): number {
+    const env = material.effects?.envMap;
+    const name = env?.texture?.toLowerCase();
+    if (!env || env.coefficient <= 0 || !name || !this.sources.has(name)) return 0;
+    this.resolve(material);
+
+    return this.ensureLayer(name);
+  }
+
   /**
    * Lamp textures have a lamps-on TWIN (`vehiclelights128` → `vehiclelightson128` — SA swaps the texture at
    * night). Returns its layer, or 0 for "none": layer 0 is always claimed by the first body material, so it

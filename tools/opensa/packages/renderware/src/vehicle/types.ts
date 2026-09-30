@@ -27,8 +27,12 @@ export const LampTag = {
  * (tyres, rubber, trim) → matte — excluded from reflections entirely.
  */
 export const MaterialClass = {
+  /** Opt-in replay canopy: authored dark transmission and curved, light-responsive surface detail. */
+  canopy: 6,
   chrome: 2,
   glass: 3,
+  /** Replay instrument faces/heading markings: restrained self illumination, no environmental reflection. */
+  instrument: 7,
   matte: 0,
   paint: 1,
   /**
@@ -55,6 +59,8 @@ export interface VehicleBuildOptions {
   /** Force {@link VehiclePopUpLights} on a `misc_*` component whose faces carry no head-lamp marker — the
    *  build-time `features.txt` → `UP/DOWN_LIGHTS` declaration. Absent = derive from the model alone. */
   popUpLights?: boolean;
+  /** Retain the env layer so replay can replace its image. Other renderers use a live probe. */
+  preserveEnvMaps?: boolean;
   /** `vehicles.ide` wheelScale as [front, rear] — SA scales the axles separately. Absent = [1, 1]. */
   wheelScale?: readonly [number, number];
 }
@@ -146,13 +152,13 @@ export interface VehicleModelData {
   positions: Float32Array;
   /**
    * Per-vertex REFLECTION slots (B5r), straight from the DFF's material-effect plugins:
-   *   x = env-map layer in the texture array (0 = the material is not reflective),
+   *   x = optional env texture layer (0 = not retained),
    *   y = env-map coefficient × 255 (RpMatFX strength),
    *   z = SA reflection-plugin intensity × 255,
    *   w = SA specular-plugin level × 255.
-   * SA's own env textures are BAKED DAYTIME images (a painted horizon for paint, a sunset photo for glass) —
-   * the engine keeps their PATTERN and their settings but takes the reflection's COLOUR from the live sky, so
-   * a car does not reflect a sunset at midnight.
+   * Cars use the live environment probe. Replay canopy materials reinterpret these four bytes as
+   * two signed fixed-point surface UVs (1/4096 m, offset 32768), decoded before interpolation.
+   * All-zero bytes disable details, keeping Rustler's plain tint. No cockpit capture is used.
    */
   reflect: Uint8Array;
   submeshes: readonly VehicleModelSubmesh[];

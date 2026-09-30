@@ -109,7 +109,7 @@ export class FreeCamera {
     this.yaw = options.yaw ?? 0;
     this.pitch = clamp(options.pitch ?? -0.35, -PITCH_LIMIT, PITCH_LIMIT);
     this.fovYDeg = options.fovYDeg ?? 60;
-    this.near = options.near ?? 0.5;
+    this.near = options.near ?? 0.03;
     this.far = options.far ?? 12000;
     this.focusDistance = options.focusDistance ?? DEFAULT_FOCUS_DISTANCE;
   }
@@ -235,13 +235,23 @@ export class FreeCamera {
     ]);
   }
 
+  /** Move relative to yaw on a level plane, with vertical movement on the world up axis. */
+  moveLevel(forwardOffset: number, rightOffset: number, upOffset: number): void {
+    const right = this.right();
+    this.moveBy([
+      Math.sin(this.yaw) * forwardOffset + right[0] * rightOffset,
+      upOffset,
+      -Math.cos(this.yaw) * forwardOffset + right[2] * rightOffset,
+    ]);
+  }
+
   reset(options: FreeCameraOptions = {}): void {
     this.cancelFlyTo();
     this.position = options.position ? [...options.position] : [0, 50, 0];
     this.yaw = options.yaw ?? 0;
     this.pitch = clamp(options.pitch ?? -0.35, -PITCH_LIMIT, PITCH_LIMIT);
     this.fovYDeg = options.fovYDeg ?? 60;
-    this.near = options.near ?? 0.5;
+    this.near = options.near ?? 0.03;
     this.far = options.far ?? 12000;
     this.focusDistance = options.focusDistance ?? DEFAULT_FOCUS_DISTANCE;
   }
@@ -385,16 +395,16 @@ const CONTROL_KEYS = new Set([
   'ArrowRight',
   'ArrowUp',
   'ControlLeft',
+  'ControlRight',
   'KeyA',
   'KeyD',
-  'KeyE',
-  'KeyQ',
   'KeyS',
   'KeyW',
   'ShiftLeft',
   'ShiftRight',
   'Space',
 ]);
+const SPEED_LABELS = ['极慢', '慢速', '中速', '快速'] as const;
 
 /** Opt-in pointer + keyboard controller. Attach it only while the free camera is the active view. */
 export class FreeCameraInput {
@@ -403,6 +413,9 @@ export class FreeCameraInput {
   }
   get enabled(): boolean {
     return this.active;
+  }
+  get speedLabel(): string {
+    return SPEED_LABELS[this.speedTier];
   }
   private active = true;
   private readonly boost: number;
@@ -417,6 +430,7 @@ export class FreeCameraInput {
   private readonly moveSpeed: number;
 
   private readonly rotateSpeed: number;
+  private speedTier = 2;
 
   constructor(
     private readonly camera: FreeCamera,
@@ -442,6 +456,7 @@ export class FreeCameraInput {
     window.addEventListener('pointerup', this.onPointerUp);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('blur', this.onBlur);
   }
 
   detach(): void {
@@ -456,6 +471,7 @@ export class FreeCameraInput {
     window.removeEventListener('pointerup', this.onPointerUp);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('blur', this.onBlur);
     this.element = null;
     this.dragging = false;
     this.keys.clear();
@@ -477,8 +493,7 @@ export class FreeCameraInput {
     if (!this.active || !this.element) {
       return;
     }
-    const step =
-      Math.min(0.1, Math.max(0, dt)) * this.moveSpeed * (this.isDown('ShiftLeft', 'ShiftRight') ? this.boost : 1);
+    const step = Math.min(0.1, Math.max(0, dt)) * this.moveSpeed * this.speedMultiplier();
     let forward = 0;
     let right = 0;
     let up = 0;
@@ -486,15 +501,24 @@ export class FreeCameraInput {
     if (this.isDown('KeyS', 'ArrowDown')) forward -= step;
     if (this.isDown('KeyD', 'ArrowRight')) right += step;
     if (this.isDown('KeyA', 'ArrowLeft')) right -= step;
-    if (this.isDown('KeyE', 'Space')) up += step;
-    if (this.isDown('KeyQ', 'ControlLeft')) up -= step;
+    if (this.isDown('Space')) up += step;
+    if (this.isDown('ShiftLeft', 'ShiftRight')) up -= step;
     if (forward || right || up) {
-      this.camera.moveLocal(forward, right, up);
+      this.camera.moveLevel(forward, right, up);
     }
   }
 
   private isDown(...codes: string[]): boolean {
     return codes.some((code) => this.keys.has(code));
+  }
+
+  private speedMultiplier(): number {
+    switch (this.speedTier) {
+      case 0: return 0.005;
+      case 1: return 0.25;
+      case 2: return 1;
+      default: return this.boost;
+    }
   }
 
   private readonly onContextMenu = (event: MouseEvent): void => {
@@ -509,12 +533,19 @@ export class FreeCameraInput {
     }
     if (CONTROL_KEYS.has(event.code)) {
       event.preventDefault();
+      if ((event.code === 'ControlLeft' || event.code === 'ControlRight') && !event.repeat && !this.keys.has(event.code)) {
+        this.speedTier = (this.speedTier + 1) % SPEED_LABELS.length;
+      }
       this.keys.add(event.code);
     }
   };
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
     this.keys.delete(event.code);
+  };
+
+  private readonly onBlur = (): void => {
+    this.keys.clear();
   };
 
   private readonly onPointerDown = (event: PointerEvent): void => {
@@ -552,10 +583,11 @@ export class FreeCameraInput {
     }
     event.preventDefault();
     const notches = event.deltaY / (Math.abs(event.deltaY) > 50 ? 100 : 1);
+    const distance = -notches * this.dollyStep * Math.min(1, this.speedMultiplier());
     this.camera.moveBy([
-      this.camera.forward()[0] * -notches * this.dollyStep,
-      this.camera.forward()[1] * -notches * this.dollyStep,
-      this.camera.forward()[2] * -notches * this.dollyStep,
+      this.camera.forward()[0] * distance,
+      this.camera.forward()[1] * distance,
+      this.camera.forward()[2] * distance,
     ]);
   };
 }

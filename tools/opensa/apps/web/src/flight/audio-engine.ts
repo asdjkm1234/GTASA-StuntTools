@@ -7,25 +7,26 @@
  * export reproduces the exact selection every time.
  *
  * Signal honesty (G3 = NO-GO, see `.omo/evidence/gate-G3-blocked.md`):
- * - Engine rev/RPM is BLOCKED. It is never read, derived or emitted. Engine pitch is driven by a normalized
- *   INFERRED engine-speed proxy built from the v9 inferred gear/load columns; it is not a tachometer.
+ * - Engine rev/RPM is BLOCKED. It is never read, derived or emitted. The normalized INFERRED engine-speed
+ *   proxy drives jet layer gains/pitch; Rustler's pitch follows recorded orientation plus an inferred key
+ *   offset, with the public player-prop frequency step rate. Hydra uses a modest 1.0–1.25x pitch sweep.
  * - Transmission gear and engine load are INFERRED (recorder-labelled). Collision impact is INFERRED and its
  *   surface material is MISSING (a measured material is never recorded). See {@link SIGNAL_PROVENANCE}.
  *
  * Documented mapping constants (sources):
- * - Engine pitch endpoints: a linear playbackRate ramp over the derived engine-speed proxy. Each model plays
- *   its OWN GENRL engine bank (Hydra 520 -> the jet bank `SND_BANK_GENRL_VEHICLE_GEN`; Rustler 476 -> the
- *   propeller bank `SND_BANK_GENRL_FASTPROP`), baked as a table of rate-steps. The engine picks the two
- *   neighbouring steps for the proxy's target rate and crossfades them, so pitch is a table blend, not a
- *   single loop. These endpoints and step table are a mapping constant, NOT a measured RPM.
+ * - Each model plays its OWN GENRL engine bank (Hydra 520 -> `SND_BANK_GENRL_VEHICLE_GEN`; Rustler 476 ->
+ *   `SND_BANK_GENRL_FASTPROP`). Hydra crossfades baked rate steps over its inferred speed proxy; Rustler
+ *   varies one original sample per layer using the public player-prop orientation/acceleration formula
+ *   where CSV data permits.
+ *   Neither is a measured RPM.
  * - Engine bank selection reads `AudioManifestSample.model` (baked provenance). A manifest that declares
  *   per-model engines but has none for the track's model yields `engine: null` (reported, never a silent
  *   fallback to another model's bank). A legacy manifest without model tags keeps its single engine pair.
- * - Explosion frequency cycle `{1.12, 1.0, 0.88}` and the collision ±6% pitch variance come from the todo-17
- *   plan (gta-reversed audio behaviour research: repeated one-shots step through a fixed ratio cycle; the
- *   jitter is bounded at ±6%).
+ * - Explosion frequency cycle `{1.12, 1.0, 0.88}` comes from the todo-17 plan; the collision pitch variance
+ *   is ±2% as used by gta-reversed `AECollisionAudioEntity::PlayOneShotCollisionSound`.
  * - Distance/directional attenuation, Doppler and reverb are documented acoustic models (see each function).
  */
+import type { AudioMixTuning } from './audio-tuning';
 import type { FlightEvent, FlightRow, FlightTrack, SampledPose } from './csv';
 
 import { sampleTrack } from './csv';
@@ -39,17 +40,28 @@ import { rotateVec, type Vec3 } from './math';
 export const SAMPLE_CATEGORIES = [
   'engine-accelerate',
   'engine-decelerate',
+  'engine-front',
+  'engine-rear',
+  'engine-near',
+  'engine-prop-distance',
   'engine-turbine',
-  'engine-whine',
   'engine-distance',
-  'engine-lift',
   'collision',
   'explosion',
 ] as const;
 export type SampleCategory = (typeof SAMPLE_CATEGORIES)[number];
 
-/** The engine layer roles a baked sample can carry. `accelerate`/`decelerate` are the prop pair. */
-export const ENGINE_LAYER_ROLES = ['turbine', 'whine', 'distance', 'lift', 'accelerate', 'decelerate'] as const;
+/** The engine layer roles a baked sample can carry. The pair is retained for legacy manifests. */
+export const ENGINE_LAYER_ROLES = [
+  'front',
+  'rear',
+  'turbine',
+  'distance',
+  'near',
+  'prop-distance',
+  'accelerate',
+  'decelerate',
+] as const;
 export type EngineLayerRole = (typeof ENGINE_LAYER_ROLES)[number];
 
 /** The manifest `category` string each cue reads. Engine layer categories are the baked jet/prop layer roles. */
@@ -58,9 +70,11 @@ export const MANIFEST_CATEGORY: Record<SampleCategory, string> = {
   'engine-accelerate': 'engine accelerate',
   'engine-decelerate': 'engine decelerate',
   'engine-distance': 'engine distance',
-  'engine-lift': 'engine lift',
+  'engine-front': 'engine front',
+  'engine-near': 'engine near',
+  'engine-prop-distance': 'engine prop distance',
+  'engine-rear': 'engine rear',
   'engine-turbine': 'engine turbine',
-  'engine-whine': 'engine whine',
   explosion: 'explosion set',
 };
 
@@ -69,9 +83,11 @@ export const ENGINE_ROLE_SAMPLE: Record<EngineLayerRole, SampleCategory> = {
   accelerate: 'engine-accelerate',
   decelerate: 'engine-decelerate',
   distance: 'engine-distance',
-  lift: 'engine-lift',
+  front: 'engine-front',
+  near: 'engine-near',
+  'prop-distance': 'engine-prop-distance',
+  rear: 'engine-rear',
   turbine: 'engine-turbine',
-  whine: 'engine-whine',
 };
 
 export interface AudioBankManifest {
@@ -89,7 +105,7 @@ export interface AudioManifestSample {
   readonly headroom: number;
   /** Engine samples: `jet` (Hydra turbine) or `prop` (Rustler propeller). */
   readonly kind?: string;
-  /** Engine samples: the layer role (turbine/whine/distance/lift/accelerate/decelerate) this step belongs to. */
+  /** Engine samples: the front/rear/turbine/distance or propeller layer role this step belongs to. */
   readonly layer?: string;
   /** Engine samples: tail->head crossfade the baker applied to make the loop seamless (`0` = none). */
   readonly loopCrossfadeFrames?: number;
@@ -119,6 +135,8 @@ export interface AudioManifestSample {
 
 /** One baked layer of a model's engine: its role, relative mix and the rate-step table to crossfade. */
 export interface EngineLayerSpec {
+  /** GENRL SoundMeta headroom converted to dB. The original CAESound subtracts this from volume. */
+  readonly headroomDb: number;
   readonly mix: number;
   readonly role: EngineLayerRole;
   readonly steps: readonly EngineStep[];
@@ -145,8 +163,8 @@ export function engineBankForModel(manifest: AudioBankManifest, model: number): 
 }
 
 /**
- * The engine LAYERS the replay mixes for a model. A layered jet carries explicit `layer` roles (turbine,
- * whine, distance, lift); a prop keeps the accelerator/decelerator pair; a model-less legacy manifest keeps
+ * The engine LAYERS the replay mixes for a model. The jet has front/rear/turbine/distance roles; a player prop
+ * uses front/rear/near/distant layers; a model-less legacy manifest keeps
  * its single pair. A manifest that declares per-model engines but none for this model yields `[]` — reported,
  * never a silent fallback to another model's bank.
  */
@@ -160,6 +178,7 @@ export function engineLayerSpecsForModel(manifest: AudioBankManifest, model: num
       continue;
     }
     specs.push({
+      headroomDb: first.headroom / 100,
       mix: typeof first.mix === 'number' ? first.mix : DEFAULT_ENGINE_LAYER_MIX[role],
       role,
       steps: owned
@@ -175,10 +194,10 @@ export function engineLayerSpecsForModel(manifest: AudioBankManifest, model: num
   const accelerate = engineStepsForModel(manifest, model, 'engine-accelerate');
   const decelerate = engineStepsForModel(manifest, model, 'engine-decelerate');
   if (accelerate.length > 0) {
-    specs.push({ mix: DEFAULT_ENGINE_LAYER_MIX.accelerate, role: 'accelerate', steps: accelerate });
+    specs.push({ headroomDb: 0, mix: DEFAULT_ENGINE_LAYER_MIX.accelerate, role: 'accelerate', steps: accelerate });
   }
   if (decelerate.length > 0) {
-    specs.push({ mix: DEFAULT_ENGINE_LAYER_MIX.decelerate, role: 'decelerate', steps: decelerate });
+    specs.push({ headroomDb: 0, mix: DEFAULT_ENGINE_LAYER_MIX.decelerate, role: 'decelerate', steps: decelerate });
   }
 
   return specs;
@@ -231,7 +250,7 @@ export function parseAudioManifest(text: string): AudioBankManifest {
       file: requireString(sample, 'file', label),
       globalBankId: requireFiniteNumber(sample, 'globalBankId', label),
       headroom: requireFiniteNumber(sample, 'headroom', label),
-      loopStartFrame: requireFiniteNumber(sample, 'loopStartFrame', label),
+      loopStartFrame: sample.loopStartFrame === null ? 0 : requireFiniteNumber(sample, 'loopStartFrame', label),
       packageBankIndex: requireFiniteNumber(sample, 'packageBankIndex', label),
       pcmBytes: requireFiniteNumber(sample, 'pcmBytes', label),
       sampleRateHz: requireFiniteNumber(sample, 'sampleRateHz', label),
@@ -374,24 +393,27 @@ export const SIGNAL_PROVENANCE: readonly ProvenanceRow[] = [
     provenance: 'inferred',
     signal: 'engine load',
     source:
-      'CSV column engine_load_inferred (engine_load_source=inferred); pre-v9 falls back to clamp(max(measured-position airspeed, abs(throttle), abs(brake)), 0, 1)',
-    validationMethod: 'task-15 validator asserts min/max in [0,1] and source==inferred across all rows',
+      'For 520/476, infer power from the measured brake column as 1-brake: W=0, neutral=0.5, S=1 in the real v9 captures while throttle stays zero. The v9 engine_load_inferred column applies an unsuitable max(throttle,brake) car heuristic and is not used for plane audio.',
+    validationMethod:
+      'QPC-aligned v9 Hydra and Rustler first-person WAV throttle-step comparison; always reported as inferred',
   },
   {
     provenance: 'missing',
     signal: 'engine rev / RPM',
     source: 'BLOCKED by G3 (gate-G3-blocked.md); no column is emitted and none is derived',
     validationMethod:
-      'task-15 raw header/column search reports no rev/RPM column; the engine uses the inferred gear+load proxy instead',
+      'task-15 raw header/column search reports no rev/RPM column; jet pitch uses an inferred proxy and prop pitch uses recorded orientation plus inferred controls',
   },
   {
     provenance: 'inferred',
-    signal: 'engine bank / layers / rate-step table',
+    signal: 'engine bank / layers / playback rate',
     source:
       'map-pak/audio/manifest.json per-model engines: Hydra 520 is a LAYERED turbine in SND_BANK_GENRL_VEHICLE_GEN ' +
-      '(THRUST 26 turbine + WHINE 29 spool + JET_DIST 14 far field + LIFT_LOOP 15 VTOL); Rustler 476 keeps ' +
-      'SND_BANK_GENRL_FASTPROP / FASTPROP_D accelerate+decelerate. Each layer is baked as rate-steps; the target ' +
-      'pitch comes from the inferred gear+load proxy',
+      '(HARRIER_FRONT 10 + HARRIER_REAR 11 + THRUST 26 + JET_DIST 14 from the local 0x4FF900 call sites); Rustler 476 keeps ' +
+      'FASTPROP sounds 0/1 as front/rear plus VEHICLE_GEN PROP_NEAR/PROP_DIST. The baked rate-steps remain ' +
+      'in the manifest; both models vary one original loop per layer. Hydra gains and pitch remain inferred. ' +
+      'Rustler pitch follows recorded orientation plus an inferred ' +
+      'W/released/S control offset and an approximated game-tick smoothing rate',
     validationMethod:
       'audio conformance test asserts the model-tagged bank/slot/sound ids against the gta-reversed tables; a ' +
       'model with no baked engines yields engine:null, never another model bank',
@@ -433,8 +455,16 @@ export const SIGNAL_PROVENANCE: readonly ProvenanceRow[] = [
  * permanent 0.55 floor on a pre-v9 recording with no gear/load columns). Inferred tuning.
  */
 export const ENGINE_RATE_MIN = 1;
-/** Highest engine-loop target playbackRate, reached at the derived full-power end of the proxy. Inferred. */
+/** Legacy engine-loop target maximum; Hydra and Rustler now use their own pitch paths. */
 export const ENGINE_RATE_MAX = 1.6;
+/** The original jet path adds 0.1 pitch for acceleration; W is inferred from the captured brake column. */
+const JET_FRONT_REAR_POWER_RATE = 0.1;
+/** Residual pitch effect fitted to the first-person recording, not measured game RPM. */
+const JET_FRONT_REAR_AIRSPEED_RATE = 0.03;
+/** Optional diagnostic THRUST filter copy; corrected front/rear samples provide the default broadband body. */
+export const JET_THRUST_PRESENCE_GAIN = 0;
+export const JET_THRUST_PRESENCE_HIGH_HZ = 400;
+export const JET_THRUST_PRESENCE_LOW_HZ = 4000;
 /** The recorder's inferred gear ceiling (`transmission_gear_inferred` is bounded [0,6]). */
 export const MAX_GEAR = 6;
 /** Derived engine-loop gain at zero load (before attenuation). Inferred tuning; raised so idle is audible. */
@@ -448,16 +478,27 @@ export const ENGINE_GAIN_MAX = 0.9;
 export const ENGINE_SPEED_REFERENCE_MPS = 120;
 /** Per-sample position-delta speed is clamped here so a QuickHome teleport cannot spike the engine note. */
 export const ENGINE_SPEED_MAX_MPS = 250;
-/** Below this airspeed (m/s) the Hydra's VTOL lift layer is mixed in; above it the lift loop is silent. */
-export const ENGINE_VTOL_SPEED_MPS = 25;
 /** Default relative mix of each engine layer when the manifest carries none (turbine is the unity reference). */
 export const DEFAULT_ENGINE_LAYER_MIX: Record<EngineLayerRole, number> = {
   accelerate: 1,
   decelerate: 1,
   distance: 0.25,
-  lift: 0.4,
+  front: 1,
+  near: 0.3,
+  'prop-distance': 0.2,
+  rear: 1,
   turbine: 1,
-  whine: 0.35,
+};
+/** gta-reversed PlayAircraftSound: THRUST=4.5, JET_DISTANT=50, NEAR=1, FRONT/REAR=4. */
+const AIRCRAFT_ROLLOFF: Record<EngineLayerRole, number> = {
+  accelerate: 4,
+  decelerate: 4,
+  distance: 50,
+  front: 4,
+  near: 1,
+  'prop-distance': 6,
+  rear: 4,
+  turbine: 4.5,
 };
 /** Bounds on a single engine step's residual playbackRate (target / baked step rate), before speed scaling. */
 export const ENGINE_LAYER_RATE_MIN = 0.25;
@@ -470,10 +511,11 @@ export const COLLISION_GAIN = 0.9;
 export const EXPLOSION_GAIN = 1;
 /** Documented explosion playback-rate cycle, applied by explosion ordinal in this exact order. */
 export const EXPLOSION_FREQUENCY_CYCLE = [1.12, 1, 0.88] as const;
-/** Bounded one-shot pitch jitter: `1 +/- PITCH_VARIANCE`. Documented ±6%. */
-export const PITCH_VARIANCE = 0.06;
-/** Speed of sound (m/s) used by the Doppler model. */
-export const SPEED_OF_SOUND = 343;
+/** Bounded collision one-shot pitch jitter from gta-reversed PlayOneShotCollisionSound (±2%). */
+export const PITCH_VARIANCE = 0.02;
+/** gta-reversed CAEAudioEnvironment::GetDopplerRelativeFrequency uses 340 m/s and limits radial speed to 35. */
+export const SPEED_OF_SOUND = 340;
+const MAX_DOPPLER_RADIAL_MPS = 35;
 /** Doppler factor is clamped to this band so an extreme closing speed cannot make a non-finite rate. */
 export const DOPPLER_MIN = 0.5;
 export const DOPPLER_MAX = 2;
@@ -513,6 +555,8 @@ export interface EngineSignals {
   readonly normalizedSpeed: number;
   /** Always `null`: rev/RPM is BLOCKED by G3 and is never derived or emitted. */
   readonly rev: null;
+  /** Inferred Rustler rotor inertia from position-derived airspeed, not a measured m_fPropSpeed. */
+  readonly rotorAirspeed: number;
   /**
    * How gear/load were obtained: `recorded` reads the v9 inferred columns, `derived` reads the measured-
    * position speed proxy (pre-v9 recordings have no gear/load columns). Both are INFERRED, never measured.
@@ -539,21 +583,6 @@ export interface ReverbParameters {
 }
 
 export type ReverbZone = 'enclosed' | 'open-air' | 'urban';
-
-/**
- * Pick a collision set member by inferred strength: `floor(strength * (count - 1))`, monotonically
- * non-decreasing in strength. A repeat of `previousIndex` is shifted by one so a hit never repeats the last
- * member while an alternative exists. `count <= 1` always returns 0.
- */
-export function collisionSoundIndex(strength: number, previousIndex: number, count: number): number {
-  const safeCount = Math.max(1, Math.floor(finiteOr(count, 1)));
-  if (safeCount <= 1) {
-    return 0;
-  }
-  const base = clamp(Math.floor(clamp(finiteOr(strength, 0), 0, 1) * (safeCount - 1)), 0, safeCount - 1);
-
-  return base === previousIndex ? (base + 1) % safeCount : base;
-}
 
 /**
  * Crossfade the engine's accelerate and decelerate loops from throttle-vs-brake. `trend = throttle - brake`
@@ -605,10 +634,11 @@ export function distanceAttenuation(
 /**
  * Doppler factor for `dirToListener` (unit, source -> listener). `closing = (sourceVel - listenerVel) . dir`;
  * closing > 0 (approaching) gives a factor > 1, closing < 0 (receding) gives < 1, and rest gives exactly 1.
+ * GTA caps the radial component to 35 m/s before applying the speed-of-sound denominator.
  */
 export function dopplerFactor(sourceVelocity: Vec3, listenerVelocity: Vec3, dirToListener: Vec3): number {
   const closing = dot(sub(sourceVelocity, listenerVelocity), normalize(dirToListener));
-  const denominator = Math.max(SPEED_OF_SOUND / DOPPLER_MAX, SPEED_OF_SOUND - closing);
+  const denominator = SPEED_OF_SOUND - clamp(closing, -MAX_DOPPLER_RADIAL_MPS, MAX_DOPPLER_RADIAL_MPS);
   const factor = SPEED_OF_SOUND / denominator;
   if (!Number.isFinite(factor)) {
     return 1;
@@ -721,6 +751,27 @@ function dot(a: Vec3, b: Vec3): number {
 
 function engineSignals(row: FlightRow, speed: number): EngineSignals {
   const safeSpeed = clamp(finiteOr(speed, 0), 0, ENGINE_SPEED_MAX_MPS);
+  // The plane's recorded m_BrakePedal is a reverse-power control on the user's install:
+  // W -> 0, released -> 0.5, S -> 1, while m_GasPedal stays zero. Keep the raw CSV untouched.
+  // This is an inferred AUDIO control, not a measured engine load or a verified game struct offset.
+  const planePower = clamp(Math.max(finiteOr(row.throttle, 0), 1 - finiteOr(row.brake, 0.5)), 0, 1);
+  if (row.model === 520 || row.model === 476) {
+    const gear = clamp(
+      finiteOr(row.transmissionGearInferred, Math.round((safeSpeed / ENGINE_SPEED_REFERENCE_MPS) * MAX_GEAR)),
+      0,
+      MAX_GEAR,
+    );
+
+    return {
+      gear,
+      load: planePower,
+      normalizedSpeed: engineSpeedNormalized(gear, planePower),
+      rev: null,
+      rotorAirspeed: safeSpeed,
+      source: 'derived',
+      speed: safeSpeed,
+    };
+  }
   const gearColumn = row.transmissionGearInferred;
   const loadColumn = row.engineLoadInferred;
   if (gearColumn !== null || loadColumn !== null) {
@@ -732,6 +783,7 @@ function engineSignals(row: FlightRow, speed: number): EngineSignals {
       load,
       normalizedSpeed: engineSpeedNormalized(gear, load),
       rev: null,
+      rotorAirspeed: safeSpeed,
       source: 'recorded',
       speed: safeSpeed,
     };
@@ -747,6 +799,7 @@ function engineSignals(row: FlightRow, speed: number): EngineSignals {
     load,
     normalizedSpeed: engineSpeedNormalized(gear, load),
     rev: null,
+    rotorAirspeed: safeSpeed,
     source: 'derived',
     speed: safeSpeed,
   };
@@ -802,6 +855,8 @@ export interface AudioCue {
 export interface AudioEngineOptions {
   /** Seconds per sample frame; events in `[s, s + window)` trigger. Default {@link AUDIO_EVENT_WINDOW}. */
   readonly eventWindow?: number;
+  /** Optional user mix; absent preserves the current inferred baseline. */
+  readonly tuning?: AudioMixTuning;
 }
 
 export interface AudioFrame {
@@ -836,7 +891,7 @@ export interface EngineCue {
   readonly decelerate: EngineVoiceCue;
   /** The bank name selected for the model (baked provenance), or `''`. */
   readonly engineBank: string;
-  /** Every layer actually mixed for this model (jet: turbine/whine/distance/lift; prop: accel/decel pair). */
+  /** Every layer actually mixed for this model (jet: front/rear/turbine/distance; prop: front/rear/near/distant). */
   readonly layers: readonly EngineVoiceCue[];
   readonly pitch: number;
   readonly playbackRate: number;
@@ -851,7 +906,7 @@ export interface EngineLayerCue {
 }
 
 /**
- * One engine layer (a jet's turbine/whine/distance/lift, or a prop's accelerate/decelerate). `playbackRate` is
+ * One engine layer (a jet's front/rear/turbine/distance, or a prop's front/rear/near/distant). `playbackRate` is
  * the layer's effective rate (for stats and back-compat); `layers` is the rate-step table actually mixed — the
  * two neighbours of the target rate.
  */
@@ -860,6 +915,10 @@ export interface EngineVoiceCue {
   readonly layers: readonly EngineLayerCue[];
   readonly pan: number;
   readonly playbackRate: number;
+  /** Gain of the 400–4000 Hz copy of Hydra THRUST; 0 for every other voice. Inferred EQ, not a new sample. */
+  readonly presenceGain?: number;
+  readonly presenceHighHz?: number;
+  readonly presenceLowHz?: number;
   readonly role: string;
   readonly sample: SampleCategory;
 }
@@ -915,10 +974,23 @@ export function buildAudioTimeline(
   };
   const engineAvailable = layerSpecs.length > 0;
   const rowSpeeds = derivedRowSpeeds(track);
+  const engineSpeeds = smoothedEngineSpeeds(track, rowSpeeds);
+  const jetPowers = engineModel === 520 ? smoothedJetPowers(track, 0.12, 0.25) : null;
+  const jetFrontRearLevels = engineModel === 520 ? smoothedJetPowers(track, 0.8, 1) : null;
+  const jetThrustPowers = engineModel === 520 ? smoothedJetPowers(track, 0.6, 0.6) : null;
+  const rotorSpeeds = engineModel === 476 ? inferRotorAirspeed(track, rowSpeeds) : rowSpeeds;
+  const propFrequencies = engineModel === 476 ? smoothedPropFrequencies(track, rowSpeeds) : null;
+  const propDropouts = engineModel === 476 ? inferPropDropouts(track, rowSpeeds) : [];
 
   const frameAt = (s: number, listener?: AudioListener): AudioFrame => {
     const pose = sampleTrack(track, s);
     const speed = speedAt(track, rowSpeeds, s);
+    const rawSignals = engineSignals(pose.row, speed);
+    const signals: EngineSignals = {
+      ...rawSignals,
+      normalizedSpeed: speedAt(track, engineSpeeds, s),
+      rotorAirspeed: speedAt(track, rotorSpeeds, s),
+    };
     const active = listener ?? listenerFromPose(pose);
     const triggered: EventCue[] = [];
     for (const event of events) {
@@ -928,11 +1000,26 @@ export function buildAudioTimeline(
     }
 
     return {
-      engine: engineAvailable ? engineCue(pose.row, speed, active, engineContext) : null,
+      engine: engineAvailable
+        ? engineCue(
+            pose.row,
+            signals,
+            active,
+            engineContext,
+            propDropoutGain(propDropouts, s),
+            propFrequencies ? speedAt(track, propFrequencies, s) : 1,
+            jetPowers ? speedAt(track, jetPowers, s) : signals.load,
+            jetFrontRearLevels ? speedAt(track, jetFrontRearLevels, s) : signals.load,
+            jetThrustPowers ? speedAt(track, jetThrustPowers, s) : signals.load,
+            options.tuning,
+          )
+        : null,
       events: triggered,
-      reverb: reverbForPosition(pose.pos),
+      // The first-person Hydra reference does not justify an added outdoor tail; the modeled 10% send
+      // made its sustained engine sound reverberant. Keep the prop path unchanged.
+      reverb: engineModel === 520 ? { ...reverbForZone('open-air'), mix: 0 } : reverbForZone('open-air'),
       s,
-      signals: engineSignals(pose.row, speed),
+      signals,
     };
   };
 
@@ -958,6 +1045,39 @@ export function reverbForZone(zone: ReverbZone): ReverbParameters {
 /** Altitude-only zone default; an `enclosed` zone is supplied by the caller when a hangar/interior is known. */
 export function zoneForPosition(pos: Vec3): ReverbZone {
   return finiteOr(pos[2], 0) >= REVERB_OPEN_AIR_ALTITUDE ? 'open-air' : 'urban';
+}
+
+/** Relative per-layer response from gta-reversed SoundAttenuationTable.h, normalized at a 20m chase view. */
+function aircraftLayerDistance(distance: number, role: EngineLayerRole): number {
+  const rolloff = AIRCRAFT_ROLLOFF[role];
+  const attenuationDb = (scaled: number): number => {
+    const anchors = [
+      [5, 0],
+      [10, -14.57],
+      [20, -30.82],
+      [40, -49.1],
+      [80, -69.79],
+      [128, -84.29],
+    ];
+    if (scaled <= 5) {
+      return 0;
+    }
+    if (scaled >= 128) {
+      return -100;
+    }
+    for (let i = 1; i < anchors.length; i += 1) {
+      const [end, endDb] = anchors[i];
+      if (scaled < end) {
+        const [start, startDb] = anchors[i - 1];
+
+        return startDb + (endDb - startDb) * ((scaled - start) / (end - start));
+      }
+    }
+
+    return -100;
+  };
+
+  return clamp(10 ** ((attenuationDb(distance / rolloff) - attenuationDb(20 / rolloff)) / 20), 0, 1.5);
 }
 
 /**
@@ -987,55 +1107,165 @@ function emptyEngineVoice(pan: number, playbackRate: number): EngineVoiceCue {
   return { gain: 0, layers: [], pan, playbackRate, role: 'none', sample: 'engine-accelerate' };
 }
 
-function engineCue(row: FlightRow, speed: number, listener: AudioListener, context: EngineContext): EngineCue {
-  const signals = engineSignals(row, speed);
-  const pitch = enginePitchRate(signals.normalizedSpeed);
-  const weights = crossfadeWeights(row.throttle, row.brake);
+function engineCue(
+  row: FlightRow,
+  signals: EngineSignals,
+  listener: AudioListener,
+  context: EngineContext,
+  propDropout: number,
+  propFrequency: number,
+  jetPower: number,
+  jetFrontRearLevel: number,
+  jetThrustPower: number,
+  tuning?: AudioMixTuning,
+): EngineCue {
+  const health = finiteOr(row.health, 1000);
+  // gta-reversed ProcessPropOrJetStall: these bands are shared by player prop and jet entry points.
+  const damage =
+    health >= 650
+      ? { frequency: 1, volume: 1 }
+      : health >= 460
+        ? { frequency: 0.95, volume: 10 ** (-6 / 20) }
+        : health >= 390
+          ? { frequency: 0.9, volume: 10 ** (-9 / 20) }
+          : health >= 250
+            ? { frequency: 0.85, volume: 10 ** (-12 / 20) }
+            : { frequency: 0.8, volume: 10 ** (-18 / 20) };
+  // The local game code varies HARRIER_FRONT/REAR pitch. W contributes +0.1 there; the recorded brake
+  // column and airspeed correction here are inferred proxies because the true audio inputs were not recorded.
+  const jetPitch =
+    1 + JET_FRONT_REAR_POWER_RATE * jetPower + JET_FRONT_REAR_AIRSPEED_RATE * clamp(signals.speed / 100, 0, 1);
+  const pitch =
+    (context.engineModel === 520
+      ? jetPitch
+      : context.engineModel === 476
+        ? propFrequency
+        : enginePitchRate(signals.normalizedSpeed)) * damage.frequency;
+  const weights =
+    row.model === 520 || row.model === 476
+      ? crossfadeWeights(signals.load, 1 - signals.load)
+      : crossfadeWeights(row.throttle, row.brake);
   const toListener = sub(listener.pos, row.pos);
   const distance = length(toListener);
   const radial = dopplerFactor(row.velocity, listener.velocity, normalize(toListener));
   const playbackRate = clamp(pitch * radial, ENGINE_RATE_MIN * DOPPLER_MIN, ENGINE_RATE_MAX * DOPPLER_MAX);
-  const loadGain = ENGINE_GAIN_MIN + (ENGINE_GAIN_MAX - ENGINE_GAIN_MIN) * signals.load;
+  // gta-reversed player props derive their loop level from actual prop speed, which remains high in flight;
+  // the recording lacks m_fPropSpeed, so let airspeed hold the inferred rotor up instead of hard-switching
+  // full-volume banks on every W/S edge. Low-speed controls still respond immediately.
+  const propAirspeed = clamp(signals.rotorAirspeed / 40, 0, 1);
+  const propSpeed = clamp(0.5 + 0.5 * propAirspeed + 0.1 * (signals.load - 0.5) * (1 - propAirspeed), 0, 1);
+  const propFactor = propSpeed <= 0.15 ? propSpeed * 2 : 0.3 + (propSpeed - 0.15) * (0.7 / 0.85);
+  const effectiveLoad =
+    context.engineModel === 476
+      ? 0.5 + (signals.load - 0.5) * (1 - clamp(signals.rotorAirspeed / 30, 0, 1))
+      : signals.load;
+  // Keep the accepted full-W jet level. Previously the >=40 m/s main-loop gain was the same for W,
+  // released and S, making high-speed throttle almost inaudible. Infer a bounded gain reduction for
+  // released/S, using the already-smoothed jet power at speed to avoid abrupt loop-level steps.
+  const jetCruiseBlend = smoothstep(clamp((signals.speed - 25) / 35, 0, 1));
+  const jetGainPower = effectiveLoad * (1 - jetCruiseBlend) + jetPower * jetCruiseBlend;
+  const jetGainDepth = 0.4 * (1 - clamp(signals.speed / 40, 0, 1)) + 0.45 * jetCruiseBlend;
+  const gainLoad =
+    context.engineModel === 520
+      ? 0.75 + (jetGainPower - 1) * jetGainDepth * (tuning?.powerDynamics ?? 1)
+      : effectiveLoad;
+  const loadGain = ENGINE_GAIN_MIN + (ENGINE_GAIN_MAX - ENGINE_GAIN_MIN) * gainLoad;
   const directionDot = distance > 1e-6 ? dot(normalize(sub(row.pos, listener.pos)), normalize(listener.forward)) : 1;
   const spatial = distanceAttenuation(distance) * directionalGain(directionDot);
   const pan = panForDirection(sub(row.pos, listener.pos), listener);
-  const base = clamp(loadGain * spatial, 0, 1);
+  const base = clamp(loadGain * spatial * damage.volume * propDropout, 0, 1);
+  // The reference's 123 Hz THRUST ridge grows about 4 dB during the first sustained W run, even though
+  // the note stays fixed. This measured-position airspeed correction is an inferred amplitude proxy.
+  const jetTurbineGain =
+    0.225 *
+    10 ** ((-28 * (1 - jetThrustPower)) / 20) *
+    (1 + 0.7 * clamp(signals.speed / 75, 0, 1) * smoothstep(clamp((jetThrustPower - 0.5) * 2, 0, 1)));
+  // The original front/rear levels change with flight state. Their exact formula and audio tick are absent
+  // from the recording, so use a bounded slow ramp instead of the disproven WHINE-only envelope.
+  const jetFrontRearEnvelope =
+    (1 - 0.3 * (1 - jetFrontRearLevel) * (1 - clamp(signals.speed / 40, 0, 1))) *
+    (0.55 + 0.45 * clamp(signals.speed / 35, 0, 1));
+  const cameraPov =
+    distance > 1e-6 ? (dot(normalize(sub(row.pos, listener.pos)), normalize(row.forward)) + 1) / 2 : 0.5;
+  const pitchScale = tuning?.pitch ?? 1;
   const layers = context.layerSpecs.map(
     (spec): EngineVoiceCue => ({
-      gain: clamp(base * spec.mix * engineLayerWeight(spec.role, signals, weights), 0, 1),
-      layers: engineLayers(spec.steps, pitch, radial),
+      gain: clamp(
+        base *
+          spec.mix *
+          engineLayerWeight(spec.role, weights, propFactor, cameraPov, distance, context.engineModel, tuning) *
+          (tuning?.master ?? 1) *
+          tuningLayerGain(spec.role, tuning) *
+          (context.engineModel === 520 ? 10 ** (-spec.headroomDb / 20) : 1) *
+          (context.engineModel === 520 && spec.role === 'turbine'
+            ? jetTurbineGain
+            : context.engineModel === 520 && (spec.role === 'front' || spec.role === 'rear')
+              ? jetFrontRearEnvelope
+              : 1) *
+          aircraftLayerDistance(distance, spec.role),
+        0,
+        1,
+      ),
+      layers: engineLayers(
+        spec.steps,
+        spec.role === 'near' || spec.role === 'prop-distance'
+          ? 1
+          : context.engineModel === 520 && spec.role !== 'front' && spec.role !== 'rear'
+            ? damage.frequency
+            : pitch,
+        radial,
+        context.engineModel === 476 || context.engineModel === 520,
+      ).map((layer) => ({
+        ...layer,
+        playbackRate: layer.playbackRate * pitchScale * tuningLayerPitch(spec.role, tuning),
+      })),
       pan,
-      playbackRate,
+      playbackRate: playbackRate * pitchScale,
+      presenceGain:
+        context.engineModel === 520 && spec.role === 'turbine' ? (tuning?.presence ?? JET_THRUST_PRESENCE_GAIN) : 0,
+      presenceHighHz: tuning?.presenceHighHz ?? JET_THRUST_PRESENCE_HIGH_HZ,
+      presenceLowHz: tuning?.presenceLowHz ?? JET_THRUST_PRESENCE_LOW_HZ,
       role: spec.role,
       sample: ENGINE_ROLE_SAMPLE[spec.role],
     }),
   );
   const accelerate = layers.find((layer) => layer.role === 'accelerate') ?? layers[0];
   const decelerate = layers.find((layer) => layer.role === 'decelerate') ?? layers[1] ?? layers[0];
-  const fallback = emptyEngineVoice(pan, playbackRate);
+  const fallback = emptyEngineVoice(pan, playbackRate * pitchScale);
 
   return {
     accelerate: accelerate ?? fallback,
     decelerate: decelerate ?? fallback,
     engineBank: context.engineBank,
     layers,
-    pitch,
-    playbackRate,
+    pitch: pitch * pitchScale,
+    playbackRate: playbackRate * pitchScale,
     signals,
   };
 }
 
 /**
- * The two-layer rate-step crossfade: pick the two baked steps bracketing `targetRate` and weight them
- * linearly. `playbackRate` per layer is the residual (`targetRate / step.rate`, times Doppler), so each
- * layer is resampled only a little. Steps are ascending by rate.
+ * Aircraft select one original rate-1 loop and vary its playback rate. Crossfading two resamples of the
+ * same short loop introduces phase beating; legacy manifests still use the baked rate-step crossfade.
  */
-function engineLayers(steps: readonly EngineStep[], targetRate: number, radial: number): EngineLayerCue[] {
+function engineLayers(
+  steps: readonly EngineStep[],
+  targetRate: number,
+  radial: number,
+  singleSource = false,
+): EngineLayerCue[] {
   if (steps.length === 0) {
     return [];
   }
   const layerRate = (step: EngineStep): number =>
     clamp((targetRate / step.rate) * radial, ENGINE_LAYER_RATE_MIN, ENGINE_LAYER_RATE_MAX);
+  // The original player prop varies the frequency of ONE front and ONE rear sample. Crossfading multiple
+  // resamples of that same loop makes phase beats and exposes its repetition at sustained full power.
+  if (singleSource) {
+    const originalRate = steps.find((step) => step.rate === 1) ?? steps[0];
+
+    return [{ file: originalRate.file, playbackRate: layerRate(originalRate), weight: 1 }];
+  }
   if (steps.length === 1) {
     return [{ file: steps[0].file, playbackRate: layerRate(steps[0]), weight: 1 }];
   }
@@ -1055,25 +1285,36 @@ function engineLayers(steps: readonly EngineStep[], targetRate: number, radial: 
 }
 
 /**
- * The per-layer mix multiplier (INFERRED tuning, never a measured level). The turbine is the steady body; the
- * whine brightens as the spool climbs and when accelerating; the far-field layer is a fixed bed; the lift loop
- * is the Harrier's VTOL sound, mixed in only below `ENGINE_VTOL_SPEED_MPS`; the prop pair is the throttle/brake
- * crossfade. Loudness and brightness both follow the inferred load/speed, so throttle/load shape the engine.
+ * The per-layer mix multiplier (INFERRED tuning, never a measured level). Hydra front/rear use their own
+ * control envelope; Rustler keeps its existing prop-speed and listener-position response.
  */
-function engineLayerWeight(role: EngineLayerRole, signals: EngineSignals, weights: CrossfadeWeights): number {
+function engineLayerWeight(
+  role: EngineLayerRole,
+  weights: CrossfadeWeights,
+  propFactor: number,
+  cameraPov: number,
+  distance: number,
+  engineModel: number,
+  tuning?: AudioMixTuning,
+): number {
   switch (role) {
     case 'accelerate':
       return weights.accelerate;
     case 'decelerate':
       return weights.decelerate;
     case 'distance':
-      return 1;
-    case 'lift':
-      return clamp(1 - signals.speed / ENGINE_VTOL_SPEED_MPS, 0, 1) * (0.5 + 0.5 * signals.load);
+      // The v9 reference stays in first person: the distant jet loop has no clear self-listener ridge.
+      return Math.max(smoothstep(clamp((distance - 4) / 16, 0, 1)), tuning?.jetDistance ?? 0);
+    case 'front':
+      return engineModel === 520 ? 1 : propFactor * (1 - 0.25 * cameraPov);
+    case 'near':
+      return propFactor;
+    case 'prop-distance':
+      return distance > 48 ? propFactor : 0;
+    case 'rear':
+      return engineModel === 520 ? 1 : propFactor * (0.5 + 0.5 * cameraPov);
     case 'turbine':
       return 1;
-    case 'whine':
-      return (0.35 + 0.65 * signals.normalizedSpeed) * (0.85 + 0.15 * weights.accelerate);
   }
 }
 
@@ -1103,7 +1344,7 @@ function eventCue(event: TimelineEvent, listener: AudioListener): EventCue {
   return {
     cue: {
       file: event.file,
-      gain: clamp(COLLISION_GAIN * spatial, 0, 1),
+      gain: clamp(COLLISION_GAIN * (0.25 + 0.75 * (event.strength ?? 0)) * spatial, 0, 1),
       pan,
       playbackRate: clamp(event.variance * radial, DOPPLER_MIN, DOPPLER_MAX),
       sample: 'collision',
@@ -1112,6 +1353,51 @@ function eventCue(event: TimelineEvent, listener: AudioListener): EventCue {
     eventId: event.id,
     kind: 'collision',
   };
+}
+
+/** Inferred low-speed rotor dropouts; anchored to the two measured 120/130ms gaps at 34.49–34.79s in the
+ * user's Rustler QPC-aligned WAV. Actual m_fPropSpeed is not recorded, so this is not a measured stall flag. */
+function inferPropDropouts(track: FlightTrack, speeds: Float64Array): number[] {
+  const starts: number[] = [];
+  const threshold = 21.5;
+  for (let i = 1; i < speeds.length; i++) {
+    const a = speeds[i - 1];
+    const b = speeds[i];
+    if (
+      a <= threshold ||
+      b > threshold ||
+      b >= a ||
+      track.rows[i].health < 650 ||
+      track.rows[i].brake < 0.4 ||
+      track.rows[i].brake > 0.6
+    )
+      continue;
+    if (starts.length && track.rows[i].s - starts[starts.length - 1] < 4) continue;
+    let flewFast = false;
+    for (let j = i - 1; j >= 0 && track.rows[i].s - track.rows[j].s < 5; j--) {
+      if (speeds[j] > 30) {
+        flewFast = true;
+        break;
+      }
+    }
+    if (!flewFast) continue;
+    starts.push(track.rows[i - 1].s + (track.rows[i].s - track.rows[i - 1].s) * ((a - threshold) / (a - b)) + 0.06);
+  }
+
+  return starts;
+}
+
+/** The original prop engine reads m_fPropSpeed, absent from CSV. Keep windmilling after the aircraft slows;
+ * a 10s release approximates the measured 34–37s Rustler landing response without affecting take-off. */
+function inferRotorAirspeed(track: FlightTrack, speeds: Float64Array): Float64Array {
+  const result = new Float64Array(speeds.length);
+  for (let index = 0; index < speeds.length; index++) {
+    const previous = index > 0 ? result[index - 1] : 0;
+    const dt = index > 0 ? clamp(track.rows[index].s - track.rows[index - 1].s, 0, 0.2) : 0;
+    result[index] = Math.max(speeds[index], previous * Math.exp(-dt / 10));
+  }
+
+  return result;
 }
 
 function listenerFromPose(pose: SampledPose): AudioListener {
@@ -1123,12 +1409,28 @@ function listenerFromPose(pose: SampledPose): AudioListener {
   };
 }
 
+function propDropoutGain(starts: readonly number[], s: number): number {
+  for (const start of starts) {
+    for (const [offset, duration, depth] of [
+      [0, 0.12, 0.75],
+      [0.13, 0.13, 0.75],
+    ]) {
+      const phase = s - start - offset;
+      if (phase < 0 || phase >= duration) continue;
+      const envelope = Math.min(1, phase / 0.01, (duration - phase) / 0.01);
+
+      return 1 - depth * envelope;
+    }
+  }
+
+  return 1;
+}
+
 /** Resolve every event's selection once, seeded by `(recording id, event id)`. No cross-recording state. */
 function resolveEvents(track: FlightTrack, manifest: AudioBankManifest): TimelineEvent[] {
   const sorted: readonly FlightEvent[] = [...track.events].sort((a, b) => a.s - b.s);
-  const collisionCount = setCountFor(manifest, 'collision');
+  const collisionSamples = manifest.samples.filter((sample) => sample.category === MANIFEST_CATEGORY.collision);
   const explosionCount = setCountFor(manifest, 'explosion');
-  const collisionFile = sampleForCategory(manifest, 'collision')?.file ?? '';
   const explosionFile = sampleForCategory(manifest, 'explosion')?.file ?? '';
   let previousCollision = -1;
   let previousExplosion = -1;
@@ -1140,11 +1442,14 @@ function resolveEvents(track: FlightTrack, manifest: AudioBankManifest): Timelin
     const seed = seedForEvent(track.name, id);
     if (event.kind === 'collision') {
       const strength = impactStrength(event.impact);
-      const soundIndex = collisionSoundIndex(strength, previousCollision, collisionCount);
-      previousCollision = soundIndex;
+      // A GENRL bank has many unrelated materials. Choose only actual CAR-surface files in the manifest;
+      // the v9 event has no measured contact surface, so it must not claim one from its impact magnitude.
+      const choice = collisionSamples.length > 0 ? seededSetIndex(seed, previousCollision, collisionSamples.length) : 0;
+      previousCollision = choice;
+      const selected = collisionSamples[choice];
 
       return {
-        file: collisionFile,
+        file: selected?.file ?? '',
         id,
         impact: typeof event.impact === 'number' && Number.isFinite(event.impact) ? event.impact : null,
         kind: 'collision',
@@ -1152,7 +1457,7 @@ function resolveEvents(track: FlightTrack, manifest: AudioBankManifest): Timelin
         pos: event.pos,
         s: event.s,
         seed,
-        soundIndex,
+        soundIndex: selected?.soundIndex ?? 0,
         strength,
         variance: seededPitchVariance(seed),
       };
@@ -1180,6 +1485,68 @@ function setCountFor(manifest: AudioBankManifest, category: SampleCategory): num
   const sample = sampleForCategory(manifest, category);
 
   return sample ? Math.max(1, Math.floor(sample.setSoundCount)) : 1;
+}
+
+/** Deterministic spool inertia at the recorder's sample times; faster rise than fall, independent of render FPS. */
+function smoothedEngineSpeeds(track: FlightTrack, speeds: Float64Array): Float64Array {
+  const result = new Float64Array(track.rows.length);
+  for (let index = 0; index < track.rows.length; index += 1) {
+    const row = track.rows[index];
+    const target = engineSignals(row, speeds[index] ?? 0).normalizedSpeed;
+    if (index === 0) {
+      result[index] = target;
+      continue;
+    }
+    const previous = result[index - 1];
+    const dt = clamp(row.s - track.rows[index - 1].s, 0, 0.2);
+    const timeConstant = target > previous ? 0.18 : 0.45;
+    result[index] = previous + (target - previous) * (1 - Math.exp(-dt / timeConstant));
+  }
+
+  return result;
+}
+
+/** Inferred Hydra spool control from the v9 W/released/S proxy; no engine RPM is recorded. */
+function smoothedJetPowers(track: FlightTrack, riseSeconds: number, fallSeconds: number): Float64Array {
+  const result = new Float64Array(track.rows.length);
+  for (let index = 0; index < track.rows.length; index += 1) {
+    const row = track.rows[index];
+    const target = engineSignals(row, 0).load;
+    if (index === 0) {
+      result[index] = target;
+      continue;
+    }
+    const previous = result[index - 1];
+    const dt = clamp(row.s - track.rows[index - 1].s, 0, 0.2);
+    const timeConstant = target > previous ? riseSeconds : fallSeconds;
+    result[index] = previous + (target - previous) * (1 - Math.exp(-dt / timeConstant));
+  }
+
+  return result;
+}
+
+/**
+ * Rustler player prop frequency from the public ProcessDummyOrPlayerProp / CalculatePlanePropFreq path.
+ * Orientation is recorded; the W/released/S mapping and 60 Hz step conversion are inferred because pad
+ * inputs and the game's actual audio tick are absent from the CSV.
+ */
+function smoothedPropFrequencies(track: FlightTrack, speeds: Float64Array): Float64Array {
+  const result = new Float64Array(track.rows.length);
+  for (let index = 0; index < track.rows.length; index += 1) {
+    const row = track.rows[index];
+    const load = engineSignals(row, speeds[index] ?? 0).load;
+    const control = load > 0.75 ? 0.1 : load < 0.25 ? -0.05 : 0;
+    const target = clamp(1 + Math.abs(row.right[2]) * 0.1 - row.forward[2] * 0.15 + control, 0.75, 1.3);
+    if (index === 0) {
+      result[index] = target;
+      continue;
+    }
+    const previous = result[index - 1];
+    const dt = clamp(row.s - track.rows[index - 1].s, 0, 0.2);
+    result[index] = previous + clamp(target - previous, -dt * (60 / 187.5), dt * (60 / 187.5));
+  }
+
+  return result;
 }
 
 /** Linear interpolation of the per-row speeds at time `s` (same bracket search `sampleTrack` uses). */
@@ -1210,4 +1577,43 @@ function speedAt(track: FlightTrack, speeds: Float64Array, s: number): number {
   const end = speeds[hi] ?? 0;
 
   return start + (end - start) * t;
+}
+
+/** Model-specific layer multipliers; the near jet candidate layers use their own zero-default controls. */
+function tuningLayerGain(role: EngineLayerRole, tuning?: AudioMixTuning): number {
+  if (!tuning) return 1;
+  switch (role) {
+    case 'front':
+      return tuning.front;
+    case 'near':
+      return tuning.near;
+    case 'prop-distance':
+      return tuning.propDistance;
+    case 'rear':
+      return tuning.rear;
+    case 'turbine':
+      return tuning.turbine;
+    default:
+      return 1;
+  }
+}
+
+function tuningLayerPitch(role: EngineLayerRole, tuning?: AudioMixTuning): number {
+  if (!tuning) return 1;
+  switch (role) {
+    case 'distance':
+      return tuning.jetDistancePitch;
+    case 'front':
+      return tuning.frontPitch;
+    case 'near':
+      return tuning.nearPitch;
+    case 'prop-distance':
+      return tuning.propDistancePitch;
+    case 'rear':
+      return tuning.rearPitch;
+    case 'turbine':
+      return tuning.turbinePitch;
+    default:
+      return 1;
+  }
 }

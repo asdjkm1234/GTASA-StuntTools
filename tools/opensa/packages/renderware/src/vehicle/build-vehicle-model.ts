@@ -87,6 +87,7 @@ interface Scratch {
   normals: number[];
   parts: VehicleModelPart[];
   positions: number[];
+  preserveEnvMaps: boolean;
   reflect: number[];
   submeshes: VehicleModelSubmesh[];
   /** Model-local animation list, appended the first time a material names an entry. */
@@ -116,6 +117,7 @@ export function buildVehicleModel(
     normals: [],
     parts: [],
     positions: [],
+    preserveEnvMaps: options.preserveEnvMaps === true,
     reflect: [],
     submeshes: [],
     uvAnimations: [],
@@ -422,6 +424,7 @@ function appendGeometry(
       textures.hasAlphaIn(material, rw.uvLayers[0], tris),
     );
     const { color, klass, lamp, layer, nightLayer, paint, reflect } = surface;
+    if (scratch.preserveEnvMaps && reflect[1] > 0) reflect[0] = textures.resolveEnvMap(material);
     // A translucent group is emitted per spatial CLUSTER (`clusterTriangles`): the sort keys on a submesh's
     // AABB, and one material spanning separate pieces (the comet's dash gauges + rear-shelf speakers, one
     // submesh) has no honest single key — the speakers drew over the rear quarter glass from the front.
@@ -1052,9 +1055,7 @@ function reflectionOf(material: RWMaterial): [number, number, number, number] {
   }
   const byte = (value: number): number => Math.max(0, Math.min(255, Math.round(value * 255)));
 
-  // Slot 0 is SPARE. It used to carry the env texture's array layer, and nothing ever sampled it: the neo
-  // pipe reflects the LIVE probe, so SA's baked env photo is not the colour source and claiming a layer for
-  // it only made every car ship a 512x512 texture it never read.
+  // The neo pipe uses the live probe; only opt-in replay canopies retain an env texture in slot 0.
   return [0, byte(coefficient), byte(intensity), byte(specular)];
 }
 

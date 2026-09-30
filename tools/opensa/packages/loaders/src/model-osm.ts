@@ -47,6 +47,8 @@ export interface OptimizedModel {
  * types just to describe an argument, and the engine must not learn RenderWare types.
  */
 export interface RigidModelInit {
+  /** Optional replay-local cockpit BVH, packed vec4s; absent models bind an empty scene. */
+  canopyReflection?: Float32Array;
   colors: Uint8Array;
   /** False when `indices` is uint32 — a model past 65 536 vertices. Absent = the historical uint16. */
   index16?: boolean;

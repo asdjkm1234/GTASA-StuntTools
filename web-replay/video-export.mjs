@@ -72,6 +72,15 @@ function resolveFps(value) {
 function validView(value) {
   if (!value || typeof value !== "object") return false;
   if (CAMERA_MODES.has(value.mode)) return true;
+  if (value.mode === "cockpit-look") {
+    const pose = value.cockpitLookPose;
+    return pose && typeof pose === "object" &&
+      Number.isFinite(pose.yaw) && Math.abs(pose.yaw) < 100000 &&
+      Number.isFinite(pose.pitch) && Math.abs(pose.pitch) <= 1.45 &&
+      Number.isFinite(pose.lateral) && Math.abs(pose.lateral) <= 0.1 &&
+      Number.isFinite(pose.longitudinal) && pose.longitudinal >= -0.08 && pose.longitudinal <= 0.12 &&
+      Number.isFinite(pose.height) && Math.abs(pose.height) <= 0.08;
+  }
   return value.mode === "free" && Array.isArray(value.position) && value.position.length === 3 &&
     value.position.every(number => Number.isFinite(number) && Math.abs(number) < 100000) &&
     Number.isFinite(value.yaw) && Number.isFinite(value.pitch) && Math.abs(value.yaw) < 100000 && Math.abs(value.pitch) <= 1.56;

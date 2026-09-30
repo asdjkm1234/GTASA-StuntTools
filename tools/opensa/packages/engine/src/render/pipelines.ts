@@ -255,7 +255,11 @@ export async function compileAll(
   // premultiplied-glass variants. Vertex layout family #3 (pos/normal/uv/color/meta tight buffers).
   const rigidLayout = device.createBindGroupLayout({
     entries: [
-      { binding: 0, buffer: { type: 'read-only-storage' }, visibility: GPUShaderStage.VERTEX },
+      {
+        binding: 0,
+        buffer: { type: 'read-only-storage' },
+        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+      },
       { binding: 1, texture: { viewDimension: '2d-array' }, visibility: GPUShaderStage.FRAGMENT },
       { binding: 2, sampler: {}, visibility: GPUShaderStage.FRAGMENT },
       // Per-instance carcols paint (074/08 B5) — 4 colours per matrix row.
@@ -288,6 +292,7 @@ export async function compileAll(
         buffer: { hasDynamicOffset: true, minBindingSize: 16, type: 'uniform' },
         visibility: GPUShaderStage.VERTEX,
       },
+      { binding: 11, buffer: { type: 'read-only-storage' }, visibility: GPUShaderStage.FRAGMENT },
     ],
     label: 'rigid',
   });

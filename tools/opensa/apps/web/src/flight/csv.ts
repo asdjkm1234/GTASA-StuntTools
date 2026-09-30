@@ -21,6 +21,17 @@ export const NODE_NAMES = [
   'misc_b',
 ] as const;
 
+export const SURFACE_NAMES = ['rudder', 'elevator_l', 'elevator_r', 'aileron_l', 'aileron_r'] as const;
+
+export interface SurfaceDamage {
+  /** Original aircraft 2-bit slots, not the automobile 4-bit panel encoding. */
+  raw: null | number;
+  source: 'game_memory' | 'unknown';
+  /** 0 intact, 1 damaged, 2 detached, 3 preserved raw/other; null unknown. */
+  states: (null | number)[];
+  validMask: number;
+}
+
 /** Every reason the recorder writes on its `# session_end` line. `unknown` means the line was absent or unreadable. */
 export const SESSION_END_REASONS = [
   'game_closed',
@@ -60,11 +71,17 @@ export interface FlightRow {
   heading: number;
   health: number;
   keyA: number;
+  keyboardStateValid: boolean;
   keyD: number;
   keyDown: number;
   keyE: number;
+  /** v11 physical default keys, null when absent, invalid or the game lacked keyboard focus. */
+  keyLeft: null | number;
   keyQ: number;
+  keyRight: null | number;
+  keyS: null | number;
   keyUp: number;
+  keyW: null | number;
   model: number;
   /** Real local rotation per {@link NODE_NAMES}, or null when the recorder could not read that node. */
   nodes: (null | Quat)[];
@@ -81,6 +98,8 @@ export interface FlightRow {
   s: number;
   smokeActive: boolean | null;
   steer: number;
+  /** v10 measured damage slots; independent of animated-node availability and health. */
+  surfaceDamage: SurfaceDamage;
   throttle: number;
   timeMs: number;
   /**
@@ -158,6 +177,7 @@ export function parseFlightCsv(text: string, name: string): FlightTrack {
   let baseTime = Number.NaN;
   for (const line of rawRows) {
     const cells = line.split(',');
+    const keyboard = parseKeyboard(map, cells, version);
     const timeMs = Date.parse(cells[map.get('local_timestamp') ?? 0]);
     const captureElapsed = num(cells[map.get('capture_elapsed_s') ?? -1]);
     const x = num(cells[map.get('x') ?? -1]);
@@ -208,11 +228,16 @@ export function parseFlightCsv(text: string, name: string): FlightTrack {
       heading: num(cells[map.get('heading_deg') ?? -1]) ?? 0,
       health: num(cells[map.get('health') ?? -1]) ?? 0,
       keyA: num(cells[map.get('key_a') ?? -1]) ?? 0,
+      keyboardStateValid: keyboard.valid,
       keyD: num(cells[map.get('key_d') ?? -1]) ?? 0,
       keyDown: num(cells[map.get('key_down') ?? -1]) ?? 0,
       keyE: num(cells[map.get('key_e') ?? -1]) ?? 0,
+      keyLeft: keyboard.left,
       keyQ: num(cells[map.get('key_q') ?? -1]) ?? 0,
+      keyRight: keyboard.right,
+      keyS: keyboard.s,
       keyUp: num(cells[map.get('key_up') ?? -1]) ?? 0,
+      keyW: keyboard.w,
       model: num(cells[map.get('model') ?? -1]) ?? 0,
       nodes,
       nodeStatus,
@@ -230,6 +255,7 @@ export function parseFlightCsv(text: string, name: string): FlightTrack {
             : (timeMs - baseTime) / 1000,
       smokeActive: smokeRaw !== null && smokeRaw >= 0 ? smokeRaw !== 0 : null,
       steer: num(cells[map.get('steer') ?? -1]) ?? 0,
+      surfaceDamage: parseSurfaceDamage(map, cells, version, num(cells[map.get('model') ?? -1]) ?? 0),
       throttle: num(cells[map.get('throttle') ?? -1]) ?? 0,
       timeMs: Number.isNaN(timeMs) ? 0 : timeMs,
       transmissionGearInferred: num(cells[map.get('transmission_gear_inferred') ?? -1]),
@@ -388,6 +414,64 @@ function parseEventLine(line: string): FlightEvent | null {
   }
 
   return null;
+}
+
+function parseKeyboard(
+  map: Map<string, number>,
+  cells: string[],
+  version: number,
+): {
+  left: null | number;
+  right: null | number;
+  s: null | number;
+  valid: boolean;
+  w: null | number;
+} {
+  const at = (key: string): null | number => num(cells[map.get(`key_${key}`) ?? -1]);
+  const valid =
+    version >= 11 &&
+    num(cells[map.get('keyboard_state_valid') ?? -1]) === 1 &&
+    ['q', 'w', 'e', 'a', 's', 'd', 'up', 'down', 'left', 'right'].every((key) => at(key) === 0 || at(key) === 1);
+
+  return {
+    left: valid ? at('left') : null,
+    right: valid ? at('right') : null,
+    s: valid ? at('s') : null,
+    valid,
+    w: valid ? at('w') : null,
+  };
+}
+
+function parseSurfaceDamage(map: Map<string, number>, cells: string[], version: number, model: number): SurfaceDamage {
+  const unknown: SurfaceDamage = { raw: null, source: 'unknown', states: SURFACE_NAMES.map(() => null), validMask: 0 };
+  if (version < 10 || (model !== 520 && model !== 476)) return unknown;
+  const source = cells[map.get('surface_damage_source') ?? -1];
+  const valid = num(cells[map.get('surface_damage_valid') ?? -1]);
+  const raw = num(cells[map.get('plane_damage_raw') ?? -1]);
+  if (
+    source !== 'game_memory' ||
+    valid === null ||
+    !Number.isInteger(valid) ||
+    valid < 1 ||
+    valid > 31 ||
+    raw === null ||
+    !Number.isInteger(raw) ||
+    raw < 0 ||
+    raw > 0xffffffff
+  )
+    return unknown;
+  let validMask = 0;
+  const states = SURFACE_NAMES.map((name, i) => {
+    const state = num(cells[map.get(`${name}_damage`) ?? -1]);
+    if (!(valid & (1 << i)) || state === null || !Number.isInteger(state) || state !== ((raw >>> (8 + i * 2)) & 3)) {
+      return null;
+    }
+    validMask |= 1 << i;
+
+    return state;
+  });
+
+  return validMask ? { raw, source: 'game_memory', states, validMask } : unknown;
 }
 
 function quatColumns(map: Map<string, number>, cells: string[], base: string): null | Quat {

@@ -646,13 +646,7 @@ async function openScene(context, view, csvPaths, targetName, aircraftNeedle) {
     state.aircraft.toLowerCase().includes(aircraftNeedle),
     `scene: loaded aircraft is '${state.aircraft}', expected ${aircraftNeedle}`,
   );
-  // Fold the analysis HUD to its title bar: expanded, it overlays the middle of the canvas and would hide
-  // the very particles the screenshots must show.
-  await page.evaluate(() => document.querySelector('.analysis-hud__collapse')?.click());
-  await sleep(300);
-  const hudTop = await page.evaluate(
-    () => document.querySelector('.analysis-hud')?.getBoundingClientRect().top ?? null,
-  );
+  const hudTop = null; // No overlay hides scene particles.
   const viewport = await page.evaluate(() => ({ dpr: window.devicePixelRatio || 1, height: window.innerHeight }));
   const rows = Math.max(1, Math.floor(((hudTop ?? viewport.height - 300) - 8) * viewport.dpr));
   console.log(`  scene ready: hudTop=${hudTop === null ? 'none' : hudTop.toFixed(0)} comparisonRows=${rows}px`);

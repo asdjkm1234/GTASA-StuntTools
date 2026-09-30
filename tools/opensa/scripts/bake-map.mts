@@ -17,6 +17,7 @@
  *
  *   npx tsx scripts/bake-map.mts <outDir> [minCx maxCx minCy maxCy] [base]
  *   npx tsx scripts/bake-map.mts <outDir> --recording <csv> [base]
+ *   npx tsx scripts/bake-map.mts <existingPak> --audio-only [gameInstallRoot]
  *
  * With no rect, the WHOLE exterior map is baked; a rect (cell coordinates) bakes just that window.
  */
@@ -37,7 +38,9 @@ import { bakeCellCollision, collisionCellRect } from '../tools/opensa-pack/src/p
 
 import {
   decodeGenrlSample,
+  ENGINE_JET_MAIN_CROSSFADE_SECONDS,
   ENGINE_LOOP_CROSSFADE_SECONDS,
+  ENGINE_PROP_MAIN_CROSSFADE_SECONDS,
   genrlBanks,
   genrlPackageIndex,
   genrlPackageNames,
@@ -73,7 +76,7 @@ interface PakAudioSample {
   step?: number;
   rate?: number;
   provenance?: string;
-  /** Engine samples: the layer role (turbine/whine/distance/lift/accelerate/decelerate) this step belongs to. */
+  /** Engine samples: the layer role this step belongs to. */
   layer?: string;
   /** Engine samples: the layer's relative mix (turbine is the unity reference). */
   mix?: number;
@@ -84,6 +87,7 @@ interface PakAudioSample {
 }
 
 const outDir = path.resolve(process.argv[2] ?? 'map-pak');
+const audioOnly = process.argv[3] === '--audio-only';
 const routeFlag = process.argv[3] === '--recording';
 const routeFile = routeFlag ? path.resolve(process.argv[4] ?? '') : null;
 const rect = !routeFlag && process.argv.length >= 7 ? process.argv.slice(3, 7).map(Number) : null;
@@ -133,13 +137,16 @@ function distanceToRoute(x: number, y: number): number {
  * this is the owner's own game audio and it is written into the gitignored pak — nothing is copied
  * anywhere else. Returns the pak-index entry the replay loader fetches these through.
  */
-async function bakeGenrlAudio(map: LoadedMap, audioDir: string): Promise<{ files: string[]; manifest: string }> {
+async function bakeGenrlAudio(
+  readInstallFile: (name: string) => Promise<null | Uint8Array>,
+  audioDir: string,
+): Promise<{ files: string[]; manifest: string }> {
   const config = async (name: string): Promise<Uint8Array> => {
-    const bytes = await map.assets.readInstallFile(`audio/CONFIG/${name}`);
+    const bytes = await readInstallFile(`audio/CONFIG/${name}`);
     if (!bytes) throw new Error(`GTA install is missing audio/CONFIG/${name}`);
     return bytes;
   };
-  const genrl = await map.assets.readInstallFile('audio/SFX/GENRL');
+  const genrl = await readInstallFile('audio/SFX/GENRL');
   if (!genrl) throw new Error('GTA install is missing audio/SFX/GENRL — cannot bake the local audio lane');
   const packageNames = genrlPackageNames(await config('PakFiles.dat'));
   const banks = genrlBanks(await config('BankLkup.dat'), genrlPackageIndex(packageNames), packageNames.length);
@@ -159,26 +166,48 @@ async function bakeGenrlAudio(map: LoadedMap, audioDir: string): Promise<{ files
     // An engine layer loops for the whole flight: crossfade its tail into its head so the replay can loop the
     // entire buffer with no seam transient (the bake is the only place the raw loop is touched).
     const isEngine = spec.model !== undefined;
-    const crossfadeFrames = isEngine
-      ? Math.round(ENGINE_LOOP_CROSSFADE_SECONDS * decoded.sound.sampleRateHz)
-      : 0;
-    const looped = isEngine ? makeSeamlessLoop(decoded.pcm, crossfadeFrames) : decoded.pcm;
+    const mainAircraftLayer = spec.layer === 'front' || spec.layer === 'rear';
+    const crossfadeSeconds = mainAircraftLayer
+      ? spec.model === 520
+        ? ENGINE_JET_MAIN_CROSSFADE_SECONDS
+        : ENGINE_PROP_MAIN_CROSSFADE_SECONDS
+      : ENGINE_LOOP_CROSSFADE_SECONDS;
+    const crossfadeFrames = isEngine ? Math.round(crossfadeSeconds * decoded.sound.sampleRateHz) : 0;
+    // The player prop's original endpoints nearly meet. A 20ms linear fade made an audible 2s pulse;
+    // a brief equal-power join retains the front/rear level, and also protects the generic near/distant join.
+    const looped = isEngine
+      ? makeSeamlessLoop(decoded.pcm, crossfadeFrames, mainAircraftLayer ? 'equal-power' : 'linear')
+      : decoded.pcm;
     const pcm = rate === 1 ? looped : resamplePcm16(looped, rate);
     const wav = wavBytes(pcm, decoded.sound.sampleRateHz);
     const info = wavInfo(wav);
     await fs.writeFile(path.join(audioDir, spec.file), wav);
     samples.push({
-      bankName: spec.bankName, category: spec.category, file: spec.file, globalBankId: bank.globalBankId,
+      bankName: spec.bankName,
+      category: spec.category,
+      file: spec.file,
+      globalBankId: bank.globalBankId,
       headroom: decoded.sound.headroom,
       loopStartFrame: isEngine ? 0 : decoded.sound.loopOffset < 0 ? null : Math.round(decoded.sound.loopOffset / rate),
-      packageBankIndex: bank.packageBankIndex, pcmBytes: pcm.length,
-      sampleRateHz: decoded.sound.sampleRateHz, setSoundCount: decoded.setSoundCount,
-      slotId: spec.slotId, slotName: spec.slotName, soundIndex: spec.soundIndex,
-      wavBytes: info.bytes, wavFrames: info.frames,
+      packageBankIndex: bank.packageBankIndex,
+      pcmBytes: pcm.length,
+      sampleRateHz: decoded.sound.sampleRateHz,
+      setSoundCount: decoded.setSoundCount,
+      slotId: spec.slotId,
+      slotName: spec.slotName,
+      soundIndex: spec.soundIndex,
+      wavBytes: info.bytes,
+      wavFrames: info.frames,
       ...(isEngine
         ? {
-            model: spec.model, kind: spec.kind, step: spec.step, rate, provenance: spec.provenance,
-            layer: spec.layer, mix: spec.mix, soundName: spec.soundName,
+            model: spec.model,
+            kind: spec.kind,
+            step: spec.step,
+            rate,
+            provenance: spec.provenance,
+            layer: spec.layer,
+            mix: spec.mix,
+            soundName: spec.soundName,
             loopCrossfadeFrames: rate === 1 ? crossfadeFrames : Math.round(crossfadeFrames / rate),
           }
         : {}),
@@ -187,11 +216,41 @@ async function bakeGenrlAudio(map: LoadedMap, audioDir: string): Promise<{ files
     const label = isEngine
       ? `${spec.category} model ${spec.model} layer ${spec.layer} step ${spec.step} x${rate}`
       : spec.category;
-    console.log(`  audio ${label}: bank ${bank.globalBankId}/${bank.packageBankIndex} ${spec.bankName}, slot ${spec.slotId} ${spec.slotName}, sound ${soundLabel}/${decoded.setSoundCount}, ${info.frames} frames @ ${decoded.sound.sampleRateHz} Hz -> audio/${spec.file}`);
+    console.log(
+      `  audio ${label}: bank ${bank.globalBankId}/${bank.packageBankIndex} ${spec.bankName}, slot ${spec.slotId} ${spec.slotName}, sound ${soundLabel}/${decoded.setSoundCount}, ${info.frames} frames @ ${decoded.sound.sampleRateHz} Hz -> audio/${spec.file}`,
+    );
   }
-  await fs.writeFile(path.join(audioDir, 'manifest.json'), `${JSON.stringify({ version: 3, source: 'audio/SFX/GENRL', samples }, null, 2)}\n`);
+  await fs.writeFile(
+    path.join(audioDir, 'manifest.json'),
+    `${JSON.stringify({ version: 8, source: 'audio/SFX/GENRL', samples }, null, 2)}\n`,
+  );
 
   return { files: samples.map((sample) => sample.file), manifest: 'manifest.json' };
+}
+
+if (audioOnly) {
+  const installRoot = path.resolve(process.argv[4] ?? '../../GTA San Andreas');
+  const indexPath = path.join(outDir, 'index.json');
+  const index = JSON.parse(await fs.readFile(indexPath, 'utf8')) as {
+    replayAssets?: { audio?: { files: string[]; manifest: string }; version: number };
+    [key: string]: unknown;
+  };
+  if (index.replayAssets?.version !== 3) {
+    throw new Error('Audio-only bake requires an existing replayAssets.version=3 pak');
+  }
+  const readLocalFile = async (name: string): Promise<null | Uint8Array> => {
+    try {
+      return await fs.readFile(path.join(installRoot, name));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    }
+  };
+  await fs.mkdir(path.join(outDir, 'audio'), { recursive: true });
+  const audio = await bakeGenrlAudio(readLocalFile, path.join(outDir, 'audio'));
+  await fs.writeFile(indexPath, JSON.stringify({ ...index, replayAssets: { ...index.replayAssets, audio } }));
+  console.log(`updated only ${outDir}/audio and replayAssets.audio: ${audio.files.length} samples`);
+  process.exit(0);
 }
 
 const started = performance.now();
@@ -201,13 +260,18 @@ console.log(`  cells ${map.grid.size}, instances ${map.defs.instances.length}, m
 
 const all = [...map.grid.values()];
 const cells = routeFile
-  ? all.filter((cell) => distanceToRoute((cell.cx + 0.5) * CELL_SIZE, (cell.cy + 0.5) * CELL_SIZE)
-      <= routeRadius + CELL_SIZE * Math.SQRT2 / 2)
+  ? all.filter(
+      (cell) =>
+        distanceToRoute((cell.cx + 0.5) * CELL_SIZE, (cell.cy + 0.5) * CELL_SIZE) <=
+        routeRadius + (CELL_SIZE * Math.SQRT2) / 2,
+    )
   : rect
     ? all.filter((cell) => cell.cx >= rect[0] && cell.cx <= rect[1] && cell.cy >= rect[2] && cell.cy <= rect[3])
     : all;
 if (!cells.length) throw new Error('No map cells intersect the recording route');
-console.log(`baking ${cells.length} cell(s)${routeFile ? ` around ${routePoints.length} positions` : rect ? ` in rect ${rect.join(',')}` : ' (whole map)'} → ${outDir}`);
+console.log(
+  `baking ${cells.length} cell(s)${routeFile ? ` around ${routePoints.length} positions` : rect ? ` in rect ${rect.join(',')}` : ' (whole map)'} → ${outDir}`,
+);
 
 await fs.mkdir(path.join(outDir, 'cells'), { recursive: true });
 await fs.mkdir(path.join(outDir, 'textures'), { recursive: true });
@@ -229,8 +293,14 @@ const replayAircraft: Record<number, string> = {};
 // Without it the builder silently substitutes white texels for those model faces.
 const genericTxdResponse = await fetch(`${base.replace(/\/$/, '')}/models/generic/vehicle.txd`);
 if (!genericTxdResponse.ok) throw new Error('GTA install is missing models/generic/vehicle.txd');
-await fs.writeFile(path.join(outDir, 'aircraft', 'vehicle.txd'), new Uint8Array(await genericTxdResponse.arrayBuffer()));
-for (const [id, candidates] of [[520, ['hydra']], [476, ['rustler', 'stuntplane']]] as const) {
+await fs.writeFile(
+  path.join(outDir, 'aircraft', 'vehicle.txd'),
+  new Uint8Array(await genericTxdResponse.arrayBuffer()),
+);
+for (const [id, candidates] of [
+  [520, ['hydra']],
+  [476, ['rustler', 'stuntplane']],
+] as const) {
   let found = false;
   for (const name of candidates) {
     const dff = await map.assets.readRaw(`${name}.dff`);
@@ -244,7 +314,11 @@ for (const [id, candidates] of [[520, ['hydra']], [476, ['rustler', 'stuntplane'
   }
   if (!found) throw new Error(`GTA install is missing DFF/TXD for model ${id}`);
 }
-console.log(`  replay aircraft ${Object.entries(replayAircraft).map(([id, name]) => `${id}:${name}`).join(', ')}`);
+console.log(
+  `  replay aircraft ${Object.entries(replayAircraft)
+    .map(([id, name]) => `${id}:${name}`)
+    .join(', ')}`,
+);
 
 // Optional sprite FX lane: the `effects.fxp` system tracks and the `effectsPC.txd` sprite dictionary the
 // replay's smoke/explosion billboards are baked from. Both are optional — a pak without them still replays,
@@ -263,8 +337,10 @@ if (replayFx.length) console.log(`  fx ${replayFx.join(', ')}`);
 
 // Local audio lane: GTA's own GENRL SFX banks decoded for replay. Written ONLY into this gitignored pak,
 // with a manifest that records the bank/slot/sound provenance of every sample.
-const replayAudio = await bakeGenrlAudio(map, path.join(outDir, 'audio'));
-console.log(`  audio manifest audio/manifest.json: ${replayAudio.files.length} samples (${replayAudio.files.join(', ')})`);
+const replayAudio = await bakeGenrlAudio((name) => map.assets.readInstallFile(name), path.join(outDir, 'audio'));
+console.log(
+  `  audio manifest audio/manifest.json: ${replayAudio.files.length} samples (${replayAudio.files.join(', ')})`,
+);
 
 const planner = new TexturePlanner(map.fs, map.defs.txdParents ?? new Map<string, string>());
 const written: { cx: number; cy: number; lod: boolean }[] = [];
@@ -289,7 +365,9 @@ for (const { cx, cy } of cells) {
   }
   done += 1;
   if (done % 25 === 0 || done === cells.length) {
-    console.log(`  ${done}/${cells.length} cells, ${(bytesWritten / 1024 / 1024).toFixed(1)} MB, ${((performance.now() - t0) / 1000).toFixed(0)}s`);
+    console.log(
+      `  ${done}/${cells.length} cells, ${(bytesWritten / 1024 / 1024).toFixed(1)} MB, ${((performance.now() - t0) / 1000).toFixed(0)}s`,
+    );
   }
 }
 
@@ -303,17 +381,22 @@ for (const array of arrays) {
 const colBytes = await map.assets.ensureCollisionLibraries();
 const collisionIndex = buildCollisionIndex(map.fs);
 const collisionGrid = buildWorldGrid(map.defs, GAME_CELL_SIZE);
-const collisionRect = rect ? collisionCellRect(
-  [rect[0], rect[2], rect[1], rect[3]], CELL_SIZE, GAME_CELL_SIZE,
-) : null;
+const collisionRect = rect ? collisionCellRect([rect[0], rect[2], rect[1], rect[3]], CELL_SIZE, GAME_CELL_SIZE) : null;
 const collisionCells: { cx: number; cy: number }[] = [];
 let collisionBytes = 0;
 for (const cell of collisionGrid.values()) {
   const { cx, cy } = cell;
-  if (collisionRect && (cx < collisionRect[0] || cx > collisionRect[2]
-    || cy < collisionRect[1] || cy > collisionRect[3])) continue;
-  if (routeFile && distanceToRoute((cx + 0.5) * GAME_CELL_SIZE, (cy + 0.5) * GAME_CELL_SIZE)
-    > routeRadius + GAME_CELL_SIZE * Math.SQRT2 / 2) continue;
+  if (
+    collisionRect &&
+    (cx < collisionRect[0] || cx > collisionRect[2] || cy < collisionRect[1] || cy > collisionRect[3])
+  )
+    continue;
+  if (
+    routeFile &&
+    distanceToRoute((cx + 0.5) * GAME_CELL_SIZE, (cy + 0.5) * GAME_CELL_SIZE) >
+      routeRadius + (GAME_CELL_SIZE * Math.SQRT2) / 2
+  )
+    continue;
   const regions = buildCellColliders(collisionIndex, map.defs, collisionGrid, cx, cy);
   if (regions.length === 0) continue;
   const bytes = encodeOscol(bakeCellCollision(regions, () => false));
@@ -329,7 +412,14 @@ await fs.writeFile(
     cells: written,
     collisionCellSize: GAME_CELL_SIZE,
     collisionCells,
-    replayAssets: { version: 3, aircraft: replayAircraft, data: replayDataFiles, fx: replayFx, audio: replayAudio, sharedTextures: ['vehicle.txd'] },
+    replayAssets: {
+      version: 3,
+      aircraft: replayAircraft,
+      data: replayDataFiles,
+      fx: replayFx,
+      audio: replayAudio,
+      sharedTextures: ['vehicle.txd'],
+    },
     ...(routeFile ? { renderRadius: { hd: routeRadius, lod: routeRadius } } : {}),
     generated: new Date().toISOString(),
     source: base,
@@ -338,6 +428,10 @@ await fs.writeFile(
 
 const arrayBytes = arrays.reduce((sum, array) => sum + array.bytes.byteLength, 0);
 console.log(`done: ${written.length} cell files, ${arrays.length} texture arrays`);
-console.log(`  cells ${(bytesWritten / 1024 / 1024).toFixed(1)} MB · textures ${(arrayBytes / 1024 / 1024).toFixed(1)} MB`);
-console.log(`  collision ${collisionCells.length} cells, ${(collisionBytes / 1024 / 1024).toFixed(1)} MB (read ${(colBytes / 1024 / 1024).toFixed(1)} MB COL)`);
+console.log(
+  `  cells ${(bytesWritten / 1024 / 1024).toFixed(1)} MB · textures ${(arrayBytes / 1024 / 1024).toFixed(1)} MB`,
+);
+console.log(
+  `  collision ${collisionCells.length} cells, ${(collisionBytes / 1024 / 1024).toFixed(1)} MB (read ${(colBytes / 1024 / 1024).toFixed(1)} MB COL)`,
+);
 console.log(`  total ${((performance.now() - started) / 1000).toFixed(0)}s`);

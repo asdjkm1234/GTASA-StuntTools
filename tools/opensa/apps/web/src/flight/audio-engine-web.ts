@@ -22,6 +22,7 @@
  * a pak without the audio lane leaves this renderer `no-samples` and silent.
  */
 import type { AudioBankManifest, AudioCue, AudioFrame, AudioListener, AudioTimeline, EngineCue } from './audio-engine';
+import type { AudioMixTuning } from './audio-tuning';
 import type { FlightTrack } from './csv';
 import type { Vec3 } from './math';
 import type { PakAudioManifest, PakResources } from './pak-resources';
@@ -32,6 +33,8 @@ import {
   buildAudioTimeline,
   engineLayerSpecsForModel,
   hashSeed,
+  JET_THRUST_PRESENCE_HIGH_HZ,
+  JET_THRUST_PRESENCE_LOW_HZ,
   reverbForZone,
   type ReverbZone,
   seededUnit,
@@ -101,6 +104,7 @@ interface LoopVoice {
   readonly gain: GainNode;
   readonly layers: readonly LoopLayer[];
   readonly panner: PannerNode;
+  readonly presence: null | { gain: GainNode; highpass: BiquadFilterNode; lowpass: BiquadFilterNode };
   readonly role: string;
 }
 
@@ -203,6 +207,7 @@ export class WebAudioReplay {
     updates: 0,
   };
   private timeline: AudioTimeline | null = null;
+  private tuning: AudioMixTuning | undefined;
 
   private wet: GainNode | null = null;
 
@@ -266,6 +271,14 @@ export class WebAudioReplay {
     }
   }
 
+  /** Rebuild only the deterministic cue timeline; existing playing sample nodes keep their phases. */
+  setTuning(tuning: AudioMixTuning): void {
+    this.tuning = tuning;
+    if (this.attachedTrack && this.statsData.state === 'ready') {
+      this.buildTimeline(this.attachedTrack);
+    }
+  }
+
   /**
    * One per-frame call. Writes engine loop rate/gain and the listener pose, starts one-shots that the replay
    * clock has crossed, and silences everything while paused. NEVER blocks: the only allocation is a few
@@ -325,6 +338,23 @@ export class WebAudioReplay {
     const cue = engine?.layers.find((layer) => layer.role === voice.role) ?? null;
     const gain = cue ? clampFinite(cue.gain, 0, 1) : 0;
     voice.gain.gain.setTargetAtTime(gain, context.currentTime, PARAM_SMOOTHING_S);
+    voice.presence?.gain.gain.setTargetAtTime(
+      cue ? clampFinite(cue.presenceGain ?? 0, 0, 8) : 0,
+      context.currentTime,
+      PARAM_SMOOTHING_S,
+    );
+    if (voice.presence && cue) {
+      voice.presence.highpass.frequency.setTargetAtTime(
+        clampFinite(cue.presenceHighHz ?? JET_THRUST_PRESENCE_HIGH_HZ, 100, 2000),
+        context.currentTime,
+        PARAM_SMOOTHING_S,
+      );
+      voice.presence.lowpass.frequency.setTargetAtTime(
+        clampFinite(cue.presenceLowHz ?? JET_THRUST_PRESENCE_LOW_HZ, 1500, 10000),
+        context.currentTime,
+        PARAM_SMOOTHING_S,
+      );
+    }
     for (const layer of voice.layers) {
       const layerCue = cue?.layers.find((candidate) => candidate.file === layer.file);
       const rate = layerCue ? clampFinite(layerCue.playbackRate * speed, LOOP_RATE_MIN, RATE_MAX) : LOOP_RATE_MIN;
@@ -396,7 +426,7 @@ export class WebAudioReplay {
     if (!this.manifest) {
       return;
     }
-    this.timeline = buildAudioTimeline(track, this.manifest);
+    this.timeline = buildAudioTimeline(track, this.manifest, { tuning: this.tuning });
     this.statsData.timelineEvents = this.timeline.events.length;
     this.statsData.engineBank = this.timeline.engineBank;
   }
@@ -535,12 +565,14 @@ export class WebAudioReplay {
         layer.gain.connect(gain);
       }
       gain.connect(panner);
+      const presence = createJetThrustPresence(context, model, spec.role, gain, panner);
+      this.statsData.nodesCreated += Number(Boolean(presence)) * 3;
       panner.connect(dry);
       panner.connect(wet);
       for (const layer of layers) {
         layer.source.start();
       }
-      this.loops.push({ gain, layers, panner, role: spec.role });
+      this.loops.push({ gain, layers, panner, presence, role: spec.role });
       this.statsData.nodesCreated += 2;
     }
     this.loopModel = model;
@@ -647,6 +679,9 @@ export class WebAudioReplay {
         layer.gain.disconnect();
       }
       voice.gain.disconnect();
+      voice.presence?.highpass.disconnect();
+      voice.presence?.lowpass.disconnect();
+      voice.presence?.gain.disconnect();
       voice.panner.disconnect();
     }
     this.loops = [];
@@ -735,6 +770,33 @@ function configurePanner(panner: PannerNode): void {
   panner.coneInnerAngle = 360;
   panner.coneOuterAngle = 360;
   panner.coneOuterGain = 0;
+}
+
+/** Add only the original THRUST sample's midband, keeping its 123 Hz body on the dry path. */
+function createJetThrustPresence(
+  context: AudioContext,
+  model: number,
+  role: string,
+  gain: GainNode,
+  panner: PannerNode,
+): LoopVoice['presence'] {
+  if (model !== 520 || role !== 'turbine') return null;
+  const highpass = context.createBiquadFilter();
+  highpass.type = 'highpass';
+  highpass.frequency.value = JET_THRUST_PRESENCE_HIGH_HZ;
+  highpass.Q.value = Math.SQRT1_2;
+  const lowpass = context.createBiquadFilter();
+  lowpass.type = 'lowpass';
+  lowpass.frequency.value = JET_THRUST_PRESENCE_LOW_HZ;
+  lowpass.Q.value = Math.SQRT1_2;
+  const presenceGain = context.createGain();
+  presenceGain.gain.value = 0;
+  gain.connect(highpass);
+  highpass.connect(lowpass);
+  lowpass.connect(presenceGain);
+  presenceGain.connect(panner);
+
+  return { gain: presenceGain, highpass, lowpass };
 }
 
 /** Inverse of `gtaToEngine`: engine `[x, z, -y]` -> GTA `[x, -z, y]` (a proper rotation). */

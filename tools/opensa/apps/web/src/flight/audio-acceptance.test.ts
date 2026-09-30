@@ -278,6 +278,7 @@ function syntheticBank(): OfflineSampleBank {
       if (file.startsWith('engine-accelerate')) return loopSample(200);
       if (file.startsWith('engine-decelerate')) return loopSample(150);
       if (file === 'collision-set.wav') return oneShotSample(90 + soundIndex * 30, 120);
+      if (file === 'collision-other.wav') return oneShotSample(190, 120);
       if (file === 'explosion-set.wav') return oneShotSample(60 + soundIndex * 40, 160);
 
       return null;
@@ -295,13 +296,13 @@ function tone(frames: number, hz: number, amplitude = 0.5): Float32Array {
 }
 
 describe('audio acceptance (negative cases)', () => {
-  it('the export hash is sensitive to a selection change, not a constant digest', () => {
+  it('the export hash is sensitive to a baked collision member change, not a constant digest', () => {
     const bank = syntheticBank();
     const baseline = renderOfflineWav(makeTrack(), MANIFEST, bank, { duration: DURATION, sampleRate: RATE });
     const changedManifest: AudioBankManifest = {
       ...MANIFEST,
       samples: MANIFEST.samples.map((sample) =>
-        sample.category === 'collision set' ? { ...sample, setSoundCount: 2 } : sample,
+        sample.category === 'collision set' ? { ...sample, file: 'collision-other.wav', soundIndex: 21 } : sample,
       ),
     };
     const changed = renderOfflineWav(makeTrack(), changedManifest, bank, { duration: DURATION, sampleRate: RATE });

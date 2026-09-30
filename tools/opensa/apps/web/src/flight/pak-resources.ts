@@ -16,7 +16,7 @@ export interface PakAudioSample {
   headroom: number;
   /** Engine samples: `jet` (Hydra turbine) or `prop` (Rustler propeller). */
   kind?: string;
-  /** Engine samples: the layer role (turbine/whine/distance/lift/accelerate/decelerate) this step belongs to. */
+  /** Engine samples: the front/rear/turbine/distance or propeller layer role this step belongs to. */
   layer?: string;
   /** Engine samples: tail->head crossfade the baker applied to make the loop seamless (`0` = none). */
   loopCrossfadeFrames?: number;
@@ -124,6 +124,9 @@ export class PakResources {
       return;
     }
     resources.audioManifest = (await response.json()) as PakAudioManifest;
+    if (resources.audioManifest.version < 8) {
+      throw new Error('预烘焙音效包版本过旧：请重新运行 bake-map.mts 烘焙 Hydra 正确声源的 pak（re-bake required）');
+    }
     for (const file of audio.files ?? []) {
       const sample = await fetch(`${base}/audio/${file}`);
       if (sample.ok) resources.audioSamples.set(file, new Uint8Array(await sample.arrayBuffer()));

@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { FlightTrack, SessionEndReason } from './csv';
 
-import { FlightAnalysisOverlay } from './analysis-overlay';
 import { parseFlightCsv } from './csv';
 import { EndpointList } from './endpoint-list';
+import { ReplayNavigation } from './replay-navigation';
 
 const HEADER = 'local_timestamp,model,health,x,y,z';
 const TWO_ROWS = [
@@ -61,10 +61,10 @@ describe('EndpointList', () => {
   });
 });
 
-describe('FlightAnalysisOverlay retired flat panel', () => {
+describe('ReplayNavigation retired flat panel', () => {
   describe('negative cases', () => {
     it('setHeatmapVisible/toggleHeatmap are no-ops that never mount a heatmap node', () => {
-      const overlay = new FlightAnalysisOverlay();
+      const overlay = new ReplayNavigation();
       overlay.setHeatmapVisible(true);
       overlay.toggleHeatmap();
       overlay.setHeatmapVisible(false);
@@ -80,7 +80,7 @@ describe('FlightAnalysisOverlay retired flat panel', () => {
 
   describe('positive cases', () => {
     it('mountEndpointList is the only endpoint surface and focusTrack resolves the track slot', () => {
-      const overlay = new FlightAnalysisOverlay();
+      const overlay = new ReplayNavigation();
       const host = document.createElement('div');
       overlay.mountEndpointList(host);
       overlay.setTracks([track('a.csv'), track('b.csv', 'game_closed')], 0);

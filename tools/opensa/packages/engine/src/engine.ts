@@ -360,6 +360,8 @@ export type VehicleModelId = number;
 
 /** Rigid-entity upload (074/08 B2) — raw byte views over the vehicle fixture's bin sections. */
 export interface VehicleModelInit {
+  /** Optional replay cockpit BVH, packed vec4s; other models bind an empty scene. */
+  canopyReflection?: Float32Array;
   colors: Uint8Array;
   /** False when `indices` is a uint32 payload — a hi-poly mod car past 65 536 vertices. Defaults to true,
    *  so a caller (or an `.osm` predating the width) keeps the historical uint16 binding. */
@@ -542,6 +544,7 @@ interface VehicleModel {
    *  model points into the shared plan. Built on demand and dropped whenever capacity grows. */
   bindGroups: Map<number, GPUBindGroup>;
   buffers: GPUBuffer[];
+  canopyReflectionBuffer: GPUBuffer;
   capacity: number;
   index16: boolean;
   indexBuffer: GPUBuffer;
@@ -549,6 +552,8 @@ interface VehicleModel {
   instances: (null | VehicleInstanceState)[];
   lampBuffer: GPUBuffer;
   matrixBuffer: GPUBuffer;
+  /** Only private, single-mip RGBA arrays may be updated in place. Never world arrays or BC assets. */
+  mutableTextureSizes: (null | { height: number; layers: number; width: number })[];
   paintBuffer: GPUBuffer;
   partCount: number;
   /** One plate vec4 per matrix row (plan 082/03) — text slot + city background, per instance. */
@@ -1133,6 +1138,12 @@ export class Engine {
     ];
     const indexBuffer = upload('indices', init.indices, GPUBufferUsage.INDEX);
     const matrixBuffer = this.createVehicleMatrixBuffer(init.parts.length, VEHICLE_CAPACITY);
+    const reflection = init.canopyReflection ?? new Float32Array([0, 0, 0, 1]);
+    const canopyReflectionBuffer = upload(
+      'canopy-reflection',
+      new Uint8Array(reflection.buffer, reflection.byteOffset, reflection.byteLength),
+      GPUBufferUsage.STORAGE,
+    );
     const paintBuffer = this.createVehiclePaintBuffer(init.parts.length, VEHICLE_CAPACITY);
     const lampBuffer = this.createVehicleLampBuffer(init.parts.length, VEHICLE_CAPACITY);
     const plateBuffer = this.createVehiclePlateBuffer(init.parts.length, VEHICLE_CAPACITY);
@@ -1145,12 +1156,16 @@ export class Engine {
     const model: VehicleModel = {
       bindGroups: new Map<number, GPUBindGroup>(),
       buffers,
+      canopyReflectionBuffer,
       capacity: VEHICLE_CAPACITY,
       index16: init.index16 ?? true,
       indexBuffer,
       instances: new Array<null | VehicleInstanceState>(VEHICLE_CAPACITY).fill(null),
       lampBuffer,
       matrixBuffer,
+      mutableTextureSizes: init.textures.map((t) =>
+        t.kind === 'rgba' ? { height: t.height, layers: t.layers, width: t.width } : null,
+      ),
       paintBuffer,
       partCount: init.parts.length,
       plateBuffer,
@@ -1212,6 +1227,7 @@ export class Engine {
       this.resources.destroyBuffer('cellVertex', buffer);
     }
     this.resources.destroyBuffer('cellVertex', model.indexBuffer);
+    this.resources.destroyBuffer('cellVertex', model.canopyReflectionBuffer);
     this.resources.destroyBuffer('uniform', model.matrixBuffer);
     this.resources.destroyBuffer('uniform', model.paintBuffer);
     this.resources.destroyBuffer('uniform', model.lampBuffer);
@@ -2217,6 +2233,29 @@ export class Engine {
     }
   }
 
+  /** Rewrite one existing private RGBA layer without reallocating textures/bind groups or touching cells. */
+  updateVehicleTextureLayer(id: VehicleModelId, array: number, layer: number, rgba: Uint8Array): void {
+    const model = this.vehicleModels.get(id);
+    const size = model?.mutableTextureSizes[array];
+    const texture = model?.textures[array];
+    if (
+      !size ||
+      !texture ||
+      !Number.isInteger(layer) ||
+      layer < 0 ||
+      layer >= size.layers ||
+      rgba.byteLength !== size.width * size.height * 4
+    ) {
+      throw new Error('updateVehicleTextureLayer: invalid private RGBA layer');
+    }
+    this.device.queue.writeTexture(
+      { origin: { x: 0, y: 0, z: layer }, texture },
+      rgba,
+      { bytesPerRow: size.width * 4 },
+      { height: size.height, width: size.width },
+    );
+  }
+
   /**
    * Install the three city backgrounds a `carpback` quad samples (plan 082/03). Called ONCE at boot, from
    * whatever `models/generic/vehicle.txd` the running game ships — the rasters are re-created at the size
@@ -2509,6 +2548,7 @@ export class Engine {
   }
 
   private createVehicleBindGroup(model: {
+    canopyReflectionBuffer: GPUBuffer;
     lampBuffer: GPUBuffer;
     matrixBuffer: GPUBuffer;
     paintBuffer: GPUBuffer;
@@ -2547,6 +2587,7 @@ export class Engine {
         // offset can slide it across the model's list; without it the binding would claim the whole buffer
         // and every offset past slot 0 would run off its end.
         { binding: 10, resource: { buffer: model.uvAnimBuffer, offset: 0, size: 16 } },
+        { binding: 11, resource: { buffer: model.canopyReflectionBuffer } },
       ],
       label: 'vehicle',
       layout: this.pipelines.rigidLayout,
