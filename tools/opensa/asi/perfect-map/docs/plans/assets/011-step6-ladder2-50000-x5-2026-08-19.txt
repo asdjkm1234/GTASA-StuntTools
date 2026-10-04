@@ -1,0 +1,302 @@
+[perfect-map] loaded — built Aug 19 2026 11:23:00 (APPLY)
+[perfect-map] fingerprint OK — GTA:SA 1.0 US
+[perfect-map] adjuster present: fastman92 (FLA)
+[perfect-map] adjuster present: LimitAdjuster (OLA)
+[perfect-map] DEBUG: pre-apply site verification —
+[perfect-map] site pristine (would apply):
+IncludeEntity.entry
+  address 0x00404c90
+[perfect-map] site pristine (would apply):
+RemoveIpl.entry
+  address 0x00404b20
+[perfect-map] site differs — adjuster owns it (would DEFER):
+RemoveIpl.firstBuilding
+  address 0x00404b4a
+  live    e9 29 13 ec
+[perfect-map] site differs — adjuster owns it (would DEFER):
+RemoveIpl.lastBuilding
+  address 0x00404b5d
+  live    e9 29 13 ec
+[perfect-map] site differs — adjuster owns it (would DEFER):
+RemoveIpl.lastBuilding.loop
+  address 0x00404ba8
+  live    e9 ed 12 ec
+[perfect-map] site pristine (would apply):
+RemoveIpl.cont.404B54
+  address 0x00404b54
+[perfect-map] site pristine (would apply):
+RemoveIpl.cont.404B63
+  address 0x00404b63
+[perfect-map] site pristine (would apply):
+RemoveIpl.cont.404BAD
+  address 0x00404bad
+[perfect-map] site differs — adjuster owns it (would DEFER):
+RemoveIpl.dummyRange
+  address 0x00404c0f
+  live    e9 94 12 ec 01 bf 4b 28
+[perfect-map] site differs — adjuster owns it (would DEFER):
+RemoveIpl.lastDummy.loop
+  address 0x00404c4e
+  live    e9 66 12 ec
+[perfect-map] site pristine (would apply):
+RemoveIpl.cont.404C17
+  address 0x00404c17
+[perfect-map] site pristine (would apply):
+RemoveIpl.cont.404C53
+  address 0x00404c53
+[perfect-map] site pristine (would apply):
+LoadScene.store
+  address 0x005b8938
+[perfect-map] site pristine (would apply):
+LoadScene.count
+  address 0x005b8940
+[perfect-map] site pristine (would apply):
+LoadIplBoundingBox.staticIdx
+  address 0x00405c23
+[perfect-map] site pristine (would apply):
+FxSystem_c.Stop
+  address 0x004aa390
+[perfect-map] site pristine (would apply):
+FxSystem_c.Play
+  address 0x004aa2f0
+[perfect-map] DEBUG: sites pristine 0x0000000c
+[perfect-map] DEBUG: sites total    0x00000011
+[perfect-map] int16 APPLIED (buildings): IncludeEntity observed + RemoveIpl snapshot + bounds int32
+[perfect-map] int16 APPLIED (dummies): RemoveIpl dummy bounds int32 (2 detours)
+[perfect-map] fx2dfx APPLIED: FxSystem_c::Stop/Play null-blueprint guarded (2dfx UAF fixed)
+[dbg] dummyPEAK slot/id/prevPeak 110 8192 8191
+[dbg] inc slot/id/last 2 97761 97761
+[dbg] inc slot/id/last 2 97762 97762
+[dbg] inc slot/id/last 2 97763 97763
+[dbg] inc slot/id/last 2 97764 97764
+[dbg] inc slot/id/last 2 97765 97765
+[dbg] inc slot/id/last 2 97766 97766
+[dbg] inc slot/id/last 2 97767 97767
+[dbg] inc slot/id/last 2 97768 97768
+[dbg] rmvFIX slot/i16bFirst/snapFirst 2 32767 97761
+[dbg] rmvFIX slot/i16bLast/snapLast 2 32232 97768
+[dbg] inc slot/id/last 3 97762 97762
+[dbg] inc slot/id/last 3 97763 97763
+[dbg] inc slot/id/last 3 97764 97764
+[dbg] inc slot/id/last 3 97765 97765
+[dbg] inc slot/id/last 3 97766 97766
+[dbg] inc slot/id/last 3 97767 97767
+[dbg] inc slot/id/last 3 97768 97768
+[dbg] inc slot/id/last 3 97769 97769
+[dbg] rmvFIX slot/i16bFirst/snapFirst 3 32767 97762
+[dbg] rmvFIX slot/i16bLast/snapLast 3 32241 97777
+[dbg] dummyPEAK slot/id/prevPeak 46 29695 10288
+[dbg] rmvFIX slot/i16bFirst/snapFirst 46 32767 2147483647
+[dbg] rmvFIX slot/i16bLast/snapLast 46 -32768 -2147483648
+[dbg] rmvFIX slot/i16bFirst/snapFirst 59 32767 97763
+[dbg] rmvFIX slot/i16bLast/snapLast 59 32264 97800
+[dbg] rmvFIX slot/i16bFirst/snapFirst 124 32767 97764
+[dbg] rmvFIX slot/i16bLast/snapLast 124 32229 97765
+[dbg] incDUMMY slot/id 35 32768 0
+[dbg] dummyPEAK slot/id/prevPeak 35 32768 32767
+[dbg] incDUMMY slot/id 35 32769 0
+[dbg] incDUMMY slot/id 35 32770 0
+[dbg] incDUMMY slot/id 35 32771 0
+[dbg] incDUMMY slot/id 35 32772 0
+[dbg] incDUMMY slot/id 35 32773 0
+[dbg] incDUMMY slot/id 35 32774 0
+[dbg] incDUMMY slot/id 35 32775 0
+[dbg] incDUMMY slot/id 35 32776 0
+[dbg] incDUMMY slot/id 35 32777 0
+[dbg] incDUMMY slot/id 35 32778 0
+[dbg] incDUMMY slot/id 35 32779 0
+[dbg] incDUMMY slot/id 35 32780 0
+[dbg] incDUMMY slot/id 35 32781 0
+[dbg] incDUMMY slot/id 35 32782 0
+[dbg] incDUMMY slot/id 35 32783 0
+[dbg] incDUMMY slot/id 35 32784 0
+[dbg] incDUMMY slot/id 35 32785 0
+[dbg] incDUMMY slot/id 35 32786 0
+[dbg] incDUMMY slot/id 35 32787 0
+[dbg] incDUMMY slot/id 35 32788 0
+[dbg] incDUMMY slot/id 35 32789 0
+[dbg] incDUMMY slot/id 35 32790 0
+[dbg] incDUMMY slot/id 35 32791 0
+[dbg] dummyPEAK slot/id/prevPeak 118 40960 40959
+[dbg] rmvFIX slot/i16bFirst/snapFirst 5 16520 99368
+[dbg] rmvFIX slot/i16bLast/snapLast 5 -31485 99587
+[dbg] rmvFIX slot/i16bFirst/snapFirst 6 16740 99588
+[dbg] rmvFIX slot/i16bLast/snapLast 6 -31267 99805
+[dbg] rmvFIX slot/i16bFirst/snapFirst 7 16958 99806
+[dbg] rmvFIX slot/i16bLast/snapLast 7 -31120 99952
+[dbg] rmvFIX slot/i16bFirst/snapFirst 8 17105 99953
+[dbg] rmvFIX slot/i16bLast/snapLast 8 -30938 100134
+[dbg] rmvFIX slot/i16bFirst/snapFirst 9 17287 100135
+[dbg] rmvFIX slot/i16bLast/snapLast 9 -30717 100355
+[dbg] rmvFIX slot/i16bFirst/snapFirst 10 17508 100356
+[dbg] rmvFIX slot/i16bLast/snapLast 10 -30598 100474
+[dbg] rmvFIX slot/i16bFirst/snapFirst 11 17627 100475
+[dbg] rmvFIX slot/i16bLast/snapLast 11 -30431 100641
+[dbg] rmvFIX slot/i16bFirst/snapFirst 12 17794 100642
+[dbg] rmvFIX slot/i16bLast/snapLast 12 -30270 100802
+[dbg] rmvFIX slot/i16bFirst/snapFirst 13 17955 100803
+[dbg] rmvFIX slot/i16bLast/snapLast 13 -30156 100916
+[dbg] rmvFIX slot/i16bFirst/snapFirst 14 15853 100917
+[dbg] rmvFIX slot/i16bLast/snapLast 14 -30033 101039
+[dbg] rmvFIX slot/i16bFirst/snapFirst 15 15976 101040
+[dbg] rmvFIX slot/i16bLast/snapLast 15 -29809 101263
+[dbg] rmvFIX slot/i16bFirst/snapFirst 16 16200 101264
+[dbg] rmvFIX slot/i16bLast/snapLast 16 -29624 101448
+[dbg] rmvFIX slot/i16bFirst/snapFirst 17 16385 101449
+[dbg] rmvFIX slot/i16bLast/snapLast 17 -29431 101641
+[dbg] rmvFIX slot/i16bFirst/snapFirst 18 16985 101642
+[dbg] rmvFIX slot/i16bLast/snapLast 18 -29233 101839
+[dbg] rmvFIX slot/i16bFirst/snapFirst 19 17183 101840
+[dbg] rmvFIX slot/i16bLast/snapLast 19 -29095 101977
+[dbg] rmvFIX slot/i16bFirst/snapFirst 20 17321 101978
+[dbg] rmvFIX slot/i16bLast/snapLast 20 -28943 102129
+[dbg] rmvFIX slot/i16bFirst/snapFirst 21 17473 102130
+[dbg] rmvFIX slot/i16bLast/snapLast 21 -28782 102290
+[dbg] rmvFIX slot/i16bFirst/snapFirst 22 17634 102291
+[dbg] rmvFIX slot/i16bLast/snapLast 22 -28625 102447
+[dbg] rmvFIX slot/i16bFirst/snapFirst 23 17919 102448
+[dbg] rmvFIX slot/i16bLast/snapLast 23 -28407 102665
+[dbg] rmvFIX slot/i16bFirst/snapFirst 24 18137 102666
+[dbg] rmvFIX slot/i16bLast/snapLast 24 -28209 102863
+[dbg] rmvFIX slot/i16bFirst/snapFirst 29 18805 102864
+[dbg] rmvFIX slot/i16bLast/snapLast 29 -28031 103041
+[dbg] rmvFIX slot/i16bFirst/snapFirst 30 18983 103042
+[dbg] rmvFIX slot/i16bLast/snapLast 30 -27929 103143
+[dbg] rmvFIX slot/i16bFirst/snapFirst 31 19085 103144
+[dbg] rmvFIX slot/i16bLast/snapLast 31 -27826 103246
+[dbg] rmvFIX slot/i16bFirst/snapFirst 32 19188 103247
+[dbg] rmvFIX slot/i16bLast/snapLast 32 -27754 103318
+[dbg] rmvFIX slot/i16bFirst/snapFirst 33 19260 103319
+[dbg] rmvFIX slot/i16bLast/snapLast 33 -27627 103445
+[dbg] rmvFIX slot/i16bFirst/snapFirst 34 19387 103446
+[dbg] rmvFIX slot/i16bLast/snapLast 34 -27558 103514
+[dbg] rmvFIX slot/i16bFirst/snapFirst 35 19456 103515
+[dbg] rmvFIX slot/i16bLast/snapLast 35 -27441 103631
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 35 9640 32736
+[dbg] rmvDUMMY slot/i16dLast/snapLast 35 -32718 32818
+[dbg] rmvFIX slot/i16bFirst/snapFirst 36 19573 103632
+[dbg] rmvFIX slot/i16bLast/snapLast 36 -27349 103723
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 36 9723 32819
+[dbg] rmvDUMMY slot/i16dLast/snapLast 36 -32607 32929
+[dbg] rmvFIX slot/i16bFirst/snapFirst 37 18619 103724
+[dbg] rmvFIX slot/i16bLast/snapLast 37 -27192 103880
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 37 8514 32930
+[dbg] rmvDUMMY slot/i16dLast/snapLast 37 -32499 33037
+[dbg] rmvFIX slot/i16bFirst/snapFirst 38 18776 103881
+[dbg] rmvFIX slot/i16bLast/snapLast 38 -26958 104114
+[dbg] rmvFIX slot/i16bFirst/snapFirst 39 19010 104115
+[dbg] rmvFIX slot/i16bLast/snapLast 39 -26847 104225
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 39 8622 33038
+[dbg] rmvDUMMY slot/i16dLast/snapLast 39 -32302 33234
+[dbg] rmvFIX slot/i16bFirst/snapFirst 40 19121 104226
+[dbg] rmvFIX slot/i16bLast/snapLast 40 -26700 104372
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 40 8819 33235
+[dbg] rmvDUMMY slot/i16dLast/snapLast 40 -32164 33372
+[dbg] rmvFIX slot/i16bFirst/snapFirst 41 19268 104373
+[dbg] rmvFIX slot/i16bLast/snapLast 41 -26582 104490
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 41 8957 33373
+[dbg] rmvDUMMY slot/i16dLast/snapLast 41 -32099 33437
+[dbg] rmvFIX slot/i16bFirst/snapFirst 42 19386 104491
+[dbg] rmvFIX slot/i16bLast/snapLast 42 -26392 104680
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 42 9022 33438
+[dbg] rmvDUMMY slot/i16dLast/snapLast 42 -32097 33439
+[dbg] rmvFIX slot/i16bFirst/snapFirst 43 19576 104681
+[dbg] rmvFIX slot/i16bLast/snapLast 43 -26167 104905
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 43 9024 33440
+[dbg] rmvDUMMY slot/i16dLast/snapLast 43 -32057 33479
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 44 9064 33480
+[dbg] rmvDUMMY slot/i16dLast/snapLast 44 -32003 33533
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 45 9118 33534
+[dbg] rmvDUMMY slot/i16dLast/snapLast 45 -31807 33729
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 47 6721 33730
+[dbg] rmvDUMMY slot/i16dLast/snapLast 47 -31761 33775
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 48 6767 33776
+[dbg] rmvDUMMY slot/i16dLast/snapLast 48 -31674 33862
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 49 6854 33863
+[dbg] rmvDUMMY slot/i16dLast/snapLast 49 -31663 33873
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 50 6722 33874
+[dbg] rmvDUMMY slot/i16dLast/snapLast 50 -31474 34062
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 51 6911 34063
+[dbg] rmvDUMMY slot/i16dLast/snapLast 51 -31288 34248
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 52 7097 34249
+[dbg] rmvDUMMY slot/i16dLast/snapLast 52 -31149 34387
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 53 7236 34388
+[dbg] rmvDUMMY slot/i16dLast/snapLast 53 -31002 34534
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 54 7383 34535
+[dbg] rmvDUMMY slot/i16dLast/snapLast 54 -30910 34626
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 55 7475 34627
+[dbg] rmvDUMMY slot/i16dLast/snapLast 55 -30818 34718
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 56 7567 34719
+[dbg] rmvDUMMY slot/i16dLast/snapLast 56 -30729 34807
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 57 7656 34808
+[dbg] rmvDUMMY slot/i16dLast/snapLast 57 -30634 34902
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 58 7751 34903
+[dbg] rmvDUMMY slot/i16dLast/snapLast 58 -30569 34967
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 60 6726 34968
+[dbg] rmvDUMMY slot/i16dLast/snapLast 60 -30460 35076
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 61 6835 35077
+[dbg] rmvDUMMY slot/i16dLast/snapLast 61 -30312 35224
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 62 6983 35225
+[dbg] rmvDUMMY slot/i16dLast/snapLast 62 -30284 35252
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 63 7011 35253
+[dbg] rmvDUMMY slot/i16dLast/snapLast 63 -30183 35353
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 64 7112 35354
+[dbg] rmvDUMMY slot/i16dLast/snapLast 64 -30093 35443
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 65 7202 35444
+[dbg] rmvDUMMY slot/i16dLast/snapLast 65 -29921 35615
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 66 7374 35616
+[dbg] rmvDUMMY slot/i16dLast/snapLast 66 -29845 35691
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 67 7205 35692
+[dbg] rmvDUMMY slot/i16dLast/snapLast 67 -29691 35845
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 68 7359 35846
+[dbg] rmvDUMMY slot/i16dLast/snapLast 68 -29542 35994
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 69 7508 35995
+[dbg] rmvDUMMY slot/i16dLast/snapLast 69 -29435 36101
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 70 7615 36102
+[dbg] rmvDUMMY slot/i16dLast/snapLast 70 -29299 36237
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 71 7206 36238
+[dbg] rmvDUMMY slot/i16dLast/snapLast 71 -29125 36411
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 72 7380 36412
+[dbg] rmvDUMMY slot/i16dLast/snapLast 72 -28898 36638
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 73 7607 36639
+[dbg] rmvDUMMY slot/i16dLast/snapLast 73 -28761 36775
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 74 7744 36776
+[dbg] rmvDUMMY slot/i16dLast/snapLast 74 -28667 36869
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 75 7838 36870
+[dbg] rmvDUMMY slot/i16dLast/snapLast 75 -28570 36966
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 76 7935 36967
+[dbg] rmvDUMMY slot/i16dLast/snapLast 76 -28460 37076
+[dbg] rmvDUMMY slot/i16dFirst/snapFirst 77 7210 37077
+[dbg] rmvDUMMY slot/i16dLast/snapLast 77 -28316 37220
+[dbg] fx2dfx dead-system Stop/Play caught #1
+[dbg] fx2dfx dead-system Stop/Play caught #2
+[dbg] fx2dfx dead-system Stop/Play caught #3
+[dbg] fx2dfx dead-system Stop/Play caught #4
+[dbg] fx2dfx dead-system Stop/Play caught #5
+[dbg] fx2dfx dead-system Stop/Play caught #6
+[dbg] fx2dfx dead-system Stop/Play caught #7
+[dbg] fx2dfx dead-system Stop/Play caught #8
+[dbg] fx2dfx dead-system Stop/Play caught #9
+[dbg] fx2dfx dead-system Stop/Play caught #10
+[dbg] fx2dfx dead-system Stop/Play caught #11
+[dbg] fx2dfx dead-system Stop/Play caught #12
+[dbg] fx2dfx dead-system Stop/Play caught #13
+[dbg] fx2dfx dead-system Stop/Play caught #14
+[dbg] fx2dfx dead-system Stop/Play caught #15
+[dbg] fx2dfx dead-system Stop/Play caught #16
+[dbg] fx2dfx dead-system Stop/Play caught #17
+[dbg] fx2dfx dead-system Stop/Play caught #18
+[dbg] fx2dfx dead-system Stop/Play caught #19
+[dbg] fx2dfx dead-system Stop/Play caught #20
+[dbg] fx2dfx dead-system Stop/Play caught #21
+[dbg] fx2dfx dead-system Stop/Play caught #22
+[dbg] fx2dfx dead-system Stop/Play caught #23
+[dbg] fx2dfx dead-system Stop/Play caught #24
+[dbg] fx2dfx dead-system Stop/Play caught #25
+[dbg] fx2dfx dead-system Stop/Play caught #26
+[dbg] fx2dfx dead-system Stop/Play caught #27
+[dbg] fx2dfx dead-system Stop/Play caught #28
+[dbg] fx2dfx dead-system Stop/Play caught #29
+[dbg] fx2dfx dead-system Stop/Play caught #30
+[dbg] fx2dfx dead-system Stop/Play caught #31
+[dbg] fx2dfx dead-system Stop/Play caught #32

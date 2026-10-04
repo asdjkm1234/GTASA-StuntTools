@@ -1,0 +1,11 @@
+{
+  "name": "@opensa/perfect-map-builder",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Orchestrator: chains every map tool (mod/vehicle/ped installers → map-optimizer → lod-trees → lod-procobj) into one build, then splits into sa/ (real game) + opensa/ final LOD targets. CLI tool.",
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

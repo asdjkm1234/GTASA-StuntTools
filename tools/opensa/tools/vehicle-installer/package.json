@@ -1,0 +1,31 @@
+{
+  "name": "@opensa/vehicle-installer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Install GTA-SA vehicle mod folders onto a base game: dff/txd into gta3.img + merge settings into handling.cfg / vehicles.ide / carcols.dat / carmods.dat.",
+  "exports": {
+    "./install": "./src/install.ts",
+    "./ledger": "./src/ledger.ts",
+    "./merge": "./src/merge.ts",
+    "./rebake": "./src/rebake.ts",
+    "./tuning-parts": "./src/tuning-parts.ts",
+    "./tuning-derive": "./src/tuning-derive.ts",
+    "./tuning-install": "./src/tuning-install.ts",
+    "./upgrade-collision": "./src/upgrade-collision.ts",
+    "./settings": "./src/settings.ts",
+    "./apply-vehicle": "./src/apply-vehicle.ts",
+    "./rebake-shared": "./src/rebake-shared.ts",
+    "./special-features": "./src/special-features.ts",
+    "./palette": "./src/palette.ts",
+    "./audio": "./src/audio.ts",
+    "./fxt": "./src/fxt.ts",
+    "./model-variations": "./src/model-variations.ts",
+    "./carmods-guard": "./src/carmods-guard.ts",
+    "./img-merge": "./src/img-merge.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

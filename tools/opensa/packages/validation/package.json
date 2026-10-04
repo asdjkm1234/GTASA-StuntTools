@@ -1,0 +1,15 @@
+{
+  "name": "@opensa/validation",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The SHAPE of a verdict plus generic file/path checks: can a consumer proceed, and what does it tell the user? No domain knowledge — a question about SA data is asked of the tool that owns it, and this package only types the answer.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

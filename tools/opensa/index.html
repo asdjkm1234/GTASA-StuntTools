@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Never translate this page. Google Translate rewrites text nodes in place, and React then tries to
+         patch children that no longer exist ("Failed to execute 'removeChild'") — on a canvas app that means
+         the game dies on a menu click. `notranslate` stops the offer; `translate="no"` on <html> stops a
+         manual translation, which is the one that actually breaks it. -->
+    <meta name="google" content="notranslate" />
+
+    <!-- Favicons (emitted to the build root by vite.config.ts; source: src/assets/favicon/) -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#000000" />
+
+    <title>
+      OpenSA — a from-scratch, high-performance game engine compatible with RenderWare (GTA San Andreas), in the browser
+    </title>
+    <meta
+      name="description"
+      content="A from-scratch, high-performance WebGPU engine compatible with RenderWare (GTA San Andreas). Not a reimplementation: SA's worlds and mods in the browser, without its limits."
+    />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="OpenSA" />
+    <meta property="og:title" content="OpenSA" />
+    <meta
+      property="og:description"
+      content="A from-scratch, high-performance WebGPU engine compatible with RenderWare (GTA San Andreas). Not a reimplementation: SA's worlds and mods in the browser, without its limits."
+    />
+    <meta property="og:url" content="https://opensa.cc" />
+    <meta property="og:image" content="https://opensa.cc/assets/og.jpg" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="OpenSA" />
+    <meta
+      name="twitter:description"
+      content="A from-scratch, high-performance WebGPU engine compatible with RenderWare (GTA San Andreas). Not a reimplementation: SA's worlds and mods in the browser, without its limits."
+    />
+    <meta name="twitter:image" content="https://opensa.cc/assets/og.jpg" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        background: #000;
+      }
+      #root {
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/apps/web/src/main.tsx"></script>
+  </body>
+</html>

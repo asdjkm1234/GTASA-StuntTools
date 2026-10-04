@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenSA Engine (074/10 phase 1)</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #101014;
+      }
+      canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+      #hud {
+        position: fixed;
+        top: 8px;
+        right: 8px;
+        margin: 0;
+        padding: 8px 10px;
+        background: rgba(10, 12, 16, 0.82);
+        color: #8f8;
+        font: 11px/1.45 ui-monospace, monospace;
+        white-space: pre;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <pre id="hud">booting…</pre>
+    <script type="module" src="/apps/web/src/standalone/opensa-engine.ts"></script>
+  </body>
+</html>

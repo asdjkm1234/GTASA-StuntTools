@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{game}} [{{target}}] — replaced cars</title>
+    <style>
+      :root {
+        --bg: #0e1116;
+        --panel: #161b22;
+        --panel-2: #1c232c;
+        --line: #2a323d;
+        --text: #e6edf3;
+        --muted: #8d99a6;
+        --accent: #ff9f45;
+        --tag: #223042;
+        --tag-text: #9fd0ff;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        -webkit-text-size-adjust: 100%;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        align-items: baseline;
+        padding: 14px 20px;
+        background: rgba(14, 17, 22, 0.92);
+        border-bottom: 1px solid var(--line);
+        backdrop-filter: blur(6px);
+      }
+      header h1 { margin: 0; font-size: clamp(17px, 2.4vw, 22px); }
+      header .meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+      /* The target is the ONE thing that changes what a layered tree shows — it stays readable at a glance. */
+      header .target {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--bg);
+        background: var(--accent);
+        border-radius: 999px;
+        padding: 2px 10px;
+        text-transform: uppercase;
+      }
+      /* Missing screenshots are a WARNING at the top, not a quiet blank pane 150 cards down. */
+      .warn {
+        margin: 12px 20px 0;
+        padding: 10px 14px;
+        border: 1px solid rgba(255, 159, 69, 0.55);
+        border-radius: 10px;
+        background: rgba(255, 159, 69, 0.1);
+        font-size: 13px;
+      }
+      .warn summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+      .warn ul { margin: 8px 0 0; padding-left: 18px; columns: 2; }
+      .warn li { break-inside: avoid; }
+      .warn a { color: var(--text); text-decoration: none; }
+      .warn a:hover { color: var(--accent); }
+      .warn code { color: var(--text); }
+      .warn .from { color: var(--muted); }
+      @media (max-width: 560px) { .warn ul { columns: 1; } }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 10px 20px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      nav a {
+        font-size: 12px;
+        color: var(--muted);
+        text-decoration: none;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 9px;
+      }
+      nav a:hover { color: var(--text); border-color: var(--accent); }
+      h2 { scroll-margin-top: 72px; }
+      main { padding: 20px; max-width: 1500px; margin: 0 auto; }
+      h2 {
+        margin: 32px 0 14px;
+        font-size: clamp(15px, 2vw, 19px);
+        color: var(--accent);
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 8px;
+      }
+      h2 span { color: var(--muted); font-size: 13px; font-weight: 400; }
+      /* ONE card per row, at every width (the user's call): the two pictures side by side ARE the content,
+         and a car ~150 px across in a four-column grid was too small to judge what replaced what. */
+      .grid {
+        display: grid;
+        gap: 20px;
+        grid-template-columns: 1fr;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .card .head { padding: 16px 18px 14px; }
+      .id {
+        display: inline-block;
+        font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: var(--accent);
+        background: rgba(255, 159, 69, 0.12);
+        border: 1px solid rgba(255, 159, 69, 0.35);
+        border-radius: 999px;
+        padding: 4px 8px;
+        margin-bottom: 8px;
+      }
+      .id.candidate {
+        color: #7ee787;
+        background: rgba(126, 231, 135, 0.12);
+        border-color: rgba(126, 231, 135, 0.35);
+      }
+      .swap { margin: 0; font-size: 19px; line-height: 1.35; overflow-wrap: anywhere; }
+      .swap .slot { font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .swap .to { color: var(--muted); font-size: 15px; }
+      .swap .name { font-weight: 600; }
+      .author { margin: 8px 0 0; color: var(--muted); font-size: 15px; }
+      .author b { color: var(--text); font-weight: 600; }
+      .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+      .tag {
+        font-size: 13px;
+        color: var(--tag-text);
+        background: var(--tag);
+        border: 1px solid #2c3d52;
+        border-radius: 6px;
+        padding: 3px 7px;
+      }
+      .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); margin-top: auto; }
+      .shot { background: #0b0e12; position: relative; }
+      /* `contain`, not `cover`: the point of the page is looking at the whole car. The stock pictures are
+         wide wiki shots and the field ones are 16:9 gameplay — cropping either cuts the subject. */
+      .shot img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: contain; }
+      .shot .label {
+        position: absolute;
+        left: 6px;
+        top: 6px;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text);
+        background: rgba(0, 0, 0, 0.55);
+        border-radius: 4px;
+        padding: 2px 6px;
+      }
+      .shot .missing {
+        display: grid;
+        place-items: center;
+        aspect-ratio: 16 / 10;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      /* The replaced shot opens full size — that is the picture worth studying (plates, wheels, paint). */
+      .shot.zoomable img { cursor: zoom-in; }
+      /* Pinned near the top and sized to the picture, so a wide screenshot on a tall phone does not sit in
+         a column of dead space. The inset is the point of the modal: the page stays visible around it. */
+      dialog#zoom {
+        position: fixed;
+        top: 24px;
+        left: 24px;
+        right: 24px;
+        bottom: auto;
+        width: auto;
+        max-width: none;
+        height: auto;
+        max-height: calc(100dvh - 48px);
+        margin: 0;
+        padding: 0;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+        color: var(--text);
+        overflow: hidden;
+      }
+      dialog#zoom::backdrop { background: rgba(0, 0, 0, 0.72); }
+      dialog#zoom .frame { display: grid; grid-template-rows: auto 1fr; min-height: 0; max-height: 100%; }
+      dialog#zoom .bar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      dialog#zoom .bar b { font-size: 15px; overflow-wrap: anywhere; }
+      dialog#zoom .close {
+        flex: none;
+        width: 34px;
+        height: 34px;
+        font-size: 18px;
+        line-height: 1;
+        color: var(--text);
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      dialog#zoom .close:hover { border-color: var(--accent); color: var(--accent); }
+      dialog#zoom img {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 100%;
+        min-height: 0;
+        object-fit: contain;
+        background: #0b0e12;
+      }
+      /* An ADDED car is a VARIATION of the slot above it (plan 003), so it is drawn INSIDE the base's card and
+         a size down — the statement is "these belong to that one", never "these are peers". */
+      .alts { border-top: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); padding: 12px 14px 14px; }
+      .alts-head {
+        margin: 0 0 10px;
+        font: 600 12px/1.3 system-ui, sans-serif;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .alts-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+      .alt {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .alt .head { padding: 10px 11px 11px; }
+      .alt .swap { font-size: 15px; }
+      .alt .author { font-size: 13px; margin-top: 6px; }
+      .alt .tag { font-size: 12px; }
+      .alt .id { font-size: 11px; padding: 3px 6px; margin-bottom: 6px; }
+      .alt .id.added {
+        color: #9ecbff;
+        background: rgba(88, 166, 255, 0.12);
+        border-color: rgba(88, 166, 255, 0.35);
+      }
+      .alt .id.unbuilt { color: var(--muted); background: transparent; border-color: var(--line); }
+      .stale { margin: 6px 0 0; font-size: 13px; color: var(--accent); }
+      .added-note { display: block; margin-top: 4px; }
+      @media (max-width: 720px) {
+        main { padding: 14px; }
+        .grid { gap: 14px; }
+        .swap { font-size: 17px; }
+        dialog#zoom { top: 12px; left: 12px; right: 12px; max-height: calc(100dvh - 24px); }
+      }
+      /* On a phone the two panes side by side are ~180 px each — stacked, each car gets the full width. */
+      @media (max-width: 560px) {
+        .shots { grid-template-columns: 1fr; }
+        .alts-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>{{game}} — replaced cars</h1>
+      <span class="target" title="npm run cars:{{target}}">{{target}}</span>
+      <span class="meta">
+        {{total}} cars · {{sections.length}} sections · read from {{source}}
+        {{#if layered}}
+          · layered: common + {{target}} · screenshots per layer: {{#each screenshotDirs}}{{#unless @first}}, {{/unless}}{{this}}{{/each}}
+        {{else}}
+          · not layered (target does not apply)
+        {{/if}}
+      </span>
+      {{#if addedNote}}<span class="meta added-note">{{addedNote}}</span>{{/if}}
+    </header>
+    {{#if missingShots.length}}
+      <details class="warn" open>
+        <summary>⚠ {{missingShots.length}} car(s) without a screenshot — expected in the car's own layer: {{#each screenshotDirs}}{{#unless @first}} / {{/unless}}<code>{{this}}</code>{{/each}} (.png / .jpg / .jpeg / .webp)</summary>
+        <ul>
+          {{#each missingShots}}
+            <li><a href="#car-{{slot}}"><b>{{slot}}</b> — <code>{{expectedFile}}</code> <span class="from">({{folder}})</span></a></li>
+          {{/each}}
+        </ul>
+      </details>
+    {{/if}}
+    <nav>
+      {{#each sections}}
+        <a href="#{{anchor}}">{{name}} <b>{{cars.length}}</b></a>
+      {{/each}}
+    </nav>
+    <main>
+      {{#each sections}}
+        <h2 id="{{anchor}}">{{name}} <span>{{cars.length}}</span></h2>
+        <div class="grid">
+          {{#each cars}}
+            <article class="card" id="car-{{slot}}">
+              <div class="head">
+                {{#if id}}<span class="id">ID {{id}}</span>{{else}}<span class="id">ID —</span>{{/if}}
+                {{#if isCandidate}}<span class="id candidate">from new/</span>{{/if}}
+                <p class="swap">
+                  <span class="slot">{{slot}}</span>
+                  {{#if bases.length}}
+                    <span class="to">added, varies:</span>
+                    <span class="name">{{carName}}</span>
+                  {{else}}
+                    <span class="to">replaced to:</span>
+                    <span class="name">{{carName}}</span>
+                  {{/if}}
+                </p>
+                {{#if author}}<p class="author">Author: <b>{{author}}</b></p>{{/if}}
+                {{#if tags.length}}
+                  <p class="tags">{{#each tags}}<span class="tag">{{this}}</span>{{/each}}</p>
+                {{/if}}
+              </div>
+              <div class="shots">
+                <div class="shot">
+                  <span class="label">Original</span>
+                  {{#if hasOriginal}}
+                    <img src="/original/{{slot}}" alt="stock {{slot}}" loading="lazy" />
+                  {{else}}
+                    <div class="missing">no stock picture</div>
+                  {{/if}}
+                </div>
+                <div class="shot{{#if hasShot}} zoomable{{/if}}">
+                  <span class="label">Replaced</span>
+                  {{#if hasShot}}
+                    <img
+                      src="/shot/{{slot}}"
+                      alt="{{carName}}"
+                      loading="lazy"
+                      data-zoom="{{slot}} — {{carName}}"
+                    />
+                  {{else}}
+                    <div class="missing">no screenshot</div>
+                  {{/if}}
+                </div>
+              </div>
+              {{#if alternatives.length}}
+                <div class="alts">
+                  <p class="alts-head">{{alternatives.length}} added car(s) on this slot</p>
+                  <div class="alts-grid">
+                    {{#each alternatives}}
+                      <article class="alt" id="car-{{slot}}">
+                        <div class="shot{{#if hasShot}} zoomable{{/if}}">
+                          {{#if hasShot}}
+                            <img
+                              src="/shot/{{slot}}"
+                              alt="{{carName}}"
+                              loading="lazy"
+                              data-zoom="{{slot}} — {{carName}}"
+                            />
+                          {{else}}
+                            <div class="missing">no screenshot</div>
+                          {{/if}}
+                        </div>
+                        <div class="head">
+                          {{#if unpromisedId}}
+                            <span class="id unbuilt" title="No row in the built tree's ledger yet">ID — not built yet</span>
+                          {{else}}
+                            <span class="id added">ID {{id}}</span>
+                          {{/if}}
+                          {{#if isCandidate}}<span class="id candidate">from new/</span>{{/if}}
+                          <p class="swap">
+                            <span class="slot">{{slot}}</span>
+                            <span class="name">{{carName}}</span>
+                          </p>
+                          {{#if author}}<p class="author">Author: <b>{{author}}</b></p>{{/if}}
+                          {{#if bases.[1]}}
+                            <p class="author">
+                              Varies: {{#each bases}}{{#unless @first}}, {{/unless}}<b>{{this}}</b>{{/each}}{{#if inherits}} · inherits from this one{{/if}}
+                            </p>
+                          {{/if}}
+                          {{#if ledgerBases}}
+                            <p class="stale">
+                              The built tree records this car under {{#each ledgerBases}}{{#unless @first}}, {{/unless}}<b>{{this}}</b>{{/each}} — the folder is what is drawn.
+                            </p>
+                          {{/if}}
+                          {{#if tags.length}}
+                            <p class="tags">{{#each tags}}<span class="tag">{{this}}</span>{{/each}}</p>
+                          {{/if}}
+                        </div>
+                      </article>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+            </article>
+          {{/each}}
+        </div>
+      {{/each}}
+    </main>
+
+    <dialog id="zoom">
+      <div class="frame">
+        <div class="bar">
+          <b></b>
+          <button type="button" class="close" aria-label="Close">✕</button>
+        </div>
+        <img alt="" />
+      </div>
+    </dialog>
+
+    <script>
+      // A native <dialog>, so Esc closes it and focus stays inside for free. Clicking the backdrop closes
+      // too: the click lands on the dialog element itself, never on the frame inside it.
+      (function () {
+        var zoom = document.getElementById('zoom');
+        var picture = zoom.querySelector('img');
+        var title = zoom.querySelector('.bar b');
+
+        document.addEventListener('click', function (event) {
+          var shot = event.target.closest('.shot.zoomable img');
+          if (shot) {
+            picture.src = shot.src;
+            picture.alt = shot.alt;
+            title.textContent = shot.dataset.zoom || shot.alt;
+            zoom.showModal();
+          }
+        });
+
+        zoom.addEventListener('click', function (event) {
+          if (event.target === zoom || event.target.closest('.close')) {
+            zoom.close();
+          }
+        });
+
+        // Drop the picture on close so a 3.8 MB screenshot is not held decoded behind the page.
+        zoom.addEventListener('close', function () {
+          picture.removeAttribute('src');
+        });
+      })();
+    </script>
+  </body>
+</html>

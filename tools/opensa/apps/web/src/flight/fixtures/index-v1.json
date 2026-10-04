@@ -1,0 +1,15 @@
+{
+  "arrays": [],
+  "cellSize": 300,
+  "cells": [],
+  "collisionCellSize": 256,
+  "collisionCells": [],
+  "replayAssets": {
+    "version": 1,
+    "aircraft": { "476": "rustler", "520": "hydra" },
+    "data": ["timecyc.dat", "water.dat", "vehicles.ide", "carcols.dat"],
+    "fx": []
+  },
+  "generated": "2026-01-01T00:00:00.000Z",
+  "source": "synthetic-v1-fixture"
+}

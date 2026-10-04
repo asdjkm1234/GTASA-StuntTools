@@ -1,0 +1,15 @@
+{
+  "name": "@opensa/cleo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CLEO/SCM script support: opcode DB, instruction decoding and disassembly (plan 097).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:engine"
+    ]
+  }
+}

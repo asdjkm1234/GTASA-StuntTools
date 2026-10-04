@@ -1,0 +1,119 @@
+[perfect-map] loaded — built Aug 19 2026 11:23:00 (APPLY)
+[perfect-map] fingerprint OK — GTA:SA 1.0 US
+[perfect-map] adjuster present: fastman92 (FLA)
+[perfect-map] adjuster present: LimitAdjuster (OLA)
+[perfect-map] DEBUG: pre-apply site verification —
+[perfect-map] site pristine (would apply):
+IncludeEntity.entry
+  address 0x00404c90
+[perfect-map] site pristine (would apply):
+RemoveIpl.entry
+  address 0x00404b20
+[perfect-map] site differs — adjuster owns it (would DEFER):
+RemoveIpl.firstBuilding
+  address 0x00404b4a
+  live    e9 29 13 ec
+[perfect-map] site differs — adjuster owns it (would DEFER):
+RemoveIpl.lastBuilding
+  address 0x00404b5d
+  live    e9 29 13 ec
+[perfect-map] site differs — adjuster owns it (would DEFER):
+RemoveIpl.lastBuilding.loop
+  address 0x00404ba8
+  live    e9 ed 12 ec
+[perfect-map] site pristine (would apply):
+RemoveIpl.cont.404B54
+  address 0x00404b54
+[perfect-map] site pristine (would apply):
+RemoveIpl.cont.404B63
+  address 0x00404b63
+[perfect-map] site pristine (would apply):
+RemoveIpl.cont.404BAD
+  address 0x00404bad
+[perfect-map] site differs — adjuster owns it (would DEFER):
+RemoveIpl.dummyRange
+  address 0x00404c0f
+  live    e9 94 12 ec 01 bf 4b 28
+[perfect-map] site differs — adjuster owns it (would DEFER):
+RemoveIpl.lastDummy.loop
+  address 0x00404c4e
+  live    e9 66 12 ec
+[perfect-map] site pristine (would apply):
+RemoveIpl.cont.404C17
+  address 0x00404c17
+[perfect-map] site pristine (would apply):
+RemoveIpl.cont.404C53
+  address 0x00404c53
+[perfect-map] site pristine (would apply):
+LoadScene.store
+  address 0x005b8938
+[perfect-map] site pristine (would apply):
+LoadScene.count
+  address 0x005b8940
+[perfect-map] site pristine (would apply):
+LoadIplBoundingBox.staticIdx
+  address 0x00405c23
+[perfect-map] site pristine (would apply):
+FxSystem_c.Stop
+  address 0x004aa390
+[perfect-map] site pristine (would apply):
+FxSystem_c.Play
+  address 0x004aa2f0
+[perfect-map] DEBUG: sites pristine 0x0000000c
+[perfect-map] DEBUG: sites total    0x00000011
+[perfect-map] int16 APPLIED (buildings): IncludeEntity observed + RemoveIpl snapshot + bounds int32
+[perfect-map] int16 APPLIED (dummies): RemoveIpl dummy bounds int32 (2 detours)
+[perfect-map] fx2dfx APPLIED: FxSystem_c::Stop/Play null-blueprint guarded (2dfx UAF fixed)
+[dbg] dummyPEAK slot/id/prevPeak 110 8192 8191
+[dbg] inc slot/id/last 2 97761 97761
+[dbg] inc slot/id/last 2 97762 97762
+[dbg] inc slot/id/last 2 97763 97763
+[dbg] inc slot/id/last 2 97764 97764
+[dbg] inc slot/id/last 2 97765 97765
+[dbg] inc slot/id/last 2 97766 97766
+[dbg] inc slot/id/last 2 97767 97767
+[dbg] inc slot/id/last 2 97768 97768
+[dbg] rmvFIX slot/i16bFirst/snapFirst 2 32767 97761
+[dbg] rmvFIX slot/i16bLast/snapLast 2 32232 97768
+[dbg] inc slot/id/last 3 97762 97762
+[dbg] inc slot/id/last 3 97763 97763
+[dbg] inc slot/id/last 3 97764 97764
+[dbg] inc slot/id/last 3 97765 97765
+[dbg] inc slot/id/last 3 97766 97766
+[dbg] inc slot/id/last 3 97767 97767
+[dbg] inc slot/id/last 3 97768 97768
+[dbg] inc slot/id/last 3 97769 97769
+[dbg] rmvFIX slot/i16bFirst/snapFirst 3 32767 97762
+[dbg] rmvFIX slot/i16bLast/snapLast 3 32241 97777
+[dbg] dummyPEAK slot/id/prevPeak 46 29695 10288
+[dbg] rmvFIX slot/i16bFirst/snapFirst 46 32767 2147483647
+[dbg] rmvFIX slot/i16bLast/snapLast 46 -32768 -2147483648
+[dbg] rmvFIX slot/i16bFirst/snapFirst 59 32767 97763
+[dbg] rmvFIX slot/i16bLast/snapLast 59 32264 97800
+[dbg] rmvFIX slot/i16bFirst/snapFirst 124 32767 97764
+[dbg] rmvFIX slot/i16bLast/snapLast 124 32229 97765
+[dbg] incDUMMY slot/id 35 32768 0
+[dbg] dummyPEAK slot/id/prevPeak 35 32768 32767
+[dbg] incDUMMY slot/id 35 32769 0
+[dbg] incDUMMY slot/id 35 32770 0
+[dbg] incDUMMY slot/id 35 32771 0
+[dbg] incDUMMY slot/id 35 32772 0
+[dbg] incDUMMY slot/id 35 32773 0
+[dbg] incDUMMY slot/id 35 32774 0
+[dbg] incDUMMY slot/id 35 32775 0
+[dbg] incDUMMY slot/id 35 32776 0
+[dbg] incDUMMY slot/id 35 32777 0
+[dbg] incDUMMY slot/id 35 32778 0
+[dbg] incDUMMY slot/id 35 32779 0
+[dbg] incDUMMY slot/id 35 32780 0
+[dbg] incDUMMY slot/id 35 32781 0
+[dbg] incDUMMY slot/id 35 32782 0
+[dbg] incDUMMY slot/id 35 32783 0
+[dbg] incDUMMY slot/id 35 32784 0
+[dbg] incDUMMY slot/id 35 32785 0
+[dbg] incDUMMY slot/id 35 32786 0
+[dbg] incDUMMY slot/id 35 32787 0
+[dbg] incDUMMY slot/id 35 32788 0
+[dbg] incDUMMY slot/id 35 32789 0
+[dbg] incDUMMY slot/id 35 32790 0
+[dbg] incDUMMY slot/id 35 32791 0

@@ -1,0 +1,15 @@
+{
+  "name": "@opensa/sa-int16-repro",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Repro dial for SA's int16 building-pool truncation (the 'ghost barriers' bug): inflates a built game dir's total permanent text-IPL row count across 2^15 on demand, keeping the other three placement limits in-bounds. The pass/fail oracle for the perfect-map ASI project.",
+  "exports": {
+    "./inflate": "./src/inflate.ts",
+    "./plan": "./src/plan.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

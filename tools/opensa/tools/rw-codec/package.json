@@ -1,0 +1,21 @@
+{
+  "name": "@opensa/rw-codec",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure byte-level RenderWare codec (chunks, geometry struct, DXT, texture-native, mips) shared by the offline tools.",
+  "exports": {
+    "./chunk": "./src/chunk.ts",
+    "./dff": "./src/dff.ts",
+    "./two-d-effect": "./src/two-d-effect.ts",
+    "./geometry-struct": "./src/geometry-struct.ts",
+    "./dxt": "./src/dxt.ts",
+    "./dxt-encode": "./src/dxt-encode.ts",
+    "./texture-native": "./src/texture-native.ts",
+    "./mip": "./src/mip.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@opensa/renderware",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RenderWare format parsers + renderer-agnostic mesh preparation (DFF/TXD/COL/IMG, IPL/IDE, timecyc) — the engine's read layer.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./archive": "./src/archive/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:engine"
+    ]
+  }
+}

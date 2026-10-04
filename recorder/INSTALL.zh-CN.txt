@@ -1,0 +1,32 @@
+GTASA 客户端飞行录制器 v13
+
+适用：GTA San Andreas 原版 PC 1.0 US；已测试 SA-MP 0.3.7-R5。
+其他游戏版本、EXE 或飞机模型替换需另行验证。
+新版只录制 CSV 飞行数据，不录制游戏原声，也不需要音频助手。
+
+安装
+1. 完全退出游戏，找到包含 gta_sa.exe 的游戏根目录。
+2. 确保游戏已有可用的 32 位 ASI 加载器。即使 Windows 为 64 位，加载器也选 Win32/x86。
+   缺少时参考 https://github.com/ThirteenAG/Ultimate-ASI-Loader#installation
+   按官方说明安装；已有同名 DLL 时先备份并核对兼容性。
+3. 将 FlightRecorder.asi 放在 gta_sa.exe 旁边，更新前先备份旧版。
+   旧版 GameAudioCapture.exe 可以删除；不要删除已有录像。
+4. 重新启动游戏。
+
+录制与回放
+驾驶 Hydra（520）或 Rustler（476）自动开始录制；离开、换机自动结束。
+无需录制快捷键。QuickHome / H 键会分段。
+飞行结束并离开飞机后，将游戏目录 flight_recordings 文件夹中的 CSV 拖入回放网页。
+声音由网页根据飞行数据和地图音效样本自动合成。
+已有旧版 CSV 仍可导入。回放和视频导出在浏览器本地处理录像。
+
+排查
+没有 CSV：确认安装后已重启、目录允许写入、机型正确，查看 FlightRecorder.asi.log。
+没有日志先检查 ASI 加载器；无 heartbeat calls= 时，录制回调可能未生效。
+录制目录只有 CSV 是正常的，网页会自动生成回放声音。
+
+卸载
+完全退出游戏后删除 FlightRecorder.asi；旧版 GameAudioCapture.exe 也可删除。
+保留 flight_recordings 录像和其他插件共用的 ASI 加载器。
+
+本包只包含录制器和本说明，不包含 ASI 加载器、游戏或地图资源。

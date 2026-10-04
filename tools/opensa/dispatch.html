@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>OpenSA — dispatch</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { background: #070a0f; overflow: hidden; font-family: ui-sans-serif, system-ui, sans-serif; }
+      #root { width: 100vw; height: 100vh; }
+
+      /* The boot shell.
+         Inline, and its colours are literals rather than tokens, because this paints BEFORE any module is
+         fetched — importing the style table would put the 944 kB engine chunk in front of the first pixel,
+         which is the whole thing this exists to avoid. The values are the ramp's (apps/dispatch/DESIGN.md):
+         #070a0f world, #0b111a surface, #222f40 line, #8fa1b6 muted, #e8eff7 text, #38bdf8 accent. */
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        padding: 24px;
+        background: #070a0f;
+        color: #e8eff7;
+        text-align: center;
+      }
+      #boot[hidden] { display: none; }
+      #boot .mark {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 3px;
+        color: #8fa1b6;
+      }
+      #boot .mark b { color: #e8eff7; font-weight: 700; }
+      #boot .track {
+        width: min(280px, 72vw);
+        height: 4px;
+        border-radius: 999px;
+        background: #222f40;
+        overflow: hidden;
+      }
+      #boot .fill {
+        display: block;
+        height: 100%;
+        width: 0;
+        border-radius: 999px;
+        background: #38bdf8;
+        transition: width 180ms ease-out;
+      }
+      /* Before anything has a denominator: a sweep that says "working" and does NOT pretend to be a
+         fraction. The bar becomes determinate the moment the cell count is known. */
+      #boot .track.indeterminate .fill {
+        width: 40%;
+        animation: boot-sweep 1.1s ease-in-out infinite;
+      }
+      @keyframes boot-sweep {
+        0% { transform: translateX(-105%); }
+        100% { transform: translateX(255%); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot .track.indeterminate .fill { animation: none; width: 100%; opacity: 0.35; }
+        #boot .fill { transition: none; }
+      }
+      #boot .phase { font-size: 13px; color: #e8eff7; min-height: 18px; }
+      #boot .detail {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        color: #8fa1b6;
+        min-height: 15px;
+      }
+      #boot .failed { color: #ffb3c0; max-width: 34em; line-height: 1.5; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- Painted before a single byte of JS is fetched. `aria-live` so a screen reader hears the phases
+         rather than a silent wait. -->
+    <div id="boot" role="status" aria-live="polite">
+      <div class="mark">OPEN<b>SA</b> · DISPATCH</div>
+      <div class="track indeterminate" id="boot-track"><i class="fill" id="boot-fill"></i></div>
+      <div class="phase" id="boot-phase">starting…</div>
+      <div class="detail" id="boot-detail"></div>
+    </div>
+
+    <script>
+      /*
+       * The shell's own API, defined before the module graph so the first `step()` cannot arrive early.
+       *
+       * `done()` removes the element rather than hiding it: a fixed overlay left in the tree is one that can
+       * still take a tap, and this one covers the whole map. The watchdog is the other half of that rule —
+       * a boot that neither finishes nor throws (a pak URL that hangs) must not leave an operator staring at
+       * a progress bar forever, so after 30 s the shell says what it was waiting on and gets out of the way.
+       */
+      (function () {
+        var el = document.getElementById('boot');
+        var track = document.getElementById('boot-track');
+        var fill = document.getElementById('boot-fill');
+        var phase = document.getElementById('boot-phase');
+        var detail = document.getElementById('boot-detail');
+        var last = 'starting';
+        var over = false;
+        var remove = function () {
+          over = true;
+          if (el && el.parentNode) el.parentNode.removeChild(el);
+        };
+        window.__opensaBoot = {
+          step: function (text, done, total, note) {
+            if (over || !el) return;
+            last = text;
+            phase.textContent = text;
+            if (typeof done === 'number' && typeof total === 'number' && total > 0) {
+              track.classList.remove('indeterminate');
+              fill.style.width = Math.max(0, Math.min(1, done / total)) * 100 + '%';
+            }
+            detail.textContent = note || '';
+          },
+          fail: function (message) {
+            if (over || !el) return;
+            over = true;
+            track.hidden = true;
+            phase.textContent = 'the console could not start';
+            detail.className = 'failed';
+            detail.textContent = String(message || 'no reason given');
+          },
+          done: remove,
+        };
+        setTimeout(function () {
+          if (!over) {
+            window.__opensaBoot.fail('still waiting on: ' + last + ' — after 30 s. The map may still arrive.');
+            setTimeout(remove, 6000);
+          }
+        }, 30000);
+      })();
+    </script>
+
+    <script type="module" src="/apps/dispatch/src/main.tsx"></script>
+  </body>
+</html>

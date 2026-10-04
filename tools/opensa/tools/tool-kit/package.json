@@ -1,0 +1,27 @@
+{
+  "name": "@opensa/tool-kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared building blocks for the offline tools: smooth-group normals, QEM simplify, and an editable IMG archive.",
+  "exports": {
+    "./mesh/smooth-normals": "./src/mesh/smooth-normals.ts",
+    "./mesh/validate-normals": "./src/mesh/validate-normals.ts",
+    "./mesh/simplify": "./src/mesh/simplify.ts",
+    "./mesh/bvh": "./src/mesh/bvh.ts",
+    "./archive/img": "./src/archive/img.ts",
+    "./archive/layout": "./src/archive/layout.ts",
+    "./layers": "./src/layers.ts",
+    "./cli": "./src/cli.ts",
+    "./game-dir": "./src/game-dir.ts",
+    "./lod-links": "./src/lod-links.ts",
+    "./dat-order": "./src/dat-order.ts",
+    "./target": "./src/target.ts",
+    "./vehicles-dir": "./src/vehicles-dir.ts",
+    "./free-ids": "./src/free-ids.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

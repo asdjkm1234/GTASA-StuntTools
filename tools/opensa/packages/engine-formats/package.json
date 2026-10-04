@@ -1,0 +1,16 @@
+{
+  "name": "@opensa/engine-formats",
+  "version": "0.0.0",
+  "private": true,
+  "description": "OpenSA native asset formats (.oscell / .ostex / .ospak) — GPU-ready binary layouts shared by the converter tool and the engine runtime. Zero dependencies (plan 074/02).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:engine",
+      "scope:osengine"
+    ]
+  }
+}

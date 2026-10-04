@@ -1,0 +1,39 @@
+{
+  "name": "@opensa/lod-common",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Simplified-copy LOD mesh pipeline shared by the LOD tools: QEM decimation, smooth-normal rebuild, and RenderWare DFF/TXD encode from a merged mesh.",
+  "exports": {
+    "./mesh": "./src/mesh.ts",
+    "./build-mesh": "./src/build-mesh.ts",
+    "./hd-to-lod": "./src/hd-to-lod.ts",
+    "./view": "./src/view.ts",
+    "./bounds": "./src/bounds.ts",
+    "./compact": "./src/compact.ts",
+    "./drop-degenerate-faces": "./src/drop-degenerate-faces.ts",
+    "./drop-transparent-groups": "./src/drop-transparent-groups.ts",
+    "./visibility-cull": "./src/visibility-cull.ts",
+    "./coplanar-remesh": "./src/coplanar-remesh.ts",
+    "./preview": "./src/preview.ts",
+    "./texture-stats": "./src/texture-stats.ts",
+    "./budgeted-decimate": "./src/budgeted-decimate.ts",
+    "./opaque-coverage": "./src/opaque-coverage.ts",
+    "./clump-effects": "./src/clump-effects.ts",
+    "./two-dfx-policy": "./src/two-dfx-policy.ts",
+    "./two-dfx-transform": "./src/two-dfx-transform.ts",
+    "./decimate": "./src/decimate.ts",
+    "./normals": "./src/normals.ts",
+    "./encode-dff": "./src/encode-dff.ts",
+    "./encode-txd": "./src/encode-txd.ts",
+    "./encode-col": "./src/encode-col.ts",
+    "./model-source": "./src/model-source.ts",
+    "./texture-source": "./src/texture-source.ts",
+    "./prelight": "./src/prelight.ts",
+    "./scoped-texture": "./src/scoped-texture.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

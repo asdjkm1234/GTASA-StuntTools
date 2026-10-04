@@ -1,0 +1,7 @@
+# gtasa_flight_recorder,version=9,sample_hz=25,camera_debug=0,center_gear_debug=1
+# collision_event=# event,<seconds>,collision,inferred,<impact_m_s2>,<x>,<y>,<z>; derived from health delta + acceleration spike; surface token is always inferred
+# event,0.040000,collision,inferred,42.000000,101.000000,201.000000,29.000000
+local_timestamp,model,health,x,y,z,capture_elapsed_s,transmission_gear_inferred,transmission_gear_source,engine_load_inferred,engine_load_source
+2026-01-01T00:00:00.000,520,1000.0,100.0,200.0,30.0,0.00,0,inferred,0.0,inferred
+2026-01-01T00:00:00.040,520,960.0,100.5,200.5,30.0,0.04,3,inferred,0.5,inferred
+2026-01-01T00:00:00.080,520,955.0,101.0,201.0,29.0,0.08,4,inferred,0.5,inferred

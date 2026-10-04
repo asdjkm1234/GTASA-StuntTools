@@ -1,0 +1,16 @@
+{
+  "name": "@opensa/engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "OpenSA own WebGPU renderer (plan 074/01): device/resources/pipelines core, fixed frame graph, static-world cells with render bundles. No three renderer, no game imports.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:engine",
+      "scope:osengine"
+    ]
+  }
+}

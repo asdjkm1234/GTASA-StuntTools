@@ -1,0 +1,93 @@
+# compiled output
+/dist
+/dist-embed
+/dist-share
+cleo/sdk/dist
+apps/engine-lab/dist
+apps/cutscene-converter/dist
+apps/cutscene-converter/release
+apps/engine-lab/public/pak*/*.ospak
+apps/engine-lab/public/pak*/manifest.json
+apps/engine-lab/public/pak*/report.json
+node_modules/
+.npm-cache/
+/build
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+
+# Tests
+/coverage
+/coverage-e2e
+/.nyc_output
+
+# Playwright (the e2e/**-snapshots/ baselines stay committed)
+/test-results
+/playwright-report
+/blob-report
+/.last-run.json
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# dotenv environment variable files
+.env
+.env.production
+.env.*.local
+
+# temp directory
+.temp
+.tmp
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+
+# Everything under static/ is generated from a local GTA copy and gitignored: the built game archives
+# (npm run build:game). No Rockstar assets are committed.
+/static/
+/game-src/
+/mods-src/
+/issues/
+/blog-src/
+/tutors-src/
+/NO_COMMIT/
+# Test fixtures — NOTHING under fixtures/ is committed (the user's call, 2026-08-17). `npm run test:fixtures`
+# rebuilds all of it locally: fixtures/original/ + fixtures/viewer/ from the stock install at game-src/original
+# (Rockstar assets, never redistributed) and fixtures/custom/ as a mirror of fixtures-src/ — the curated,
+# version-pinned, mod-derived and golden-snapshot files that have NO other source (kept local, backed up
+# by hand). A tree without fixtures-src/ runs the suite with those tests skipped (`skipIf(!existsSync)`).
+/fixtures/
+/fixtures-src/
+
+# Nx cache
+.nx/
+public/

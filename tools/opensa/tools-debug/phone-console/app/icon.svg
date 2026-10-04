@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="OpenSA phone console">
+  <rect width="512" height="512" rx="96" fill="#0d1117" />
+  <g fill="none" stroke="#4c9aff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="150" y="96" width="212" height="320" rx="30" />
+    <path d="M196 190h120M196 246h120M196 302h72" />
+  </g>
+  <circle cx="336" cy="330" r="34" fill="#3fb950" />
+</svg>

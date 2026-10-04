@@ -1,0 +1,5 @@
+{
+  "name": "FindPlayerVehicle.entry.corrupt-control",
+  "address": 5693648,
+  "expectedBytes": [139, 68, 36, 5, 133, 192, 125, 7]
+}

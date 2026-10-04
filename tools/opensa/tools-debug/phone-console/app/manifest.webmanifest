@@ -1,0 +1,12 @@
+{
+  "name": "OpenSA phone console",
+  "short_name": "OpenSA",
+  "description": "Field-run control for the OpenSA repository on this phone: preflight, the rituals, and the capture inbox.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [{ "src": "/app/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

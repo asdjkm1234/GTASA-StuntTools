@@ -1,0 +1,14 @@
+{
+  "name": "@opensa/cleo-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CLEO authoring SDK: write CLEO scripts in TypeScript, compile to standard CLEO 4 .cs — one source, two runtimes (real CLEO on SA 1.0 US, and the @opensa/cleo VM). Build-time only; the runtime never imports it.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "nx": {
+    "tags": [
+      "type:tool"
+    ]
+  }
+}

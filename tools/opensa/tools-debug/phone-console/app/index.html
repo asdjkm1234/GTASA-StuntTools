@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d1117" />
+    <link rel="manifest" href="/app/manifest.webmanifest" />
+    <link rel="icon" href="/app/icon.svg" />
+    <title>OpenSA phone console</title>
+    <style>
+      /* One column, finger-sized, legible at 360 CSS px — the rules in
+         docs/restrictions/cross-platform-surface.md apply to this page as much as to the console it drives. */
+      :root {
+        --bg: #f6f7f9;
+        --card: #ffffff;
+        --line: #d9dee5;
+        --text: #10151c;
+        --muted: #5a6675;
+        --accent: #1d6fd0;
+        --ok: #1a7f47;
+        --warn: #9a6700;
+        --fail: #c02d2d;
+        --tap: 44px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1117;
+          --card: #161b22;
+          --line: #2b3440;
+          --text: #e6edf3;
+          --muted: #93a1b1;
+          --accent: #4c9aff;
+          --ok: #3fb950;
+          --warn: #d29922;
+          --fail: #f85149;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+          env(safe-area-inset-left);
+        background: var(--bg);
+        color: var(--text);
+        font:
+          15px/1.45 system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+      }
+      main {
+        padding: 12px;
+        display: grid;
+        gap: 12px;
+        max-width: 780px;
+        margin: 0 auto;
+      }
+      section {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 17px;
+        margin: 0;
+      }
+      h2 {
+        font-size: 14px;
+        margin: 0 0 8px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .grow {
+        flex: 1 1 120px;
+        min-width: 0;
+      }
+      .pill {
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .ok {
+        background: color-mix(in srgb, var(--ok) 18%, transparent);
+        color: var(--ok);
+      }
+      .warn {
+        background: color-mix(in srgb, var(--warn) 20%, transparent);
+        color: var(--warn);
+      }
+      .fail {
+        background: color-mix(in srgb, var(--fail) 18%, transparent);
+        color: var(--fail);
+      }
+      button,
+      .linkbtn {
+        min-height: var(--tap);
+        min-width: var(--tap);
+        padding: 0 14px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        color: var(--text);
+        font: inherit;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      button.danger {
+        border-color: var(--fail);
+        color: var(--fail);
+      }
+      button[disabled] {
+        opacity: 0.45;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        min-height: var(--tap);
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--bg);
+        color: var(--text);
+        font: inherit;
+      }
+      textarea {
+        min-height: 96px;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12px;
+      }
+      .field {
+        flex: 1 1 150px;
+      }
+      .check {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 8px 0;
+        border-top: 1px solid var(--line);
+      }
+      .check:first-child {
+        border-top: 0;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-top: 6px;
+        flex: none;
+      }
+      .dot.ok {
+        background: var(--ok);
+      }
+      .dot.warn {
+        background: var(--warn);
+      }
+      .dot.fail {
+        background: var(--fail);
+      }
+      .check b {
+        display: block;
+        font-size: 14px;
+      }
+      .check span {
+        color: var(--muted);
+        font-size: 13px;
+        word-break: break-word;
+      }
+      #log {
+        margin: 0;
+        padding: 10px;
+        height: 44vh;
+        overflow: auto;
+        background: #05080c;
+        color: #cfe3ff;
+        border-radius: 10px;
+        font:
+          12px/1.4 ui-monospace,
+          Menlo,
+          monospace;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .links {
+        display: grid;
+        gap: 8px;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <div class="row">
+          <h1 class="grow">OpenSA phone console</h1>
+          <span id="verdict" class="pill warn">checking…</span>
+        </div>
+        <div class="row" style="margin-top: 10px">
+          <button id="refresh" class="grow">Re-check</button>
+          <button id="pull" class="grow">git pull</button>
+          <button id="setup" class="grow">Install deps</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Preflight</h2>
+        <div id="checks"></div>
+      </section>
+
+      <section>
+        <h2>Run</h2>
+        <div class="row">
+          <div class="field">
+            <label for="district">District</label>
+            <input id="district" list="districts" value="los-santos-centre" autocapitalize="off" autocorrect="off" />
+            <datalist id="districts"></datalist>
+          </div>
+          <div class="field">
+            <label for="out">Output folder</label>
+            <input id="out" value="./build/phone-ls" autocapitalize="off" autocorrect="off" />
+          </div>
+        </div>
+        <div class="row" style="margin-top: 8px">
+          <div class="field">
+            <label for="textures">Textures</label>
+            <select id="textures">
+              <option value="">astc (default)</option>
+              <option value="rgba8">rgba8 (the A/B's other side)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="models">Models</label>
+            <select id="models">
+              <option value="">convert them (the game needs them)</option>
+              <option value="0">skip — map surface only, faster</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-top: 10px">
+          <button id="run" class="primary grow">Convert &amp; serve</button>
+          <button id="stop" class="danger">Stop</button>
+        </div>
+        <div class="row" style="margin-top: 8px">
+          <button id="run-map" class="grow">Map only — the ground, nothing else</button>
+        </div>
+        <div class="row" style="margin-top: 8px">
+          <button id="run-map3d" class="grow">Baked 3D city map — the LOD tier as the only tier</button>
+        </div>
+        <p class="muted">
+          Map only ignores the two selects above: no models, no collision bake, into its own
+          <code>-map</code> folder so it never fights the full pak’s recipe. The baked 3D city map (201/6-01)
+          builds the far tier alone into <code>-map3d</code> — a mode the operator picks, not a frame that
+          gave up, and the one where 150 units with models is close to free.
+        </p>
+        <p class="muted" id="jobstate">nothing running</p>
+      </section>
+
+      <section>
+        <h2>Open</h2>
+        <div class="links">
+          <a class="linkbtn" id="link-map" href="#" target="_blank" rel="noreferrer">The map</a>
+          <a class="linkbtn" id="link-inventory" href="#" target="_blank" rel="noreferrer">Map + inventory capture</a>
+          <a class="linkbtn" id="link-field" href="#" target="_blank" rel="noreferrer"
+            >THE FIELD RUN — 150 units, models, inventory</a
+          >
+          <a class="linkbtn" id="link-engine" href="#" target="_blank" rel="noreferrer"
+            >The same run with NOTHING over the map — the engine alone</a
+          >
+          <a class="linkbtn" id="link-flat" href="#" target="_blank" rel="noreferrer">The flat 2D map</a>
+          <a class="linkbtn" id="link-bake" href="#" target="_blank" rel="noreferrer">Bake the tile pyramid</a>
+        </div>
+        <p class="muted">
+          The field run is the board at the count 201 declared (150 units, 40 calls) with the inventory
+          collector on — the run 2/03 owes. Fly the map for a minute, then press <b>file to the panel</b> in
+          the readout: it lands under <code>docs/benchmarks/</code> with the pak’s own recipe stamped on it,
+          and <b>Commit &amp; push</b> below sends it. Nothing is copied or typed.
+        </p>
+      </section>
+
+      <section>
+        <h2>The shareable console</h2>
+        <div class="row">
+          <button id="build-share" class="grow">Build it — one file</button>
+          <a class="linkbtn" id="link-share" href="#" target="_blank" rel="noreferrer">Open it on a real pak</a>
+        </div>
+        <p class="muted">
+          One HTML file that streams the pak with no <code>assets/</code> beside it (201/2-02). Building it
+          here and opening it on this phone is the check a build log cannot make.
+        </p>
+      </section>
+
+      <section>
+        <h2>File a capture</h2>
+        <label for="slug">What it is (becomes the file name)</label>
+        <input id="slug" placeholder="mobile-pinned-district-inventory" autocapitalize="off" autocorrect="off" />
+        <label for="note" style="margin-top: 8px">Why this run exists</label>
+        <input id="note" placeholder="ASTC vs rgba8, same rect, after 6/02" />
+        <label for="payload" style="margin-top: 8px">The JSON (paste what “copy JSON” gave you)</label>
+        <textarea id="payload" placeholder="{ … }"></textarea>
+        <div class="row" style="margin-top: 10px">
+          <button id="file" class="primary grow">File it</button>
+          <button id="commit" class="grow">Commit &amp; push</button>
+          <button id="push">Push</button>
+        </div>
+        <label for="tiles" style="margin-top: 12px">…or put a baked tiles.pmtiles beside the pak</label>
+        <input id="tiles" type="file" accept=".pmtiles,application/octet-stream" />
+        <p class="muted" id="pending"></p>
+        <p class="muted" id="filed"></p>
+      </section>
+
+      <section>
+        <h2>Log</h2>
+        <pre id="log"></pre>
+      </section>
+    </main>
+
+    <script type="module">
+      // The link rule lives beside the server (`links.mjs`) because the open route is a second reader of it:
+      // two copies is how an agent opens an address that differs from the one on this screen.
+      import { consoleUrls } from './app/links.mjs';
+
+      const $ = (id) => document.getElementById(id);
+      /** What the SERVER says is waiting to be committed. Never a list this page remembers: a reload, a
+          restarted panel or a sleeping phone would lose it, and a capture already on disk could then never
+          be committed from here. */
+      let state = { pending: [], ports: { app: 5173, static: 3001 }, webapp: false };
+
+      async function api(path, body, raw) {
+        const response = await fetch(
+          path,
+          body === undefined ? {} : { body: raw ? body : JSON.stringify(body), method: 'POST' },
+        );
+        const text = await response.text();
+        const parsed = text ? JSON.parse(text) : {};
+        if (!response.ok) {
+          throw new Error(parsed.error || response.statusText);
+        }
+        return parsed;
+      }
+
+      /** The jobs whose behaviour the Run section's fields describe; everything else runs on nothing. */
+      const TAKES_FORM = new Set(['map', 'phone']);
+
+      function form() {
+        return {
+          DISTRICT: $('district').value.trim(),
+          MODELS: $('models').value,
+          OUT: $('out').value.trim(),
+          TEXTURES: $('textures').value,
+        };
+      }
+
+      // Every link is built by the module the OPEN route uses, so a tap here and `map_open` from an agent
+      // land on the same pak (`app/links.mjs`).
+      function urls() {
+        const links = consoleUrls({
+          district: $('district').value.trim(),
+          out: $('out').value.trim(),
+          ports: state.ports,
+          webapp: state.webapp,
+        });
+        for (const [name, href] of Object.entries(links)) {
+          const anchor = $(`link-${name}`);
+          if (anchor) {
+            anchor.href = href;
+          }
+        }
+      }
+
+      function renderChecks(checks) {
+        $('checks').innerHTML = '';
+        for (const check of checks) {
+          const row = document.createElement('div');
+          row.className = 'check';
+          const dot = document.createElement('i');
+          dot.className = `dot ${check.state}`;
+          const body = document.createElement('div');
+          body.className = 'grow';
+          const label = document.createElement('b');
+          label.textContent = check.label;
+          const detail = document.createElement('span');
+          detail.textContent = check.detail;
+          body.append(label, detail);
+          row.append(dot, body);
+          if (check.fix) {
+            body.append(document.createElement('br'));
+            if (check.job) {
+              // A fix the panel can run is a button; a fix that would discard work stays a line of text, so
+              // nothing destructive is ever one tap away on a phone.
+              const button = document.createElement('button');
+              button.textContent = check.fix;
+              button.style.marginTop = '6px';
+              button.onclick = () => start(check.job);
+              body.append(button);
+            } else {
+              const fix = document.createElement('span');
+              fix.className = 'muted';
+              fix.textContent = check.fix;
+              body.append(fix);
+            }
+          }
+          $('checks').append(row);
+        }
+      }
+
+      async function refresh() {
+        state = await api(`/api/state?out=${encodeURIComponent($('out').value.trim())}`);
+        renderChecks(state.checks);
+        const pill = $('verdict');
+        pill.className = `pill ${state.verdict.state}`;
+        pill.textContent = state.verdict.headline;
+        $('districts').innerHTML = state.districts.map((name) => `<option value="${name}"></option>`).join('');
+        $('jobstate').textContent = state.job.running ? `running: ${state.job.id}` : 'nothing running';
+        const waiting = state.pending ?? [];
+        $('pending').textContent =
+          waiting.length === 0
+            ? 'nothing waiting to be committed'
+            : `waiting to be committed: ${waiting.map((path) => path.split('/').pop()).join(', ')}`;
+        $('commit').disabled = waiting.length === 0;
+        // Committed here and not on the remote — after a push that failed for its own reasons, this is the
+        // only way back to it, since the commit button insists on having something new to file.
+        const ahead = state.ahead ?? 0;
+        const behind = state.behind ?? 0;
+        // Pushing while the remote is ahead can only be rejected — the answer is to take the other side
+        // first, and a button that can only fail is a trap rather than an option.
+        $('push').disabled = ahead === 0 || behind > 0;
+        $('push').textContent = behind > 0 ? `Pull first (${behind} behind)` : ahead === 0 ? 'Push' : `Push ${ahead}`;
+        $('stop').disabled = !state.job.running;
+        urls();
+      }
+
+      async function start(id) {
+        try {
+          // Only the converts take knobs. Sending the form to `setup` or `pull` made the panel report every
+          // field as dropped, which reads as a mistake the operator made rather than as a field that simply
+          // does not apply.
+          const started = await api(`/api/job/${id}`, TAKES_FORM.has(id) ? form() : {});
+          // The server has the last word on where a run writes — a map-only run picks its own folder — and
+          // the links below are built from this field, so it follows rather than leads.
+          if (started.env?.OUT) {
+            $('out').value = started.env.OUT;
+          }
+        } catch (error) {
+          alert(error.message);
+        }
+        refresh();
+      }
+
+      $('refresh').onclick = refresh;
+      $('pull').onclick = () => start('pull');
+      $('setup').onclick = () => start('setup');
+      $('run').onclick = () => start('phone');
+      $('run-map').onclick = () => start('map');
+      $('run-map3d').onclick = () => start('map3d');
+      $('build-share').onclick = () => start('share');
+      $('stop').onclick = async () => {
+        await api('/api/stop', {});
+        refresh();
+      };
+      for (const id of ['district', 'out']) {
+        $(id).oninput = urls;
+      }
+
+      $('file').onclick = async () => {
+        try {
+          const result = await api('/api/capture', {
+            note: $('note').value,
+            out: $('out').value.trim(),
+            payload: $('payload').value,
+            slug: $('slug').value,
+          });
+          $('filed').textContent = `filed ${result.path} — ${result.note}`;
+          refresh();
+        } catch (error) {
+          $('filed').textContent = error.message;
+        }
+      };
+
+      $('commit').onclick = async () => {
+        const paths = state.pending ?? [];
+        if (paths.length === 0) {
+          $('filed').textContent = 'nothing is waiting — file a capture first, or it is already committed';
+          return;
+        }
+        try {
+          const result = await api('/api/commit', {
+            paths,
+            push: true,
+            subject: $('slug').value || 'a capture from the phone',
+          });
+          $('filed').textContent = result.pushed
+            ? `committed and pushed ${paths.length} file(s) to ${result.branch}`
+            : `committed ${paths.length} file(s) on ${result.branch} — not pushed`;
+          refresh();
+        } catch (error) {
+          // Git's own first line; the whole exchange is in the log below, which is where a failure is read.
+          $('filed').textContent = error.message;
+        }
+      };
+
+      $('push').onclick = async () => {
+        try {
+          const result = await api('/api/push', {});
+          $('filed').textContent = `pushed ${result.branch}`;
+          refresh();
+        } catch (error) {
+          $('filed').textContent = error.message;
+        }
+      };
+
+      $('tiles').onchange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+          return;
+        }
+        try {
+          const result = await api(
+            `/api/tiles?out=${encodeURIComponent($('out').value.trim())}`,
+            await file.arrayBuffer(),
+            true,
+          );
+          $('filed').textContent = `wrote ${result.path} (${(result.bytes / 1024 / 1024).toFixed(2)} MB)`;
+        } catch (error) {
+          $('filed').textContent = error.message;
+        }
+      };
+
+      const log = $('log');
+      const events = new EventSource('/api/log');
+      events.onmessage = (event) => {
+        // Follow only when the operator is already at the bottom: yanking the view while they read the line
+        // that explains a failure is how a log becomes unreadable on a phone.
+        const following = log.scrollTop + log.clientHeight >= log.scrollHeight - 24;
+        log.textContent += `${JSON.parse(event.data)}\n`;
+        if (following) {
+          log.scrollTop = log.scrollHeight;
+        }
+      };
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/app/sw.js').catch(() => undefined);
+      }
+      refresh();
+      setInterval(refresh, 15000);
+    </script>
+  </body>
+</html>

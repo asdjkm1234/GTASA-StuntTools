@@ -1,0 +1,54 @@
+# --- Game assets: NEVER commit (copyright + ~5 GB) ---
+/GTA San Andreas/
+
+# --- Build outputs, caches, local state ---
+**/node_modules/
+tools/opensa/dist/
+tools/opensa/dist-flight/
+web-replay/dist/
+/release/
+/release.zip
+/发布到生产环境临时笔记/
+/tmp/
+/.codegraph/
+/.nx/
+/.worktrees/
+/chrome-profiles/
+/web-replay/chrome-profiles/
+recorder/build/
+**/captures/
+**/*.tsbuildinfo
+**/zig-cache*/
+**/install.log
+**/install.err.log
+web-replay/webgpu-report.json
+web-replay/webgpu-events.jsonl
+web-replay/backups/
+recorder/backups/
+
+# --- Large local toolchain (not source; re-downloadable) ---
+/tools/zig/
+
+# --- Baked map pak (regenerable, hundreds of MB) ---
+/tools/opensa/map-pak*/
+/web-replay/map-pak*/
+
+# --- Local run logs ---
+**/server.out.log
+**/server.err.log
+**/bake.out.log
+**/bake.err.log
+
+# --- OS noise ---
+Thumbs.db
+.DS_Store
+
+# Local credentials; keep public configuration examples and the localhost e2e config.
+.env
+.env.*
+!.env.example
+!tools/opensa/.env.e2e
+*.pem
+*.key
+*.p12
+*.pfx

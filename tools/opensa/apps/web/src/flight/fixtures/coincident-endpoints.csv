@@ -1,0 +1,8 @@
+# gtasa_flight_recorder,version=7,sample_hz=25,camera_debug=0,center_gear_debug=1
+# synthetic two-row recording: both samples share x/y/z, so the track endpoint is exactly one coordinate
+# and importing this file twice is a true coincident pair (two tracks, two markers, one density cluster)
+# session_start,2026-09-27T00:00:00Z
+local_timestamp,model,health,x,y,z,capture_elapsed_s
+2026-09-27T00:00:00.000,520,1000.0,1200.0,-800.0,35.0,0.00
+2026-09-27T00:00:00.040,520,1000.0,1200.0,-800.0,35.0,0.04
+# session_end,game_closed,2026-09-27T00:00:00.040

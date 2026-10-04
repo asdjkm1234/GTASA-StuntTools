@@ -1,0 +1,27 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "tags": ["-lintignore"],
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/debug/**/*.ts"]
+    },
+    "apps/cutscene-converter": {
+      "entry": ["src/main/main.ts", "src/main/preload.ts", "src/main/convert-child.ts", "scripts/*.ts"]
+    },
+    "apps/dispatch": {
+      "entry": ["src/main.tsx", "src/embed.ts"]
+    },
+    "apps/engine-lab": {
+      "entry": ["src/main.ts", "src/main.tsx", "src/synthetic.ts"]
+    },
+    "apps/sa-map-viewer": {
+      "entry": ["src/main.tsx"]
+    },
+    "apps/viewer": {
+      "entry": ["src/shell.ts"]
+    },
+    "apps/web": {
+      "entry": ["src/main.tsx", "src/standalone/*.{ts,tsx}"]
+    }
+  }
+}

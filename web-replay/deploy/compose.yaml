@@ -1,0 +1,48 @@
+name: gtasa-flight-replay
+
+services:
+  replay:
+    image: gtasa-flight-replay:latest
+    pull_policy: never
+    platform: linux/amd64
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NO_OPEN: "1"
+      HOST: 0.0.0.0
+      PORT: "4173"
+      MAP_PAK_ROOT: /map-pak
+      GAME_ROOT: /no-game
+      RECORDINGS_ROOT: /recordings
+      ENABLE_SERVER_VIDEO_EXPORT: "0"
+    ports:
+      - "${REPLAY_BIND_ADDRESS:-0.0.0.0}:${REPLAY_PORT:-4173}:4173"
+    volumes:
+      - type: bind
+        source: ./map-pak
+        target: /map-pak
+        read_only: true
+        bind:
+          create_host_path: false
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    healthcheck:
+      test:
+        - CMD
+        - /usr/local/bin/node
+        - -e
+        - "Promise.all(['/opensa/flight-replay.html','/map-pak/index.json'].map(p=>fetch('http://127.0.0.1:4173'+p))).then(rs=>process.exit(rs.every(r=>r.ok)?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

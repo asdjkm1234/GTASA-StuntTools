@@ -1,0 +1,11 @@
+# Send only production files; game/map resources remain outside the image.
+**
+!web-replay/
+!web-replay/local-server.mjs
+!web-replay/map-pak-http.mjs
+!web-replay/video-export.mjs
+!web-replay/dist/
+!web-replay/dist/**
+!tools/
+!tools/opensa/
+!tools/opensa/LICENSE
